@@ -30,3 +30,6 @@ cycle_keys.py
 src/Ankimon/user_files/download_complete.flag
 src/Ankimon/user_files/ankimon.db
 src/Ankimon/user_files/json/*
+# Sprites are downloaded on first run, not tracked in git.
+# Source of truth: https://github.com/h0tp-ftw/ankimon-sprites
+src/Ankimon/user_files/sprites/
