@@ -32,7 +32,7 @@ from .functions.battle_functions import (
 )
 from .functions.drawing_utils import tooltipWithColour
 from .utils import safe_get_random_move, play_effect_sound, play_sound
-from .poke_engine.ankimon_hooks_to_poke_engine import simulate_battle_with_poke_engine
+from .functions.ankimon_hooks_to_poke_engine import simulate_battle_with_poke_engine
 from .classes.choose_move_dialog import MoveSelectionDialog
 from .pyobj.error_handler import show_warning_with_traceback
 

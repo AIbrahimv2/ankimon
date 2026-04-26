@@ -1,0 +1,7 @@
+[submodule "src/Ankimon/user_files/sprites"]
+	path = src/Ankimon/user_files/sprites
+	url = https://github.com/h0tp-ftw/ankimon-sprites.git
+[submodule "src/Ankimon/poke_engine"]
+	path = src/Ankimon/poke_engine
+	url = https://github.com/h0tp-ftw/poke-engine.git
+	branch = ankimon-flat
