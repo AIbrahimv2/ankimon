@@ -25,7 +25,7 @@ src/Ankimon/              # The Anki addon (symlinked to addons21/ for dev)
   functions/              # Game logic functions (encounters, battles, badges, etc.)
   pyobj/                  # Qt dialog classes (settings, shop, PC box, evolution, etc.)
   gui_classes/            # More UI classes (pokemon details, team view, etc.)
-  poke_engine/            # Battle simulation engine (forked from ArdentRoe/poke-engine)
+  poke_engine/            # Battle simulation engine (from ArdentRoe/poke-engine)
   user_files/             # User data directory (gitignored — DB, sprites, saves)
     sprites/              # Pokemon sprites (gitignored, downloaded on first run)
     ankimon.db            # SQLite database (all user data post-migration)
@@ -121,5 +121,5 @@ If you add a new module that crashes during import without Anki, add it to `igno
 ## External Repos
 
 - `h0tp-ftw/ankimon-sprites` — Sprite assets. GitHub Action auto-builds ZIP + syncs to HuggingFace.
-- `h0tp-ftw/poke-engine` (fork of ArdentRoe/poke-engine) — Battle engine with ankimon modifications.
+- `ArdentRoe/poke-engine` — Battle simulation engine used as a submodule.
 - `h0tp-ftw/anki-vscode` — Dev environment setup for running Anki with debugger.
