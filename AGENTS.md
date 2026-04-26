@@ -87,7 +87,7 @@ Clean startup should show: `AnkimonDB: Database schema initialized.` and `Ankimo
 
 ### Rules
 
-- Run `pytest tests/` after every change. All 63 tests must pass.
+- Run `pytest tests/` after every change. All tests must pass.
 - Run the Anki smoke test for anything touching startup, imports, or singletons.
 - Never modify user data files (anything gitignored).
 - The `__init__.py` is a thin orchestrator — add new logic to the appropriate extracted module, not to init.
@@ -105,8 +105,9 @@ Clean startup should show: `AnkimonDB: Database schema initialized.` and `Ankimo
 - `aqt` and `anki` modules are only available inside Anki runtime. Tests must mock them.
 - Qt widgets can only be created/accessed on the main thread.
 - `settings_obj.get()` is called live everywhere — values are not cached at startup.
-- `poke_engine/` is planned to become a git submodule (PR #380). The bridge file will live in `functions/`.
+- `poke_engine/` contains the battle simulation engine. Only `functions/ankimon_hooks_to_poke_engine.py` bridges it to ankimon — the engine itself has zero ankimon imports.
 - Sprites are gitignored and downloaded on first run. Source of truth: `h0tp-ftw/ankimon-sprites` repo.
+- The `user_files/` directory is for runtime data. Never commit files there.
 
 ### Test Integrity Ignore List
 
@@ -116,12 +117,6 @@ The integrity test skips these modules (they require full Anki runtime):
 - `Ankimon.poke_engine.tests.*` / `Ankimon.poke_engine.setup` (upstream test files)
 
 If you add a new module that crashes during import without Anki, add it to `ignore_modules` in `test_addon_integrity.py` AND explain why.
-
-## Open PRs / Pending Work
-
-- **#380** — Poke-engine submodule + remove sprites from git. Blocked on ArdentRoe/poke-engine#3 merge.
-- **#381** — In-app update system (Settings > Help > Update Ankimon). Releases + dev mode (PRs, branches, tags).
-- **#368** — Old update system PR. Superseded by #381, should be closed.
 
 ## External Repos
 
