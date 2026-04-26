@@ -69,7 +69,7 @@ python -m pytest tests/ -v
 python -m pytest tests/test_addon_integrity.py -v
 ```
 
-All 63 tests should pass. The integrity test dynamically imports every module to catch ImportError/AttributeError at load time.
+All tests should pass. The integrity test dynamically imports every module to catch ImportError/AttributeError at load time.
 
 ## Running Anki for Manual Testing
 
