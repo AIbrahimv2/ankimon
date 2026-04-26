@@ -130,15 +130,10 @@ def _download_pr_zip(head_sha: str, progress_cb=None) -> Optional[bytes]:
     return _download_zip(url, progress_cb)
 
 
-def apply_update(zip_data: bytes, status_cb=None) -> tuple[bool, str]:
-    def log(msg):
-        if status_cb:
-            status_cb(msg)
-
-    log("Fetching latest .gitignore from main...")
-    gitignore_patterns = _fetch_gitignore_patterns()
-    if not gitignore_patterns:
-        gitignore_patterns = [
+def _get_gitignore_patterns() -> list[str]:
+    patterns = _fetch_gitignore_patterns()
+    if not patterns:
+        patterns = [
             "user_files/mypokemon.json", "user_files/mainpokemon.json",
             "user_files/badges.json", "user_files/items.json",
             "user_files/data.json", "user_files/team.json",
@@ -149,9 +144,39 @@ def apply_update(zip_data: bytes, status_cb=None) -> tuple[bool, str]:
             "user_files/json/*", "user_files/sprites/",
             "meta.json", "*.pyc", "*.log",
         ]
-        log("Could not fetch .gitignore, using fallback preserve list.")
+    return patterns
 
-    log("Extracting update archive...")
+
+def _find_src_prefix(names: list[str]) -> Optional[str]:
+    for name in names:
+        if name.endswith("src/Ankimon/"):
+            return name
+    for name in names:
+        if "src/Ankimon/__init__.py" in name:
+            return name.rsplit("src/Ankimon/__init__.py", 1)[0] + "src/Ankimon/"
+    return None
+
+
+def _collect_code_files(gitignore_patterns: list[str]) -> dict[str, Path]:
+    code_files = {}
+    for root, dirs, files in os.walk(addon_dir):
+        for fname in files:
+            full_path = Path(root) / fname
+            rel = str(full_path.relative_to(addon_dir)).replace("\\", "/")
+            if not _should_preserve(rel, gitignore_patterns):
+                code_files[rel] = full_path
+    return code_files
+
+
+def apply_update(zip_data: bytes, status_cb=None) -> tuple[bool, str]:
+    def log(msg):
+        if status_cb:
+            status_cb(msg)
+
+    log("Fetching latest .gitignore from main...")
+    gitignore_patterns = _get_gitignore_patterns()
+
+    log("Validating update archive...")
     try:
         zf = zipfile.ZipFile(io.BytesIO(zip_data))
     except zipfile.BadZipFile:
@@ -161,53 +186,11 @@ def apply_update(zip_data: bytes, status_cb=None) -> tuple[bool, str]:
     if not names:
         return False, "ZIP archive is empty."
 
-    prefix = names[0]
-    src_prefix = None
-    for name in names:
-        if name.endswith("src/Ankimon/"):
-            src_prefix = name
-            break
-    if not src_prefix:
-        for name in names:
-            if "src/Ankimon/__init__.py" in name:
-                src_prefix = name.rsplit("src/Ankimon/__init__.py", 1)[0] + "src/Ankimon/"
-                break
+    src_prefix = _find_src_prefix(names)
     if not src_prefix:
         return False, "Could not find src/Ankimon/ in the archive."
 
-    log("Identifying files to preserve...")
-    preserved_files = {}
-    for root, dirs, files in os.walk(addon_dir):
-        for fname in files:
-            full_path = Path(root) / fname
-            rel = str(full_path.relative_to(addon_dir)).replace("\\", "/")
-            if _should_preserve(rel, gitignore_patterns):
-                try:
-                    preserved_files[rel] = full_path.read_bytes()
-                except Exception:
-                    pass
-    log(f"Preserving {len(preserved_files)} user files.")
-
-    log("Removing old addon files...")
-    for root, dirs, files in os.walk(addon_dir, topdown=False):
-        for fname in files:
-            full_path = Path(root) / fname
-            rel = str(full_path.relative_to(addon_dir)).replace("\\", "/")
-            if not _should_preserve(rel, gitignore_patterns):
-                try:
-                    full_path.unlink()
-                except Exception:
-                    pass
-        for dname in dirs:
-            dir_path = Path(root) / dname
-            try:
-                if not any(dir_path.iterdir()):
-                    dir_path.rmdir()
-            except Exception:
-                pass
-
-    log("Installing new files...")
-    installed = 0
+    new_files = {}
     for name in names:
         if not name.startswith(src_prefix) or name == src_prefix:
             continue
@@ -216,23 +199,87 @@ def apply_update(zip_data: bytes, status_cb=None) -> tuple[bool, str]:
             continue
         if _should_preserve(rel_path, gitignore_patterns):
             continue
-        dest = addon_dir / rel_path
+        new_files[rel_path] = name
+
+    if not new_files:
+        return False, "No addon files found in the archive."
+
+    log(f"Archive validated: {len(new_files)} files to install.")
+
+    # --- Backup current code files ---
+    log("Backing up current addon code...")
+    backup_dir = Path(tempfile.mkdtemp(prefix="ankimon_update_backup_"))
+    code_files = _collect_code_files(gitignore_patterns)
+    backed_up = 0
+    for rel, full_path in code_files.items():
+        dest = backup_dir / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         try:
-            dest.write_bytes(zf.read(name))
+            shutil.copy2(full_path, dest)
+            backed_up += 1
+        except Exception:
+            pass
+    log(f"Backed up {backed_up} code files to {backup_dir.name}.")
+
+    # --- Apply update ---
+    try:
+        log("Removing old addon code...")
+        for rel, full_path in code_files.items():
+            try:
+                full_path.unlink()
+            except Exception:
+                pass
+
+        for root, dirs, _ in os.walk(addon_dir, topdown=False):
+            for dname in dirs:
+                dir_path = Path(root) / dname
+                try:
+                    if not any(dir_path.iterdir()):
+                        dir_path.rmdir()
+                except Exception:
+                    pass
+
+        log("Installing new files...")
+        installed = 0
+        for rel_path, zip_name in new_files.items():
+            dest = addon_dir / rel_path
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(zf.read(zip_name))
             installed += 1
-        except Exception:
-            pass
 
-    log("Restoring preserved files...")
-    for rel, data in preserved_files.items():
-        dest = addon_dir / rel
-        dest.parent.mkdir(parents=True, exist_ok=True)
+        zf.close()
+        log(f"Update complete. Installed {installed} files.")
+
+        # Cleanup backup on success
         try:
-            dest.write_bytes(data)
+            shutil.rmtree(backup_dir)
         except Exception:
             pass
 
-    zf.close()
-    log(f"Update complete. Installed {installed} files, preserved {len(preserved_files)} user files.")
-    return True, f"Update applied successfully. Please restart Anki."
+        return True, "Update applied successfully. Please restart Anki."
+
+    except Exception as e:
+        # --- Rollback ---
+        log(f"Update failed: {e}. Rolling back...")
+        rollback_count = 0
+        for rel in os.listdir(backup_dir) if backup_dir.exists() else []:
+            pass
+        for root, dirs, files in os.walk(backup_dir):
+            for fname in files:
+                backup_path = Path(root) / fname
+                rel = str(backup_path.relative_to(backup_dir)).replace("\\", "/")
+                dest = addon_dir / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    shutil.copy2(backup_path, dest)
+                    rollback_count += 1
+                except Exception:
+                    pass
+        log(f"Rolled back {rollback_count} files.")
+
+        try:
+            shutil.rmtree(backup_dir)
+        except Exception:
+            pass
+
+        return False, f"Update failed and was rolled back: {e}"
