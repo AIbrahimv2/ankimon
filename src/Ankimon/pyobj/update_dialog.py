@@ -13,7 +13,10 @@ from aqt.qt import (
     QWidget,
     QMessageBox,
     QGroupBox,
+    QFrame,
+    QSizePolicy,
 )
+from aqt.theme import theme_manager
 
 from .update_manager import (
     fetch_releases,
@@ -31,59 +34,86 @@ from ..resources import addon_ver
 class UpdateDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent or mw)
-        self.setWindowTitle("Ankimon Updater")
-        self.setMinimumWidth(500)
-        self.setMinimumHeight(350)
+        self.setWindowTitle("Update Ankimon")
+        self.setMinimumWidth(550)
+        self.setMinimumHeight(420)
 
-        self._zip_data = None
         self._releases = []
         self._tags = []
         self._branches = []
         self._prs = []
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(12)
 
-        version_label = QLabel(f"Current version: {addon_ver}")
-        version_label.setStyleSheet("font-weight: bold; font-size: 13px;")
-        layout.addWidget(version_label)
+        header = self._build_header()
+        layout.addWidget(header)
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self._build_releases_tab(), "Releases")
-        self.tabs.addTab(self._build_dev_tab(), "Developer")
+        self.tabs.addTab(self._build_dev_tab(), "Developer Mode")
         layout.addWidget(self.tabs)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
+        self.progress_bar.setTextVisible(True)
         layout.addWidget(self.progress_bar)
 
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
+        self.status_label.setStyleSheet("color: gray; font-size: 11px;")
         layout.addWidget(self.status_label)
 
         self._load_data()
 
+    def _build_header(self):
+        frame = QFrame()
+        frame_layout = QVBoxLayout(frame)
+        frame_layout.setContentsMargins(12, 8, 12, 8)
+
+        title = QLabel("Ankimon Updater")
+        title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        frame_layout.addWidget(title)
+
+        ver = QLabel(f"Installed version: {addon_ver}")
+        ver.setStyleSheet("font-size: 12px; color: gray;")
+        frame_layout.addWidget(ver)
+
+        return frame
+
     def _build_releases_tab(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
+        layout.setSpacing(12)
 
-        release_group = QGroupBox("Update to a release")
-        release_layout = QVBoxLayout(release_group)
+        # Quick update to latest tag
+        latest_group = QGroupBox("Quick Update")
+        latest_layout = QVBoxLayout(latest_group)
+        latest_layout.addWidget(QLabel("Get the latest experimental release with one click."))
+        self.latest_tag_label = QLabel("Checking for latest version...")
+        self.latest_tag_label.setStyleSheet("font-weight: bold; font-size: 12px;")
+        latest_layout.addWidget(self.latest_tag_label)
+        self.update_latest_btn = QPushButton("Update to Latest Release")
+        self.update_latest_btn.setMinimumHeight(36)
+        self.update_latest_btn.setStyleSheet("font-weight: bold;")
+        self.update_latest_btn.clicked.connect(self._on_latest_tag_update)
+        self.update_latest_btn.setEnabled(False)
+        latest_layout.addWidget(self.update_latest_btn)
+        layout.addWidget(latest_group)
+
+        # Pick a specific release
+        specific_group = QGroupBox("Specific Release")
+        specific_layout = QVBoxLayout(specific_group)
+        specific_layout.addWidget(QLabel("Choose a specific version to install:"))
         self.release_combo = QComboBox()
-        self.release_combo.addItem("Loading...")
-        release_layout.addWidget(self.release_combo)
-        self.release_btn = QPushButton("Update to Release")
+        self.release_combo.addItem("Loading releases...")
+        self.release_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        specific_layout.addWidget(self.release_combo)
+        self.release_btn = QPushButton("Install Selected Release")
         self.release_btn.clicked.connect(self._on_release_update)
         self.release_btn.setEnabled(False)
-        release_layout.addWidget(self.release_btn)
-        layout.addWidget(release_group)
-
-        main_group = QGroupBox("Update to latest main")
-        main_layout = QVBoxLayout(main_group)
-        main_layout.addWidget(QLabel("Download the latest code from the main branch."))
-        self.main_btn = QPushButton("Update to Latest Main")
-        self.main_btn.clicked.connect(self._on_main_update)
-        main_layout.addWidget(self.main_btn)
-        layout.addWidget(main_group)
+        specific_layout.addWidget(self.release_btn)
+        layout.addWidget(specific_group)
 
         layout.addStretch()
         return widget
@@ -91,11 +121,27 @@ class UpdateDialog(QDialog):
     def _build_dev_tab(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
+        layout.setSpacing(10)
 
-        pr_group = QGroupBox("Checkout a Pull Request")
+        info = QLabel("For developers and testers. Install code from branches, PRs, or tags.")
+        info.setStyleSheet("color: gray; font-size: 11px;")
+        info.setWordWrap(True)
+        layout.addWidget(info)
+
+        # Latest main
+        main_group = QGroupBox("Latest Main Branch")
+        main_layout = QVBoxLayout(main_group)
+        self.main_btn = QPushButton("Update to Latest Main")
+        self.main_btn.clicked.connect(self._on_main_update)
+        main_layout.addWidget(self.main_btn)
+        layout.addWidget(main_group)
+
+        # Pull Requests
+        pr_group = QGroupBox("Open Pull Requests")
         pr_layout = QVBoxLayout(pr_group)
         self.pr_combo = QComboBox()
-        self.pr_combo.addItem("Loading...")
+        self.pr_combo.addItem("Loading PRs...")
+        self.pr_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         pr_layout.addWidget(self.pr_combo)
         self.pr_btn = QPushButton("Install PR")
         self.pr_btn.clicked.connect(self._on_pr_update)
@@ -103,10 +149,12 @@ class UpdateDialog(QDialog):
         pr_layout.addWidget(self.pr_btn)
         layout.addWidget(pr_group)
 
-        branch_group = QGroupBox("Checkout a Branch")
+        # Branches
+        branch_group = QGroupBox("Branches")
         branch_layout = QVBoxLayout(branch_group)
         self.branch_combo = QComboBox()
-        self.branch_combo.addItem("Loading...")
+        self.branch_combo.addItem("Loading branches...")
+        self.branch_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         branch_layout.addWidget(self.branch_combo)
         self.branch_btn = QPushButton("Install Branch")
         self.branch_btn.clicked.connect(self._on_branch_update)
@@ -114,10 +162,12 @@ class UpdateDialog(QDialog):
         branch_layout.addWidget(self.branch_btn)
         layout.addWidget(branch_group)
 
-        tag_group = QGroupBox("Checkout a Tag")
+        # Tags
+        tag_group = QGroupBox("Tags")
         tag_layout = QVBoxLayout(tag_group)
         self.tag_combo = QComboBox()
-        self.tag_combo.addItem("Loading...")
+        self.tag_combo.addItem("Loading tags...")
+        self.tag_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         tag_layout.addWidget(self.tag_combo)
         self.tag_btn = QPushButton("Install Tag")
         self.tag_btn.clicked.connect(self._on_tag_update)
@@ -139,6 +189,22 @@ class UpdateDialog(QDialog):
         QueryOp(parent=self, op=bg, success=on_done).without_collection().run_in_background()
 
     def _populate_combos(self):
+        # Latest tag button
+        if self._tags:
+            latest = self._tags[0]["name"]
+            if latest == addon_ver:
+                self.latest_tag_label.setText(f"You're on the latest release: {latest}")
+                self.latest_tag_label.setStyleSheet("font-weight: bold; font-size: 12px; color: green;")
+                self.update_latest_btn.setText("Already Up to Date")
+            else:
+                self.latest_tag_label.setText(f"Latest: {latest}  (you have: {addon_ver})")
+                self.latest_tag_label.setStyleSheet("font-weight: bold; font-size: 12px; color: orange;")
+                self.update_latest_btn.setEnabled(True)
+        else:
+            self.latest_tag_label.setText("Could not check for updates.")
+            self.latest_tag_label.setStyleSheet("font-weight: bold; font-size: 12px; color: red;")
+
+        # Releases
         self.release_combo.clear()
         if self._releases:
             for r in self._releases:
@@ -147,6 +213,7 @@ class UpdateDialog(QDialog):
         else:
             self.release_combo.addItem("No releases found")
 
+        # Tags
         self.tag_combo.clear()
         if self._tags:
             for t in self._tags:
@@ -155,6 +222,7 @@ class UpdateDialog(QDialog):
         else:
             self.tag_combo.addItem("No tags found")
 
+        # Branches
         self.branch_combo.clear()
         if self._branches:
             for b in self._branches:
@@ -163,6 +231,7 @@ class UpdateDialog(QDialog):
         else:
             self.branch_combo.addItem("No branches found")
 
+        # PRs
         self.pr_combo.clear()
         if self._prs:
             for pr in self._prs:
@@ -174,81 +243,76 @@ class UpdateDialog(QDialog):
     def _set_busy(self, busy: bool):
         self.progress_bar.setVisible(busy)
         self.progress_bar.setValue(0)
-        self.release_btn.setEnabled(not busy)
-        self.main_btn.setEnabled(not busy)
-        self.pr_btn.setEnabled(not busy)
-        self.branch_btn.setEnabled(not busy)
-        self.tag_btn.setEnabled(not busy)
-
-    def _on_progress(self, downloaded, total):
-        pct = int((downloaded / total) * 100) if total > 0 else 0
-        self.progress_bar.setValue(pct)
+        for btn in [self.update_latest_btn, self.release_btn, self.main_btn, self.pr_btn, self.branch_btn, self.tag_btn]:
+            btn.setEnabled(not busy)
 
     def _run_update(self, download_fn, label: str):
+        confirm = QMessageBox.question(
+            self, "Confirm Update",
+            f"Update Ankimon to {label}?\n\nYour Pokemon data, settings, and sprites will be preserved.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+
         self._set_busy(True)
         self.status_label.setText(f"Downloading {label}...")
 
         def bg(_col):
             zip_data = download_fn()
             if not zip_data:
-                return False, "Download failed. Check your internet connection."
+                return False, "Download failed. Check your internet connection.", []
             messages = []
             success, msg = apply_update(zip_data, status_cb=lambda m: messages.append(m))
             return success, msg, messages
 
         def on_done(result):
             self._set_busy(False)
-            success, msg, *extra = result
-            messages = extra[0] if extra else []
-            if messages:
-                self.status_label.setText(messages[-1] if messages else msg)
-            else:
-                self.status_label.setText(msg)
+            success, msg, messages = result
+            self.status_label.setText(messages[-1] if messages else msg)
+            self.progress_bar.setValue(100 if success else 0)
             if success:
-                QMessageBox.information(self, "Update Complete", f"{msg}\n\nPlease restart Anki for changes to take effect.")
+                QMessageBox.information(
+                    self, "Update Complete",
+                    f"{msg}\n\nPlease restart Anki for changes to take effect.",
+                )
             else:
                 QMessageBox.warning(self, "Update Failed", msg)
 
         QueryOp(parent=self, op=bg, success=on_done).without_collection().run_in_background()
 
+    def _on_latest_tag_update(self):
+        if not self._tags:
+            return
+        tag = self._tags[0]
+        self._run_update(
+            lambda: _download_zip(tag["zipball_url"]),
+            f"latest release ({tag['name']})",
+        )
+
     def _on_release_update(self):
         data = self.release_combo.currentData()
         if not data:
             return
-        self._run_update(
-            lambda: _download_zip(data["zipball_url"]),
-            f"release {data['name']}",
-        )
+        self._run_update(lambda: _download_zip(data["zipball_url"]), f"release {data['name']}")
 
     def _on_main_update(self):
-        self._run_update(
-            lambda: _download_branch_zip("main"),
-            "latest main",
-        )
+        self._run_update(lambda: _download_branch_zip("main"), "latest main")
 
     def _on_pr_update(self):
         data = self.pr_combo.currentData()
         if not data:
             return
-        self._run_update(
-            lambda: _download_pr_zip(data["head_sha"]),
-            f"PR #{data['number']} ({data['title']})",
-        )
+        self._run_update(lambda: _download_pr_zip(data["head_sha"]), f"PR #{data['number']} ({data['title']})")
 
     def _on_branch_update(self):
         data = self.branch_combo.currentData()
         if not data:
             return
-        self._run_update(
-            lambda: _download_branch_zip(data["name"]),
-            f"branch {data['name']}",
-        )
+        self._run_update(lambda: _download_branch_zip(data["name"]), f"branch {data['name']}")
 
     def _on_tag_update(self):
         data = self.tag_combo.currentData()
         if not data:
             return
-        self._run_update(
-            lambda: _download_zip(data["zipball_url"]),
-            f"tag {data['name']}",
-        )
+        self._run_update(lambda: _download_zip(data["zipball_url"]), f"tag {data['name']}")

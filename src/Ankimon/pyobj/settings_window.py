@@ -435,22 +435,10 @@ class SettingsWindow(QMainWindow):
             )
         scroll_area_layout.addStretch()
         layout.addWidget(scroll_area)
-        button_layout = QHBoxLayout()
         save_button = QPushButton("Save")
         save_button.setToolTip("Click to save your settings.")
         save_button.clicked.connect(self.on_save)
-        button_layout.addWidget(save_button)
-
-        update_button = QPushButton("Check for Updates")
-        update_button.setToolTip("Check for and install Ankimon updates.")
-        update_button.clicked.connect(self._open_update_dialog)
-        button_layout.addWidget(update_button)
-        layout.addLayout(button_layout)
-
-    def _open_update_dialog(self):
-        from .update_dialog import UpdateDialog
-        dialog = UpdateDialog(parent=self)
-        dialog.exec()
+        layout.addWidget(save_button)
 
     def show_window(self):
         self._apply_stylesheet()
