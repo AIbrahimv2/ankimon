@@ -58,7 +58,7 @@ class DownloadThread(QThread):
     # Point 1: Add method _fetch_expected_hash(self)
     def _fetch_expected_hash(self) -> Optional[str]:
         """Fetches the expected SHA256 hash from GitHub Releases API."""
-        api_url = "https://api.github.com/repos/Unlucky-Life/ankimon/releases/latest"
+        api_url = "https://api.github.com/repos/h0tp-ftw/ankimon-sprites/releases/latest"
         try:
             # Add 10-second timeout to API request
             response = requests.get(api_url, timeout=10)
@@ -311,8 +311,8 @@ class DownloadDialog(QDialog):
         self.setGeometry(300, 300, 400, 200)
 
         self.urls = [
-            "https://huggingface.co/datasets/h0tp/ankimon/resolve/main/sprites.zip",
-            "https://github.com/Unlucky-Life/ankimon/releases/download/sprites-v1.43/sprites.zip"
+            "https://huggingface.co/datasets/h0tp/ankimon-sprites/resolve/main/sprites.zip",
+            "https://github.com/h0tp-ftw/ankimon-sprites/releases/download/latest/sprites.zip",
         ]
         self.dest_dir_path = Path(user_path)
         self._flag_file_path = self.dest_dir_path / "download_complete.flag"
