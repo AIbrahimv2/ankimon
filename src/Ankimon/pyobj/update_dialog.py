@@ -189,9 +189,9 @@ class UpdateDialog(QDialog):
         QueryOp(parent=self, op=bg, success=on_done).without_collection().run_in_background()
 
     def _populate_combos(self):
-        # Latest tag button
-        if self._tags:
-            latest = self._tags[0]["name"]
+        # Latest release button
+        if self._releases:
+            latest = self._releases[0]["name"]
             if latest == addon_ver:
                 self.latest_tag_label.setText(f"You're on the latest release: {latest}")
                 self.latest_tag_label.setStyleSheet("font-weight: bold; font-size: 12px; color: green;")
@@ -282,12 +282,12 @@ class UpdateDialog(QDialog):
         QueryOp(parent=self, op=bg, success=on_done).without_collection().run_in_background()
 
     def _on_latest_tag_update(self):
-        if not self._tags:
+        if not self._releases:
             return
-        tag = self._tags[0]
+        release = self._releases[0]
         self._run_update(
-            lambda: _download_zip(tag["zipball_url"]),
-            f"latest release ({tag['name']})",
+            lambda: _download_zip(release["zipball_url"]),
+            f"latest release ({release['name']})",
         )
 
     def _on_release_update(self):
