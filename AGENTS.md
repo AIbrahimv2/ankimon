@@ -75,10 +75,10 @@ All tests should pass. The integrity test dynamically imports every module to ca
 
 ```bash
 # Using the anki-vscode dev setup:
-/c/Users/h0tp/Documents/Code/anki-vscode/venv/Scripts/anki.exe -b "C:\Users\h0tp\AppData\Roaming\Anki2"
+<PATH_TO_ANKI_EXECUTABLE> -b "<PATH_TO_ANKI_PROFILE>"
 
 # Quick 20-second smoke test:
-timeout 20 /c/Users/h0tp/Documents/Code/anki-vscode/venv/Scripts/anki.exe -b "C:\Users\h0tp\AppData\Roaming\Anki2" 2>&1 || true
+timeout 20 <PATH_TO_ANKI_EXECUTABLE> -b "<PATH_TO_ANKI_PROFILE>" 2>&1 || true
 ```
 
 Clean startup should show: `AnkimonDB: Database schema initialized.` and `Ankimon Startup.` with no tracebacks.
