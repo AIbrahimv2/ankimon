@@ -19,7 +19,7 @@ from typing import Dict, Any
 
 import csv
 from ..utils import show_warning_with_traceback
-from ..resources import csv_file_items_cost
+from ..resources import csv_file_items_cost, user_path
 
 
 class MigrationDialog(QDialog):
@@ -356,7 +356,8 @@ class MigrationDialog(QDialog):
             self.mypokemon_path, self.mainpokemon_path, 
             self.items_path, self.badges_path,
             self.team_path, self.history_path, self.data_path,
-            self.rate_path
+            self.rate_path,
+            user_path / "config.obf"  # Add config.obf to archiving
         ]
         
         for file_path in files_to_backup:
