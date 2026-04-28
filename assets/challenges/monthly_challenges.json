@@ -477,5 +477,65 @@
             "special-form": null,
             "evos": []
         }
+    },
+    {
+        "code": "MONTHLY-2026-05-SNOM",
+        "month": "May 2026",
+        "description": "An icy challenge for May 2026, featuring Snom!",
+        "previous_challenge_individual_id": "6a4d2898-9ee0-4868-8903-a5d7f073e9cc",
+        "defeat_threshold": 250,
+        "pokemon": {
+            "name": "Snom",
+            "nickname": "",
+            "level": 1,
+            "gender": "M",
+            "id": 872,
+            "ability": "Shield dust",
+            "type": [
+                "Ice",
+                "Bug"
+            ],
+            "stats": {
+                "hp": 30,
+                "atk": 25,
+                "def": 35,
+                "spa": 45,
+                "spd": 30,
+                "spe": 20,
+                "xp": 0
+            },
+            "ev": {
+                "hp": 0,
+                "atk": 0,
+                "def": 0,
+                "spa": 0,
+                "spd": 0,
+                "spe": 0
+            },
+            "iv": {
+                "hp": 12,
+                "atk": 31,
+                "def": 21,
+                "spa": 7,
+                "spd": 15,
+                "spe": 2
+            },
+            "attacks": [
+                "Powder snow",
+                "Struggle bug"
+            ],
+            "base_experience": 37,
+            "current_hp": 30,
+            "growth_rate": "medium",
+            "friendship": 50,
+            "pokemon_defeated": 0,
+            "everstone": false,
+            "shiny": false,
+            "captured_date": "2026-04-28 04:01:22",
+            "individual_id": "86586a4b-1147-4bd6-9d01-ac61b18967da",
+            "mega": false,
+            "special-form": null,
+            "evos": []
+        }
     }
 ]
