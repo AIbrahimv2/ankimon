@@ -270,6 +270,13 @@ def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
 
             cleanup()
             log(f"Update complete. Installed {installed} files.")
+
+            # Cleanup backup on success
+            try:
+                shutil.rmtree(backup_dir)
+            except Exception:
+                pass
+
             return True, "Update applied successfully. Please restart Anki."
 
     except Exception as e:
