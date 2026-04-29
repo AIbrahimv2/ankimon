@@ -444,9 +444,11 @@ class UpdateDialog(QDialog):
             if not zip_path:
                 return False, "Download failed. Check your internet connection.", []
             messages = []
-            # For extraction, we just show "Installing..."
-            mw.taskman.run_on_main(lambda: self.status_label.setText("Installing..."))
-            success, msg = apply_update(zip_path, status_cb=lambda m: messages.append(m))
+            def status_update(m):
+                messages.append(m)
+                mw.taskman.run_on_main(lambda: self.status_label.setText(m))
+
+            success, msg = apply_update(zip_path, status_cb=status_update)
             return success, msg, messages
 
         def on_done(result):
