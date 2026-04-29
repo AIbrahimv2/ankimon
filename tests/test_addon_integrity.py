@@ -123,6 +123,8 @@ def test_ankimon_initialization(qapp):
             "pypresence",
             "Ankimon.poke_engine.data.scripts",
             "Ankimon.poke_engine.data.mods",
+            "Ankimon.poke_engine.tests",
+            "Ankimon.poke_engine.setup",
             "Ankimon.pyobj.tip_of_the_day",
             "Ankimon.singletons",
             "Ankimon.poke_engine.ankimon_hooks_to_poke_engine",
