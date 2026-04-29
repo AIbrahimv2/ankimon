@@ -260,6 +260,8 @@ def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
             log("Installing new files...")
             installed = 0
             for rel_path, zip_name in new_files.items():
+                if ".." in rel_path or os.path.isabs(rel_path):
+                    continue
                 dest = addon_dir / rel_path
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(zf.read(zip_name))
