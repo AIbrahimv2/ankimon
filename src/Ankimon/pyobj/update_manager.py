@@ -273,8 +273,6 @@ def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
         # --- Rollback ---
         log(f"Update failed: {e}. Rolling back...")
         rollback_count = 0
-        for rel in os.listdir(backup_dir) if backup_dir.exists() else []:
-            pass
         for root, dirs, files in os.walk(backup_dir):
             for fname in files:
                 backup_path = Path(root) / fname
