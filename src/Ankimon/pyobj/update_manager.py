@@ -18,12 +18,19 @@ REPO_OWNER = "h0tp-ftw"
 REPO_NAME = "ankimon"
 GITHUB_API = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}"
 DOWNLOAD_TIMEOUT = 30
+USER_AGENT = "Ankimon-Updater (https://github.com/h0tp-ftw/ankimon)"
+
+
+def _make_request(url: str, accept: str = "application/vnd.github.v3+json") -> urllib.request.Request:
+    req = urllib.request.Request(url)
+    req.add_header("Accept", accept)
+    req.add_header("User-Agent", USER_AGENT)
+    return req
 
 
 def _api_get(endpoint: str) -> Optional[dict]:
     url = f"{GITHUB_API}/{endpoint}"
-    req = urllib.request.Request(url)
-    req.add_header("Accept", "application/vnd.github.v3+json")
+    req = _make_request(url)
     try:
         with urllib.request.urlopen(req, timeout=DOWNLOAD_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
@@ -100,34 +107,47 @@ def fetch_open_prs() -> list[dict]:
     return [{"number": pr["number"], "title": pr["title"], "head_ref": pr["head"]["ref"], "head_sha": pr["head"]["sha"]} for pr in data]
 
 
-def _download_zip(url: str, progress_cb=None) -> Optional[bytes]:
-    req = urllib.request.Request(url)
-    req.add_header("Accept", "application/vnd.github.v3+json")
+def _download_zip_to_temp(url: str, progress_cb=None) -> Optional[str]:
+    req = _make_request(url)
     try:
         with urllib.request.urlopen(req, timeout=DOWNLOAD_TIMEOUT) as resp:
             total = int(resp.headers.get("Content-Length", 0))
-            data = bytearray()
-            chunk_size = 64 * 1024
-            while True:
-                chunk = resp.read(chunk_size)
-                if not chunk:
-                    break
-                data.extend(chunk)
-                if progress_cb and total > 0:
-                    progress_cb(len(data), total)
-            return bytes(data)
+            
+            # Create a named temporary file that persists after closing the object
+            # but is cleaned up by our manual logic later.
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+            tmp_path = tmp.name
+            
+            try:
+                downloaded = 0
+                chunk_size = 128 * 1024  # 128KB chunks
+                while True:
+                    chunk = resp.read(chunk_size)
+                    if not chunk:
+                        break
+                    tmp.write(chunk)
+                    downloaded += len(chunk)
+                    if progress_cb and total > 0:
+                        progress_cb(downloaded, total)
+                tmp.close()
+                return tmp_path
+            except Exception:
+                tmp.close()
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+                raise
     except Exception:
         return None
 
 
-def _download_branch_zip(branch: str, progress_cb=None) -> Optional[bytes]:
+def _download_branch_zip(branch: str, progress_cb=None) -> Optional[str]:
     url = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/archive/refs/heads/{branch}.zip"
-    return _download_zip(url, progress_cb)
+    return _download_zip_to_temp(url, progress_cb)
 
 
-def _download_pr_zip(head_sha: str, progress_cb=None) -> Optional[bytes]:
+def _download_pr_zip(head_sha: str, progress_cb=None) -> Optional[str]:
     url = f"{GITHUB_API}/zipball/{head_sha}"
-    return _download_zip(url, progress_cb)
+    return _download_zip_to_temp(url, progress_cb)
 
 
 def _get_gitignore_patterns() -> list[str]:
@@ -168,18 +188,26 @@ def _collect_code_files(gitignore_patterns: list[str]) -> dict[str, Path]:
     return code_files
 
 
-def apply_update(zip_data: bytes, status_cb=None) -> tuple[bool, str]:
+def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
     def log(msg):
         if status_cb:
             status_cb(msg)
+
+    def cleanup():
+        if os.path.exists(zip_path):
+            try:
+                os.unlink(zip_path)
+            except Exception:
+                pass
 
     log("Fetching latest .gitignore from main...")
     gitignore_patterns = _get_gitignore_patterns()
 
     log("Validating update archive...")
     try:
-        zf = zipfile.ZipFile(io.BytesIO(zip_data))
+        zf = zipfile.ZipFile(zip_path)
     except zipfile.BadZipFile:
+        cleanup()
         return False, "Downloaded file is not a valid ZIP archive."
 
     names = zf.namelist()
@@ -248,6 +276,7 @@ def apply_update(zip_data: bytes, status_cb=None) -> tuple[bool, str]:
             installed += 1
 
         zf.close()
+        cleanup()
         log(f"Update complete. Installed {installed} files.")
 
         # Cleanup backup on success
@@ -282,4 +311,5 @@ def apply_update(zip_data: bytes, status_cb=None) -> tuple[bool, str]:
         except Exception:
             pass
 
+        cleanup()
         return False, f"Update failed and was rolled back: {e}"

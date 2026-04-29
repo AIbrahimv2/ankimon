@@ -25,7 +25,7 @@ from .update_manager import (
     fetch_branches,
     fetch_open_prs,
     apply_update,
-    _download_zip,
+    _download_zip_to_temp,
     _download_branch_zip,
     _download_pr_zip,
 )
@@ -433,11 +433,11 @@ class UpdateDialog(QDialog):
         self.status_label.setText(f"Downloading {label}...")
 
         def bg(_col):
-            zip_data = download_fn()
-            if not zip_data:
+            zip_path = download_fn()
+            if not zip_path:
                 return False, "Download failed. Check your internet connection.", []
             messages = []
-            success, msg = apply_update(zip_data, status_cb=lambda m: messages.append(m))
+            success, msg = apply_update(zip_path, status_cb=lambda m: messages.append(m))
             return success, msg, messages
 
         def on_done(result):
@@ -456,12 +456,12 @@ class UpdateDialog(QDialog):
         if not self._releases:
             return
         r = self._releases[0]
-        self._run_update(lambda: _download_zip(r["zipball_url"]), f"latest release ({r['name']})")
+        self._run_update(lambda: _download_zip_to_temp(r["zipball_url"]), f"latest release ({r['name']})")
 
     def _on_release_update(self):
         data = self.release_combo.currentData()
         if data:
-            self._run_update(lambda: _download_zip(data["zipball_url"]), f"release {data['name']}")
+            self._run_update(lambda: _download_zip_to_temp(data["zipball_url"]), f"release {data['name']}")
 
     def _on_dev_install(self):
         source = self.source_combo.currentData()
@@ -478,4 +478,4 @@ class UpdateDialog(QDialog):
         elif source == "tag":
             data = self.target_combo.currentData()
             if data:
-                self._run_update(lambda: _download_zip(data["zipball_url"]), f"tag {data['name']}")
+                self._run_update(lambda: _download_zip_to_temp(data["zipball_url"]), f"tag {data['name']}")
