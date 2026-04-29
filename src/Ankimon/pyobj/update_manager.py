@@ -264,7 +264,8 @@ def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
                     continue
                 dest = addon_dir / rel_path
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(zf.read(zip_name))
+                with zf.open(zip_name) as source, dest.open("wb") as target:
+                    shutil.copyfileobj(source, target)
                 installed += 1
 
             cleanup()
