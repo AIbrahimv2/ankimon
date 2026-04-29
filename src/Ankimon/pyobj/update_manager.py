@@ -200,87 +200,74 @@ def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
 
     log("Validating update archive...")
     try:
-        zf = zipfile.ZipFile(zip_path)
-    except zipfile.BadZipFile:
-        cleanup()
-        return False, "Downloaded file is not a valid ZIP archive."
+        with zipfile.ZipFile(zip_path) as zf:
+            names = zf.namelist()
+            if not names:
+                return False, "ZIP archive is empty."
 
-    names = zf.namelist()
-    if not names:
-        return False, "ZIP archive is empty."
+            src_prefix = _find_src_prefix(names)
+            if not src_prefix:
+                return False, "Could not find src/Ankimon/ in the archive."
 
-    src_prefix = _find_src_prefix(names)
-    if not src_prefix:
-        return False, "Could not find src/Ankimon/ in the archive."
+            new_files = {}
+            for name in names:
+                if not name.startswith(src_prefix) or name == src_prefix:
+                    continue
+                rel_path = name[len(src_prefix):]
+                if not rel_path or rel_path.endswith("/"):
+                    continue
+                if _should_preserve(rel_path, gitignore_patterns):
+                    continue
+                new_files[rel_path] = name
 
-    new_files = {}
-    for name in names:
-        if not name.startswith(src_prefix) or name == src_prefix:
-            continue
-        rel_path = name[len(src_prefix):]
-        if not rel_path or rel_path.endswith("/"):
-            continue
-        if _should_preserve(rel_path, gitignore_patterns):
-            continue
-        new_files[rel_path] = name
+            if not new_files:
+                return False, "No addon files found in the archive."
 
-    if not new_files:
-        return False, "No addon files found in the archive."
+            log(f"Archive validated: {len(new_files)} files to install.")
 
-    log(f"Archive validated: {len(new_files)} files to install.")
-
-    # --- Backup current code files ---
-    log("Backing up current addon code...")
-    backup_dir = Path(tempfile.mkdtemp(prefix="ankimon_update_backup_"))
-    code_files = _collect_code_files(gitignore_patterns)
-    backed_up = 0
-    for rel, full_path in code_files.items():
-        dest = backup_dir / rel
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            shutil.copy2(full_path, dest)
-            backed_up += 1
-        except Exception:
-            pass
-    log(f"Backed up {backed_up} code files to {backup_dir.name}.")
-
-    # --- Apply update ---
-    try:
-        log("Removing old addon code...")
-        for rel, full_path in code_files.items():
-            try:
-                full_path.unlink()
-            except Exception:
-                pass
-
-        for root, dirs, _ in os.walk(addon_dir, topdown=False):
-            for dname in dirs:
-                dir_path = Path(root) / dname
+            # --- Backup current code files ---
+            log("Backing up current addon code...")
+            backup_dir = Path(tempfile.mkdtemp(prefix="ankimon_update_backup_"))
+            code_files = _collect_code_files(gitignore_patterns)
+            backed_up = 0
+            for rel, full_path in code_files.items():
+                dest = backup_dir / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
                 try:
-                    if not any(dir_path.iterdir()):
-                        dir_path.rmdir()
+                    shutil.copy2(full_path, dest)
+                    backed_up += 1
+                except Exception:
+                    pass
+            log(f"Backed up {backed_up} code files to {backup_dir.name}.")
+
+            # --- Apply update ---
+            log("Removing old addon code...")
+            for rel, full_path in code_files.items():
+                try:
+                    full_path.unlink()
                 except Exception:
                     pass
 
-        log("Installing new files...")
-        installed = 0
-        for rel_path, zip_name in new_files.items():
-            dest = addon_dir / rel_path
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(zf.read(zip_name))
-            installed += 1
+            for root, dirs, _ in os.walk(addon_dir, topdown=False):
+                for dname in dirs:
+                    dir_path = Path(root) / dname
+                    try:
+                        if not any(dir_path.iterdir()):
+                            dir_path.rmdir()
+                    except Exception:
+                        pass
 
-        zf.close()
-        cleanup()
-        log(f"Update complete. Installed {installed} files.")
+            log("Installing new files...")
+            installed = 0
+            for rel_path, zip_name in new_files.items():
+                dest = addon_dir / rel_path
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(zf.read(zip_name))
+                installed += 1
 
-        # Cleanup backup on success
-        try:
-            shutil.rmtree(backup_dir)
-        except Exception:
-            pass
-
-        return True, "Update applied successfully. Please restart Anki."
+            cleanup()
+            log(f"Update complete. Installed {installed} files.")
+            return True, "Update applied successfully. Please restart Anki."
 
     except Exception as e:
         # --- Rollback ---
