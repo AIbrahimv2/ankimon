@@ -419,6 +419,13 @@ class UpdateDialog(QDialog):
         self.update_latest_btn.setEnabled(not busy)
         self.release_btn.setEnabled(not busy)
         self.dev_install_btn.setEnabled(not busy)
+        if not busy:
+            self.status_label.setText("")
+
+    def _on_progress(self, current: int, total: int):
+        if total > 0:
+            percent = int((current / total) * 100)
+            mw.taskman.run_on_main(lambda: self.progress_bar.setValue(percent))
 
     def _run_update(self, download_fn, label: str):
         confirm = QMessageBox.question(
@@ -433,10 +440,12 @@ class UpdateDialog(QDialog):
         self.status_label.setText(f"Downloading {label}...")
 
         def bg(_col):
-            zip_path = download_fn()
+            zip_path = download_fn(progress_cb=self._on_progress)
             if not zip_path:
                 return False, "Download failed. Check your internet connection.", []
             messages = []
+            # For extraction, we just show "Installing..."
+            mw.taskman.run_on_main(lambda: self.status_label.setText("Installing..."))
             success, msg = apply_update(zip_path, status_cb=lambda m: messages.append(m))
             return success, msg, messages
 
@@ -456,26 +465,26 @@ class UpdateDialog(QDialog):
         if not self._releases:
             return
         r = self._releases[0]
-        self._run_update(lambda: _download_zip_to_temp(r["zipball_url"]), f"latest release ({r['name']})")
+        self._run_update(lambda progress_cb: _download_zip_to_temp(r["zipball_url"], progress_cb), f"latest release ({r['name']})")
 
     def _on_release_update(self):
         data = self.release_combo.currentData()
         if data:
-            self._run_update(lambda: _download_zip_to_temp(data["zipball_url"]), f"release {data['name']}")
+            self._run_update(lambda progress_cb: _download_zip_to_temp(data["zipball_url"], progress_cb), f"release {data['name']}")
 
     def _on_dev_install(self):
         source = self.source_combo.currentData()
         if source == "main":
-            self._run_update(lambda: _download_branch_zip("main"), "latest main")
+            self._run_update(lambda progress_cb: _download_branch_zip("main", progress_cb), "latest main")
         elif source == "pr":
             data = self.target_combo.currentData()
             if data:
-                self._run_update(lambda: _download_pr_zip(data["head_sha"]), f"PR #{data['number']} ({data['title']})")
+                self._run_update(lambda progress_cb: _download_pr_zip(data["head_sha"], progress_cb), f"PR #{data['number']} ({data['title']})")
         elif source == "branch":
             data = self.target_combo.currentData()
             if data:
-                self._run_update(lambda: _download_branch_zip(data["name"]), f"branch {data['name']}")
+                self._run_update(lambda progress_cb: _download_branch_zip(data["name"], progress_cb), f"branch {data['name']}")
         elif source == "tag":
             data = self.target_combo.currentData()
             if data:
-                self._run_update(lambda: _download_zip_to_temp(data["zipball_url"]), f"tag {data['name']}")
+                self._run_update(lambda progress_cb: _download_zip_to_temp(data["zipball_url"], progress_cb), f"tag {data['name']}")
