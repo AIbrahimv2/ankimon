@@ -167,7 +167,7 @@ class Settings:
                     print(f"Ankimon: Warning: Could not convert '{config[key]}' for key '{key}' to int.")
 
     def save_config(self, config):
-        from aqt import mw
+        from ..pyobj.ankimon_sync import AnkimonDataSync  # To reuse obfuscation logic
         from ..pyobj.ankimon_sync import AnkimonDataSync  # To reuse obfuscation logic
 
         # 1. Always save to database if available
