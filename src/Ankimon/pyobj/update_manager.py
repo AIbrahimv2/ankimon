@@ -58,23 +58,18 @@ def _fetch_gitignore_patterns() -> list[str]:
 
 def _should_preserve(rel_path: str, gitignore_patterns: list[str]) -> bool:
     for pattern in gitignore_patterns:
-        if pattern.endswith("/"):
-            if rel_path.startswith(pattern) or rel_path.startswith(pattern.rstrip("/")):
-                return True
-        elif pattern.endswith("/*"):
-            prefix = pattern[:-2]
-            if rel_path.startswith(prefix + "/") or rel_path == prefix:
-                return True
+        pattern = pattern.rstrip("/")
+        if rel_path == pattern or rel_path.startswith(pattern + "/"):
+            return True
         elif "*" in pattern:
             import fnmatch
             if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(os.path.basename(rel_path), pattern):
                 return True
-        else:
-            if rel_path == pattern or rel_path.startswith(pattern + "/"):
-                return True
-    always_preserve = ["user_files/sprites/", "user_files/ankimon.db", "meta.json"]
+
+    always_preserve = ["user_files/sprites/", "user_files/ankimon.db"]
     for p in always_preserve:
-        if rel_path.startswith(p) or rel_path == p:
+        p = p.rstrip("/")
+        if rel_path == p or rel_path.startswith(p + "/"):
             return True
     return False
 
