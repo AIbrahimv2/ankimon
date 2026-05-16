@@ -322,17 +322,17 @@ jobs:
           fi
           
           # Create changelog
-          cat > "$changelog_path" << EOF
+          cat > "$changelog_path" << 'EOF'
 ## 🌟 Ankimon vVERSION_PLACEHOLDER 🌟
 
 THANK_YOU_PLACEHOLDER
 
 ### What's new
 
-$HIGHLIGHTS
+HIGHLIGHTS_PLACEHOLDER
 
 ### 💢 PSA
-$PSA_TEXT
+PSA_PLACEHOLDER
 
 — h0tp 💖
 
@@ -341,6 +341,22 @@ $PSA_TEXT
 ## 📜 Full changelog — vVERSION_PLACEHOLDER
 
 EOF
+          
+          # Replace placeholders (using a temporary file and sed for larger blocks is safer)
+          sed -i "s/VERSION_PLACEHOLDER/${version_no_prefix}/g" "$changelog_path"
+          sed -i "s|THANK_YOU_PLACEHOLDER|${thank_you_note}|g" "$changelog_path"
+          
+          # Use python or a more robust way to replace the multi-line highlights/psa
+          python3 -c "
+import os
+path = '$changelog_path'
+with open(path, 'r') as f:
+    content = f.read()
+content = content.replace('HIGHLIGHTS_PLACEHOLDER', os.environ.get('HIGHLIGHTS', ''))
+content = content.replace('PSA_PLACEHOLDER', os.environ.get('PSA_TEXT', ''))
+with open(path, 'w') as f:
+    f.write(content)
+"
           
           # Add Features & Improvements
           if [ -n "$ENHANCEMENTS" ]; then
@@ -398,10 +414,6 @@ Backup guide ➡️ https://discord.com/channels/1241773562629718148/13037593807
 ***
 EOF
           
-          # Replace placeholders
-          sed -i "s/VERSION_PLACEHOLDER/${version_no_prefix}/g" "$changelog_path"
-          sed -i "s|THANK_YOU_PLACEHOLDER|${thank_you_note}|g" "$changelog_path"
-          
           echo "Changelog created at: $changelog_path"
 
       - name: Create Discord announcement file
@@ -425,26 +437,42 @@ EOF
 
           Feel free to study with us in the **Library VC** in our Discord!"
           fi
+          export PSA_TEXT
           
-          cat > "$discord_path" << DEOF
-## 🌟 Ankimon v${version_no_prefix} 🌟
+          cat > "$discord_path" << 'DEOF'
+## 🌟 Ankimon vVERSION_PLACEHOLDER 🌟
 
-A huge thank you to ${DISCORD_CONTRIBUTORS} for their contributions to this update! <3
+A huge thank you to DISCORD_CONTRIBUTORS_PLACEHOLDER for their contributions to this update! <3
 
 ### What's new
 
-$HIGHLIGHTS
+HIGHLIGHTS_PLACEHOLDER
 
 ### 💢 PSA
-$PSA_TEXT
+PSA_PLACEHOLDER
 
 — h0tp 💖
 
 ---
 
-## 📜 Full changelog — v${version_no_prefix}
+## 📜 Full changelog — vVERSION_PLACEHOLDER
 
 DEOF
+          
+          # Replace placeholders in Discord file
+          sed -i "s/VERSION_PLACEHOLDER/${version_no_prefix}/g" "$discord_path"
+          
+          python3 -c "
+import os
+path = '$discord_path'
+with open(path, 'r') as f:
+    content = f.read()
+content = content.replace('HIGHLIGHTS_PLACEHOLDER', os.environ.get('HIGHLIGHTS', ''))
+content = content.replace('PSA_PLACEHOLDER', os.environ.get('PSA_TEXT', ''))
+content = content.replace('DISCORD_CONTRIBUTORS_PLACEHOLDER', os.environ.get('DISCORD_CONTRIBUTORS', ''))
+with open(path, 'w') as f:
+    f.write(content)
+"
           
           if [ -n "$DISCORD_ENHANCEMENTS" ]; then
             printf '### ✨ Features & Improvements!\n\n%s\n\n' "$DISCORD_ENHANCEMENTS" >> "$discord_path"
