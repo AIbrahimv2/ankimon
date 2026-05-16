@@ -1,0 +1,46 @@
+name: Auto-tag on Release PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  auto-tag:
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Read version from manifest.json
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' src/Ankimon/manifest.json)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version from manifest: ${VERSION}"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag ${{ steps.version.outputs.version }} already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git tag "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+          echo "✅ Tag ${{ steps.version.outputs.version }} created and pushed"
