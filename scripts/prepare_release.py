@@ -21,26 +21,34 @@ def get_previous_tag(current_version: str) -> Optional[str]:
         return None
 
 def fetch_prs_since_tag(repo: str, previous_tag: str, token: str) -> List[Dict]:
-    url = f"https://api.github.com/repos/{repo}/compare/{previous_tag}...main"
+    # Get the date of the previous tag
+    tag_date = run_command(["git", "log", "-1", "--format=%cI", previous_tag])
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
     
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    commits = response.json().get("commits", [])
-    
-    pr_numbers = set()
     pull_requests = []
+    page = 1
     
-    for commit in commits:
-        sha = commit["sha"]
-        pr_url = f"https://api.github.com/repos/{repo}/commits/{sha}/pulls"
-        pr_resp = requests.get(pr_url, headers=headers)
-        if pr_resp.status_code == 200:
-            for pr in pr_resp.json():
-                if pr["merged_at"] and pr["number"] not in pr_numbers:
-                    pr_numbers.add(pr["number"])
-                    pull_requests.append(pr)
-    
+    while True:
+        url = f"https://api.github.com/repos/{repo}/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=100&page={page}"
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        prs = response.json()
+        
+        if not prs:
+            break
+            
+        for pr in prs:
+            merged_at = pr.get("merged_at")
+            if merged_at and merged_at > tag_date:
+                pull_requests.append(pr)
+                
+        # Since PRs are sorted by 'updated_at', if the oldest PR in this page was updated
+        # before our tag_date, we can safely stop paginating.
+        if prs[-1].get("updated_at", "") < tag_date:
+            break
+            
+        page += 1
+            
     return pull_requests
 
 def update_manifest(version: str):
