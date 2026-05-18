@@ -39,8 +39,16 @@ def fetch_prs_since_tag(repo: str, previous_tag: str, token: str) -> List[Dict]:
             
         for pr in prs:
             merged_at = pr.get("merged_at")
-            if merged_at and merged_at > tag_date:
-                pull_requests.append(pr)
+            if not merged_at or merged_at <= tag_date:
+                continue
+                
+            # Filter out automated release PRs
+            author = pr.get("user", {}).get("login", "")
+            title = pr.get("title", "")
+            if author == "github-actions[bot]" or author == "jules-invoke[bot]" or "bump version" in title.lower() or "release v" in title.lower():
+                continue
+                
+            pull_requests.append(pr)
                 
         # Since PRs are sorted by 'updated_at', if the oldest PR in this page was updated
         # before our tag_date, we can safely stop paginating.
