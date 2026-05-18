@@ -129,7 +129,7 @@ def generate_changelogs(version: str, pull_requests: List[Dict], highlights: str
         login = pr["user"]["login"]
         contributors.add(login)
         nick_data = nicknames.get(login, {})
-        nickname = nick_data.get("nickname", login)
+        nickname = nick_data.get("nickname") or login
         discord_id = nick_data.get("discord_id")
         
         # GitHub Entry
