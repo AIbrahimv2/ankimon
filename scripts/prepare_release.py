@@ -50,6 +50,7 @@ def update_manifest(version: str):
     data["version"] = version
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+        f.write("\n")
     print(f"Updated {path} to {version}")
 
 def update_contributors(pull_requests: List[Dict]):
