@@ -1,8 +1,8 @@
 {
-  "h0tp-ftw": "h0tp",
-  "Someon1e": "aaaaankier",
-  "ArdentRoe": "TyGuy",
-  "thepeacemonk": "Peace",
-  "Axil12": "Axil",
-  "Unlucky-Life": "Unlucky"
+  "h0tp-ftw": { "nickname": "h0tp", "discord_id": "" },
+  "Someon1e": { "nickname": "aaaaankier", "discord_id": "" },
+  "ArdentRoe": { "nickname": "TyGuy", "discord_id": "" },
+  "thepeacemonk": { "nickname": "Peace", "discord_id": "" },
+  "Axil12": { "nickname": "Axil", "discord_id": "" },
+  "Unlucky-Life": { "nickname": "Unlucky", "discord_id": "" }
 }
