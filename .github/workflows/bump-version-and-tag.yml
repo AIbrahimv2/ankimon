@@ -46,7 +46,7 @@ jobs:
       - name: Jules Release Automation
         uses: google-labs-code/jules-invoke@v1.0.0
         with:
-          jules-api-key: ${{ secrets.JULES_API_KEY }}
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
           prompt: |
             Please finalize the release for version ${{ github.event.inputs.version }}.
             
