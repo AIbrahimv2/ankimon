@@ -12,16 +12,16 @@ A Python script has already run to prepare the files, but it used placeholders f
     -   **[JULES_DISCORD_CONTRIBUTORS]**: This appears if any Discord IDs are missing. Check `.github/contributor-nicknames.json` and ensure all contributors are correctly thanked using `<@id>` for Discord or their nickname.
     -   **[JULES_PR_SUMMARY]**: (In the PR body) Provide a high-level summary of the entire release.
 
-4.  **Run Integrity Tests**:
-    -   Execute `pytest tests/test_addon_integrity.py`.
+2.  **Run Integrity Tests**:
+    -   Execute pytest tests/test_addon_integrity.py.
     -   If it fails, DO NOT block the PR, but list the failures clearly in the PR description so the user can fix them.
 
-5.  **Final Checklist**:
-    -   Review `.github/jules/checklist.md`.
+3.  **Final Checklist**:
+    -   Review .github/jules/checklist.md.
     -   Tick off the items as you verify them.
     -   If any items are incomplete or failed, list them in the "⚠️ **Action Required**" section of your PR description.
 
-6.  **Create Pull Request**:
+4.  **Create Pull Request**:
     -   Title: `🚀 Release v<VERSION>`
     -   Body: Summarize the release, include the checklist status, and highlight any new contributors.
 
