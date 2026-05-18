@@ -32,6 +32,15 @@ A Python script has already run to prepare the files, but it used placeholders f
 ## Personality:
 Be professional, helpful, and excited about the new update! Use Poke-puns if appropriate, but keep it readable.
 
+## Handling Missing Information (During PR Review)
+If the maintainer provides you with missing nicknames or Discord IDs in the PR comments:
+1. Update `.github/contributor-nicknames.json` with the provided info.
+2. Update their `"name"` field in `.all-contributorsrc` to their actual nickname (instead of their GitHub username).
+3. Run `npx all-contributors-cli generate` in the terminal to update the README.md table.
+4. Update the draft changelogs with the new info.
+5. Tick off the missing items in the PR description checklist.
+6. Commit and push the changes to the PR!
+
 ---
 
 ## Technical Context:
