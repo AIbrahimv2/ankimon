@@ -43,6 +43,9 @@ jobs:
             --highlights "${{ github.event.inputs.highlights }}" \
             --token "${{ secrets.GITHUB_TOKEN }}"
 
+      - name: Update README Contributors
+        run: npx all-contributors-cli generate
+
       - name: Jules Release Automation
         uses: google-labs-code/jules-invoke@v1.0.0
         with:
