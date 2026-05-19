@@ -90,7 +90,9 @@ def update_contributors(pull_requests: List[Dict]):
                 "name": login,
                 "avatar_url": f"https://github.com/{login}.png",
                 "profile": f"https://github.com/{login}",
-                "contributions": ["code"]
+                "contributions": ["code"],
+                "nickname": "",
+                "discord_id": ""
             })
             existing_logins.add(login)
             new_found = True
@@ -241,10 +243,15 @@ def main():
         print("No previous tag found, skipping PR fetch.")
         
     nicknames = {}
-    nick_path = ".github/contributor-nicknames.json"
-    if os.path.exists(nick_path):
-        with open(nick_path, "r", encoding="utf-8") as f:
-            nicknames = json.load(f)
+    all_contrib_path = ".all-contributorsrc"
+    if os.path.exists(all_contrib_path):
+        with open(all_contrib_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            for c in data.get("contributors", []):
+                nicknames[c["login"]] = {
+                    "nickname": c.get("nickname", ""),
+                    "discord_id": c.get("discord_id", "")
+                }
             
     update_manifest(args.version)
     update_contributors(prs)

@@ -9,8 +9,8 @@ A Python script has already run to prepare the files, but it used placeholders f
 1.  **Review the Draft Changelogs**:
     -   Look at `assets/changelogs/<version>.md` and `assets/changelogs/<version>-discord.md`.
     -   **[JULES_HIGHLIGHTS]**: Replace this with a concise, engaging summary of "What's New" in this release. Keep it punchy and engaging but natural! Look at the PR titles in the "Full changelog" section for context.
-    -   **[JULES_DISCORD_CONTRIBUTORS]**: Cross-reference the contributors with `.github/contributor-nicknames.json`.
-        - If there is a new contributor missing from the JSON, **you MUST add them to `.github/contributor-nicknames.json`** using this exact format: `"GitHubUsername": { "nickname": "", "discord_id": "" }` (leave both BLANK to indicate they aren't provided yet).
+    -   **[JULES_DISCORD_CONTRIBUTORS]**: Cross-reference the contributors with `.all-contributorsrc`.
+        - If there is a new contributor, **you MUST add `nickname` and `discord_id` fields to their entry in `.all-contributorsrc`**. If their entry is missing entirely, first add them via `npx all-contributors-cli add <username> code`. Then edit `.all-contributorsrc` to add `"nickname": ""` and `"discord_id": ""` to their JSON object (leave both BLANK to indicate they aren't provided yet). If the contributor is new, you might not know their nickname or Discord ID yet - that's okay. Just leave them BLANK and let the user know in the PR message (and the checklist).
         - Format all contributors cleanly in the changelog. If they have a blank nickname, just use their GitHub username as a fallback.
     -   **Missing Contributors Nudge**: If ANY contributor was missing and you had to add them with blank fields, you MUST explicitly tag the maintainer (`@h0tp-ftw`) in the PR description and list those contributors!
     -   **CRITICAL CHECKLIST RULE**: If you had to add blank entries, you MUST leave the **"Nicknames Validated"** checklist item unticked (`[ ]`) in your PR description to indicate it is not finished.
@@ -34,7 +34,7 @@ Be professional, helpful, and excited about the new update! Use Poke-puns if app
 
 ## Handling Missing Information (During PR Review)
 If the maintainer provides you with missing nicknames or Discord IDs in the PR comments:
-1. Update `.github/contributor-nicknames.json` with the provided info.
+1. Update their `"nickname"` and `"discord_id"` fields directly in `.all-contributorsrc`.
 2. Update their `"name"` field in `.all-contributorsrc` to their actual nickname (instead of their GitHub username).
 3. Run `npx all-contributors-cli generate` in the terminal to update the README.md table.
 4. Update the draft changelogs with the new info.
