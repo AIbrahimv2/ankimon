@@ -17,7 +17,9 @@
       "profile": "https://github.com/h0tp-ftw",
       "contributions": [
         "code"
-      ]
+      ],
+      "nickname": "h0tp",
+      "discord_id": ""
     },
     {
       "login": "thepeacemonk",
@@ -26,7 +28,9 @@
       "profile": "https://github.com/thepeacemonk",
       "contributions": [
         "code"
-      ]
+      ],
+      "nickname": "Peace",
+      "discord_id": ""
     },
     {
       "login": "Axil12",
@@ -35,7 +39,9 @@
       "profile": "https://github.com/Axil12",
       "contributions": [
         "code"
-      ]
+      ],
+      "nickname": "Axil",
+      "discord_id": ""
     },
     {
       "login": "Someon1e",
@@ -44,7 +50,9 @@
       "profile": "https://github.com/Someon1e",
       "contributions": [
         "code"
-      ]
+      ],
+      "nickname": "aaaaankier",
+      "discord_id": ""
     },
     {
       "login": "ArdentRoe",
@@ -53,7 +61,9 @@
       "profile": "https://github.com/ArdentRoe",
       "contributions": [
         "code"
-      ]
+      ],
+      "nickname": "TyGuy",
+      "discord_id": ""
     },
     {
       "login": "abr-projects",
@@ -135,6 +145,17 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "Unlucky-Life",
+      "name": "Unlucky-Life",
+      "avatar_url": "https://github.com/Unlucky-Life.png",
+      "profile": "https://github.com/Unlucky-Life",
+      "contributions": [
+        "code"
+      ],
+      "nickname": "Unlucky",
+      "discord_id": ""
     }
   ],
   "contributorsPerLine": 5
