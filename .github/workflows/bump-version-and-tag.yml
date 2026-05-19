@@ -34,41 +34,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests pytest pytest-qt PyQt6 markdown
 
-      - name: Prepare Release Files
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python scripts/prepare_release.py \
-            --version "${{ github.event.inputs.version }}" \
-            --highlights "${{ github.event.inputs.highlights }}" \
-            --token "${{ secrets.GITHUB_TOKEN }}"
-
-      - name: Update README Contributors
-        run: npx all-contributors-cli generate
-
-      - name: Commit and Push Draft Branch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b release-prep-${{ github.event.inputs.version }}
-          git add .
-          git commit -m "chore: prepare draft release ${{ github.event.inputs.version }}"
-          git push -u origin release-prep-${{ github.event.inputs.version }}
-
       - name: Jules Release Automation
         uses: google-labs-code/jules-invoke@v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
-          starting_branch: release-prep-${{ github.event.inputs.version }}
           prompt: |
             Please finalize the release for version ${{ github.event.inputs.version }}.
             
             Tasks:
-            1. Follow the instructions in .github/jules/release-prompt.md.
-            2. Verify the checklist in .github/jules/checklist.md.
-            3. Run integrity tests using 'pytest tests/test_addon_integrity.py'.
-            4. If everything looks good, create a Pull Request against 'main'.
-            5. Include the checklist results and any highlights in the PR description.
-            
-            Context:
-            The 'prepare_release.py' script has already bumped the version and created draft changelogs in assets/changelogs/.
+            1. First, run the release preparation script using this exact command:
+               python scripts/prepare_release.py --version "${{ github.event.inputs.version }}" --highlights "${{ github.event.inputs.highlights }}" --token "${{ secrets.GITHUB_TOKEN }}"
+            2. Run `npx -y all-contributors-cli generate` to update the README contributors table.
+            3. Follow the instructions in .github/jules/release-prompt.md.
+            4. Verify the checklist in .github/jules/checklist.md.
+            5. Run integrity tests using 'pytest tests/test_addon_integrity.py'.
+            6. If everything looks good, create a Pull Request against 'main'.
+            7. Include the checklist results and any highlights in the PR description.
