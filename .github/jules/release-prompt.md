@@ -39,7 +39,8 @@ If the maintainer provides you with missing nicknames or Discord IDs in the PR c
 3. Run `npx all-contributors-cli generate` in the terminal to update the README.md table.
 4. Update the draft changelogs with the new info.
 5. Tick off the missing items in the PR description checklist.
-6. Commit and push the changes to the PR!
+6. Make sure everything is good - remove any tempfiles, no duplicate entries, and all PR titles are formatted correctly.
+7. Commit and push the changes to the PR!
 
 ---
 
