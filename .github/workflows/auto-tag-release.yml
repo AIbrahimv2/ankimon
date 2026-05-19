@@ -44,3 +44,35 @@ jobs:
           git tag "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
           git push origin "${{ steps.version.outputs.version }}"
           echo "✅ Tag ${{ steps.version.outputs.version }} created and pushed"
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Patch Changelog for GitHub Release
+        run: |
+          python -c "
+          import re
+          path = 'assets/changelogs/${{ steps.version.outputs.version }}.md'
+          with open(path, 'r', encoding='utf-8') as f:
+              content = f.read()
+          # Replace [@username](url) (Nickname) -> @username
+          content = re.sub(r'\[@([\w-]+)\]\([^)]+\)\s*\([^)]*\)', r'@\1', content)
+          # Replace [@username](url) -> @username
+          content = re.sub(r'\[@([\w-]+)\]\([^)]+\)', r'@\1', content)
+          # Replace [#number](url) -> #number
+          content = re.sub(r'\[(#\d+)\]\([^)]+\)', r'\1', content)
+          with open('patched_changelog.md', 'w', encoding='utf-8') as f:
+              f.write(content)
+          "
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Ankimon v${{ steps.version.outputs.version }}
+          body_path: patched_changelog.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

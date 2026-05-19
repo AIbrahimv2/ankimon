@@ -114,13 +114,6 @@ def generate_changelogs(version: str, pull_requests: List[Dict], highlights: str
         "other": []
     }
     
-    discord_categories = {
-        "enhancement": [],
-        "bug": [],
-        "documentation": [],
-        "other": []
-    }
-    
     contributors = set()
     
     for pr in pull_requests:
@@ -131,17 +124,17 @@ def generate_changelogs(version: str, pull_requests: List[Dict], highlights: str
         login = pr["user"]["login"]
         contributors.add(login)
         nick_data = nicknames.get(login, {})
-        nickname = nick_data.get("nickname") or login
-        discord_id = nick_data.get("discord_id")
         
-        # GitHub Entry
+        # App Entry (needs explicit markdown links)
         pr_link = f"[#{pr['number']}]({repo_url}/pull/{pr['number']})"
         user_link = f"[@{login}](https://github.com/{login})"
-        entry = f"- {pr['title']} {pr_link} {user_link}"
         
-        # Discord Entry
-        user_mention = f"<@{discord_id}>" if discord_id else f"@{nickname}"
-        d_entry = f"- {pr['title']} #{pr['number']} {user_mention}"
+        # Include nickname if it's different from the login and is not empty
+        nick = nick_data.get("nickname")
+        if nick and nick != login:
+            user_link += f" ({nick})"
+            
+        entry = f"- {pr['title']} {pr_link} {user_link}"
         
         cat = "other"
         if any(l in labels for l in ["enhancement", "feature", "type: enhancement"]):
@@ -152,16 +145,21 @@ def generate_changelogs(version: str, pull_requests: List[Dict], highlights: str
             cat = "documentation"
             
         categories[cat].append(entry)
-        discord_categories[cat].append(d_entry)
         
-    # Build GitHub Changelog
+    # Build App Changelog (assets/changelogs/<version>.md)
     github_path = f"assets/changelogs/{version_no_v}.md"
     with open(github_path, "w", encoding="utf-8") as f:
         f.write(f"## 🌟 Ankimon v{version_no_v} 🌟\n\n")
         
         thank_you = "Thank you to all contributors! <3"
         if contributors:
-            c_links = [f"[@{u}](https://github.com/{u}) ({nicknames.get(u, {}).get('nickname', u)})" for u in sorted(contributors)]
+            c_links = []
+            for u in sorted(contributors):
+                nick = nicknames.get(u, {}).get('nickname')
+                link = f"[@{u}](https://github.com/{u})"
+                if nick and nick != u:
+                    link += f" ({nick})"
+                c_links.append(link)
             thank_you = f"A huge thank you to {', '.join(c_links)} for their contributions to this update! <3"
         
         f.write(f"{thank_you}\n\n")
@@ -185,44 +183,6 @@ def generate_changelogs(version: str, pull_requests: List[Dict], highlights: str
             
         f.write("***\n\nMake a backup, but *your progress should NOT BE LOST from updating* - put a bug report if you lose your files\n\n")
         f.write("Backup guide ➡️ https://discord.com/channels/1241773562629718148/1303759380768096318\n\n***\n")
-
-    # Build Discord Changelog
-    discord_path = f"assets/changelogs/{version_no_v}-discord.md"
-    with open(discord_path, "w", encoding="utf-8") as f:
-        f.write(f"## 🌟 Ankimon v{version_no_v} 🌟\n\n")
-        
-        d_contributors = []
-        all_have_ids = True
-        for u in sorted(contributors):
-            d_id = nicknames.get(u, {}).get("discord_id")
-            if d_id:
-                d_contributors.append(f"<@{d_id}>")
-            else:
-                d_contributors.append(f"@{u}")
-                all_have_ids = False
-        
-        thank_you_text = ", ".join(d_contributors)
-        if not all_have_ids or not d_contributors:
-            thank_you_text = "[JULES_DISCORD_CONTRIBUTORS]"
-            
-        f.write(f"A huge thank you to {thank_you_text} for their contributions to this update! <3\n\n")
-        f.write("### What's new\n")
-        f.write(f"{highlights if highlights else '[JULES_HIGHLIGHTS]'}\n\n")
-        f.write("— h0tp 💖\n\n---\n\n")
-        f.write(f"## 📜 Full changelog — v{version_no_v}\n\n")
-        
-        if discord_categories["enhancement"]:
-            f.write("### ✨ Features & Improvements!\n\n")
-            f.write("\n".join(discord_categories["enhancement"]) + "\n\n")
-        if discord_categories["bug"]:
-            f.write("### 🐛 Bug Fixes & Stability!\n\n")
-            f.write("\n".join(discord_categories["bug"]) + "\n\n")
-        if discord_categories["other"]:
-            f.write("### 🔧 Other Changes!\n\n")
-            f.write("\n".join(discord_categories["other"]) + "\n\n")
-            
-        f.write(f"---\n\n**Download**: <https://github.com/h0tp-ftw/ankimon/releases/download/{version}/Ankimon.ankiaddon>\n\n")
-        f.write("Make a backup, but *your progress should NOT BE LOST from updating* - put a bug report if you lose your files\n")
 
 def main():
     parser = argparse.ArgumentParser()
