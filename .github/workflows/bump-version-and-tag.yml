@@ -7,8 +7,8 @@ on:
         description: "Version string (e.g. 1.6-E)"
         required: true
       highlights:
-        description: "What's new summary (your personal release message)"
-        required: true
+        description: "What's new summary (leave blank to let Jules auto-generate!)"
+        required: false
         type: string
 
 jobs:
@@ -46,10 +46,20 @@ jobs:
       - name: Update README Contributors
         run: npx all-contributors-cli generate
 
+      - name: Commit and Push Draft Branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b release-prep-${{ github.event.inputs.version }}
+          git add .
+          git commit -m "chore: prepare draft release ${{ github.event.inputs.version }}"
+          git push -u origin release-prep-${{ github.event.inputs.version }}
+
       - name: Jules Release Automation
         uses: google-labs-code/jules-invoke@v1.0.0
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
+          starting_branch: release-prep-${{ github.event.inputs.version }}
           prompt: |
             Please finalize the release for version ${{ github.event.inputs.version }}.
             
