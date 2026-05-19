@@ -20,10 +20,10 @@ def get_previous_tag(current_version: str) -> Optional[str]:
         print(f"Error finding previous tag: {e}")
         return None
 
-def fetch_prs_since_tag(repo: str, previous_tag: str, token: str) -> List[Dict]:
+def fetch_prs_since_tag(repo: str, previous_tag: str) -> List[Dict]:
     # Get the date of the previous tag
     tag_date = run_command(["git", "log", "-1", "--format=%cI", previous_tag])
-    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+    headers = {"Accept": "application/vnd.github.v3+json"}
     
     pull_requests = []
     page = 1
@@ -229,7 +229,6 @@ def main():
     parser.add_argument("--version", required=True)
     parser.add_argument("--highlights", default="")
     parser.add_argument("--psa", default="")
-    parser.add_argument("--token", required=True)
     parser.add_argument("--repo", default="h0tp-ftw/ankimon")
     args = parser.parse_args()
     
@@ -238,7 +237,7 @@ def main():
     
     prs = []
     if prev_tag:
-        prs = fetch_prs_since_tag(args.repo, prev_tag, args.token)
+        prs = fetch_prs_since_tag(args.repo, prev_tag)
     else:
         print("No previous tag found, skipping PR fetch.")
         

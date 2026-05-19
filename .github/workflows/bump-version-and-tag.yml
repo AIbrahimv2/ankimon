@@ -36,8 +36,6 @@ jobs:
 
       - name: Jules Release Automation
         uses: google-labs-code/jules-invoke@v1.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           prompt: |
@@ -45,7 +43,7 @@ jobs:
             
             Tasks:
             1. First, run the release preparation script using this exact command:
-               python scripts/prepare_release.py --version "${{ github.event.inputs.version }}" --highlights "${{ github.event.inputs.highlights }}" --token "${{ secrets.GITHUB_TOKEN }}"
+               python scripts/prepare_release.py --version "${{ github.event.inputs.version }}" --highlights "${{ github.event.inputs.highlights }}"
             2. Run `npx -y all-contributors-cli generate` to update the README contributors table.
             3. Follow the instructions in .github/jules/release-prompt.md.
             4. Verify the checklist in .github/jules/checklist.md.
