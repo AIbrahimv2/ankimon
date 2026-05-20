@@ -42,6 +42,38 @@ jobs:
       - name: Create .ankiaddon package
         run: aab build -d ankiweb
 
+      - name: Inject poke_engine submodule into package
+        run: |
+          # aab uses `git archive` internally, which silently skips git submodule
+          # directories (they appear as gitlinks, not files, in the parent tree).
+          # We must manually inject the checked-out submodule into the zip.
+          ADDON_FILE=$(ls build/*.ankiaddon)
+          SUBMODULE_SRC="src/Ankimon/poke_engine"
+          echo "Injecting poke_engine into $ADDON_FILE ..."
+          python3 - <<'EOF'
+          import os, sys, zipfile
+
+          addon_file = next(f for f in os.listdir("build") if f.endswith(".ankiaddon"))
+          addon_path = os.path.join("build", addon_file)
+          submodule_src = "src/Ankimon/poke_engine"
+
+          with zipfile.ZipFile(addon_path, "a", zipfile.ZIP_DEFLATED) as zf:
+              existing = set(zf.namelist())
+              added = 0
+              for root, dirs, files in os.walk(submodule_src):
+                  dirs[:] = [d for d in dirs if d != "__pycache__"]
+                  for fname in files:
+                      if fname.endswith((".pyc", ".pyo")):
+                          continue
+                      abs_path = os.path.join(root, fname)
+                      arc_path = os.path.relpath(abs_path, "src/Ankimon")
+                      arc_path = arc_path.replace(os.sep, "/")
+                      if arc_path not in existing:
+                          zf.write(abs_path, arc_path)
+                          added += 1
+              print(f"Injected {added} poke_engine files into {addon_file}")
+          EOF
+
       - name: Copy to stable filename
         run: |
           ADDON_FILE=$(ls build/*.ankiaddon)
