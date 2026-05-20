@@ -66,8 +66,8 @@
       "discord_id": "215332115816906754"
     },
     {
-      "login": "abr-projects",
-      "name": "abr-projects",
+      "login": "abr-Projects",
+      "name": "abr-Projects",
       "avatar_url": "https://github.com/abr-projects.png",
       "profile": "https://github.com/abr-projects",
       "contributions": [
@@ -86,17 +86,6 @@
       ],
       "nickname": "Zuukiny",
       "discord_id": "644566411238309889"
-    },
-    {
-      "login": "marbaret",
-      "name": "Mathieu",
-      "avatar_url": "https://github.com/marbaret.png",
-      "profile": "https://github.com/marbaret",
-      "contributions": [
-        "code"
-      ],
-      "nickname": "Mathieu",
-      "discord_id": "478553780854718465"
     },
     {
       "login": "gjgress",
