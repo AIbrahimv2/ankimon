@@ -4843,6 +4843,26 @@
                 {
                     "name": "pokemon_stats.csv",
                     "type": "file"
+                },
+                {
+                    "name": "machines.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "move_names.json",
+                    "type": "file"
+                },
+                {
+                    "name": "move_names_es_latam.json",
+                    "type": "file"
+                },
+                {
+                    "name": "moves_latam.tsv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_tm_learnset.json",
+                    "type": "file"
                 }
             ]
         },
