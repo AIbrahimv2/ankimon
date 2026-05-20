@@ -4785,6 +4785,68 @@
             "type": "file"
         },
         {
+            "name": "data_files",
+            "type": "folder",
+            "children": [
+                {
+                    "name": "evolution_triggers.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "items.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "item_flavor_text.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "item_names.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "learnsets.json",
+                    "type": "file"
+                },
+                {
+                    "name": "moves.json",
+                    "type": "file"
+                },
+                {
+                    "name": "move_flavor_text.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokedex.json",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_evolution.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_species.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_species_flavor_text.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_species_names.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_stats.csv",
+                    "type": "file"
+                }
+            ]
+        },
+        {
             "name": "user_files",
             "type": "folder",
             "children": [
@@ -4795,68 +4857,6 @@
                 {
                     "name": "data.json",
                     "type": "file"
-                },
-                {
-                    "name": "data_files",
-                    "type": "folder",
-                    "children": [
-                        {
-                            "name": "evolution_triggers.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "items.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "item_flavor_text.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "item_names.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "learnsets.json",
-                            "type": "file"
-                        },
-                        {
-                            "name": "moves.json",
-                            "type": "file"
-                        },
-                        {
-                            "name": "move_flavor_text.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokedex.json",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon_evolution.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon_species.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon_species_flavor_text.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon_species_names.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon_stats.csv",
-                            "type": "file"
-                        }
-                    ]
                 },
                 {
                     "name": "download_sprites.py",
