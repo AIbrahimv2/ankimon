@@ -570,6 +570,50 @@ def ensure_ankimon_infrastructure(base_path, base_user_path):
     os.makedirs(os.path.join(base_user_path, "data_files"), exist_ok=True)
     os.makedirs(os.path.join(base_user_path, "sprites"), exist_ok=True)
 
+    # Automatically initialize git submodule for local developers if missing
+    objects_py = os.path.join(base_path, "poke_engine", "objects.py")
+    if not os.path.exists(objects_py):
+        parent = os.path.abspath(base_path)
+        is_git_repo = False
+        for _ in range(4):
+            if os.path.exists(os.path.join(parent, ".git")):
+                is_git_repo = True
+                break
+            parent = os.path.dirname(parent)
+
+        if is_git_repo:
+            print("Ankimon: Developer environment detected and poke_engine submodule is missing.")
+            print("Attempting to automatically initialize the Git submodule...")
+            try:
+                import subprocess
+                subprocess.run(
+                    ["git", "submodule", "update", "--init", "--recursive"],
+                    cwd=parent,
+                    check=True,
+                    capture_output=True
+                )
+                print("Ankimon: Submodule successfully initialized!")
+            except Exception as e:
+                # If git command failed, raise a clear developer-friendly error message with diagnostics
+                error_details = ""
+                if isinstance(e, subprocess.CalledProcessError):
+                    stderr_msg = e.stderr.decode("utf-8", errors="replace").strip() if e.stderr else ""
+                    stdout_msg = e.stdout.decode("utf-8", errors="replace").strip() if e.stdout else ""
+                    if stderr_msg:
+                        error_details = f"\nGit Diagnostics (stderr):\n{stderr_msg}\n"
+                    elif stdout_msg:
+                        error_details = f"\nGit Diagnostics (stdout):\n{stdout_msg}\n"
+                else:
+                    error_details = f"\nSystem Diagnostics:\n{str(e)}\n"
+
+                raise ImportError(
+                    "\n\n[Developer Setup Error]\n"
+                    "The 'poke_engine' submodule is missing or uninitialized!\n"
+                    "Please initialize the submodule manually in your repository root:\n\n"
+                    "    git submodule update --init --recursive\n"
+                    f"{error_details}"
+                ) from e
+
     # Create blank HelpInfos.html and updateinfos.md at base_path if they don't exist
     helpinfos_path = os.path.join(base_path, 'HelpInfos.html')
     updateinfos_path = os.path.join(base_path, 'updateinfos.md')
