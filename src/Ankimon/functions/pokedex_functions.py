@@ -132,6 +132,9 @@ def search_pokedex(pokemon_name, variable):
             if current_name in pokedex_data:
                 pokemon_info = pokedex_data[current_name]
                 var = pokemon_info.get(variable)
+                # Pre-Nov-2025 pokedex.json used "num" for both species_id and actual_id.
+                if var is None and variable in ("species_id", "actual_id"):
+                    var = pokemon_info.get("num")
                 if var is not None:
                     return var
 
@@ -160,7 +163,9 @@ def search_pokedex_by_id(species_id):
     with open(str(pokedex_path), "r", encoding="utf-8") as json_file:
         pokedex_data = json.load(json_file)
         for entry_name, attributes in pokedex_data.items():
-            if attributes["species_id"] == species_id:
+            # Pre-Nov-2025 pokedex.json used "num" for the species id.
+            entry_species_id = attributes.get("species_id", attributes.get("num"))
+            if entry_species_id == species_id:
                 return entry_name
     return "Pokémon not found"
 
