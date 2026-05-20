@@ -40,7 +40,7 @@ def create_status_html(status_name, settings_obj, is_pokemon_owned=False, addon_
     if colors:
         badge_html = ''
         if is_pokemon_owned:
-            pokeball_url = f"/_addons/{addon_package}/user_files/web/images/pokeball.png"
+            pokeball_url = f"/_addons/{addon_package}/web/images/pokeball.png"
             badge_html = f'<img id="owned-indicator-badge" src="{pokeball_url}" style="margin-right: 8px; width: 22px; height: 22px; background-color: var(--ankimon-outline); border-radius: 50%; padding: 2px; box-sizing: border-box; flex-shrink: 0;">'
 
         if show_mainpkmn_in_reviewer == 2:

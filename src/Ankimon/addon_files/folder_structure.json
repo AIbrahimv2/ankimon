@@ -4867,6 +4867,90 @@
             ]
         },
         {
+            "name": "web",
+            "type": "folder",
+            "children": [
+                {
+                    "name": "assetts",
+                    "type": "folder",
+                    "children": [
+                        {
+                            "name": "Early GameBoy.ttf",
+                            "type": "file"
+                        },
+                        {
+                            "name": "PokemonGB.ttf",
+                            "type": "file"
+                        },
+                        {
+                            "name": "styles.css",
+                            "type": "file"
+                        },
+                        {
+                            "name": "styles_png.css",
+                            "type": "file"
+                        }
+                    ]
+                },
+                {
+                    "name": "Early_GameBoy.ttf",
+                    "type": "file"
+                },
+                {
+                    "name": "eggbounce.html",
+                    "type": "file"
+                },
+                {
+                    "name": "egg_hatching.html",
+                    "type": "file"
+                },
+                {
+                    "name": "images",
+                    "type": "folder",
+                    "children": [
+                        {
+                            "name": "exp_tile.jpg",
+                            "type": "file"
+                        }
+                    ]
+                },
+                {
+                    "name": "index.html",
+                    "type": "file"
+                },
+                {
+                    "name": "player.js",
+                    "type": "file"
+                },
+                {
+                    "name": "pokeball.png",
+                    "type": "file"
+                },
+                {
+                    "name": "poketeam_front.js",
+                    "type": "file"
+                },
+                {
+                    "name": "sounds",
+                    "type": "folder",
+                    "children": [
+                        {
+                            "name": "desktop.ini",
+                            "type": "file"
+                        }
+                    ]
+                },
+                {
+                    "name": "styles.css",
+                    "type": "file"
+                },
+                {
+                    "name": "transparent.js",
+                    "type": "file"
+                }
+            ]
+        },
+        {
             "name": "user_files",
             "type": "folder",
             "children": [
@@ -56895,90 +56979,6 @@
                 {
                     "name": "team.json",
                     "type": "file"
-                },
-                {
-                    "name": "web",
-                    "type": "folder",
-                    "children": [
-                        {
-                            "name": "assetts",
-                            "type": "folder",
-                            "children": [
-                                {
-                                    "name": "Early GameBoy.ttf",
-                                    "type": "file"
-                                },
-                                {
-                                    "name": "PokemonGB.ttf",
-                                    "type": "file"
-                                },
-                                {
-                                    "name": "styles.css",
-                                    "type": "file"
-                                },
-                                {
-                                    "name": "styles_png.css",
-                                    "type": "file"
-                                }
-                            ]
-                        },
-                        {
-                            "name": "Early_GameBoy.ttf",
-                            "type": "file"
-                        },
-                        {
-                            "name": "eggbounce.html",
-                            "type": "file"
-                        },
-                        {
-                            "name": "egg_hatching.html",
-                            "type": "file"
-                        },
-                        {
-                            "name": "images",
-                            "type": "folder",
-                            "children": [
-                                {
-                                    "name": "exp_tile.jpg",
-                                    "type": "file"
-                                }
-                            ]
-                        },
-                        {
-                            "name": "index.html",
-                            "type": "file"
-                        },
-                        {
-                            "name": "player.js",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokeball.png",
-                            "type": "file"
-                        },
-                        {
-                            "name": "poketeam_front.js",
-                            "type": "file"
-                        },
-                        {
-                            "name": "sounds",
-                            "type": "folder",
-                            "children": [
-                                {
-                                    "name": "desktop.ini",
-                                    "type": "file"
-                                }
-                            ]
-                        },
-                        {
-                            "name": "styles.css",
-                            "type": "file"
-                        },
-                        {
-                            "name": "transparent.js",
-                            "type": "file"
-                        }
-                    ]
                 }
             ]
         },

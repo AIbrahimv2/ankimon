@@ -1,4 +1,4 @@
-// user_files/web/ankimon_hud_portal.js
+// web/ankimon_hud_portal.js
 (function initAnkimonHUD() {
   try {
     if (window.__ankimonHud) return;
