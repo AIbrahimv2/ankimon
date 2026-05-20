@@ -54,6 +54,12 @@ logger = ShowInfoLogger()
 
 # Initialize the database (this also runs migrations on first startup)
 ankimon_db = get_db(logger)
+# Publish the DB on mw BEFORE Settings() — Settings.load_config / save_config gate
+# their DB access on hasattr(mw, 'ankimon_db'), so setting it later means the very
+# first load_config on every startup silently falls through to defaults and the
+# subsequent save_config skips the write. That clobbered the user's saved
+# settings on every save and made them appear to "revert" after restart.
+mw.ankimon_db = ankimon_db
 
 # Create the Settings object
 settings_obj = Settings()
@@ -74,7 +80,7 @@ mw.settings_ankimon = settings_window
 mw.logger = logger
 mw.translator = translator
 mw.settings_obj = settings_obj
-mw.ankimon_db = ankimon_db  # Database singleton for global access
+# mw.ankimon_db is already set above (before Settings() construction)
 
 main_pokemon, mainpokemon_empty = update_main_pokemon()
 
