@@ -54,7 +54,6 @@ jobs:
         run: |
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           echo "module_name=$(ls src)" >> $GITHUB_OUTPUT
-          echo "build_name=$(ls build/*.ankiaddon)" >> $GITHUB_OUTPUT
           
           # Extract version number without 'v' prefix
           tag_name="${{ github.ref_name }}"
