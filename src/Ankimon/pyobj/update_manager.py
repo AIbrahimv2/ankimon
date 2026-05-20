@@ -19,6 +19,7 @@ REPO_NAME = "ankimon"
 GITHUB_API = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}"
 DOWNLOAD_TIMEOUT = 30
 USER_AGENT = "Ankimon-Updater (https://github.com/h0tp-ftw/ankimon)"
+DEFAULT_SUBMODULE_SHA = "f3092b03fbe1e37d1788ef802dee98906d621e36"
 
 
 def _make_request(url: str, accept: str = "application/vnd.github.v3+json") -> urllib.request.Request:
@@ -191,10 +192,12 @@ def _extract_ref_from_prefix(src_prefix: str) -> str:
     root_dir = parts[0]
     # Remove repo name prefix if present
     if root_dir.startswith("ankimon-"):
-        return root_dir[len("ankimon-"):]
+        ref = root_dir[len("ankimon-"):]
+        return ref if ref else "main"
     elif "ankimon-" in root_dir:
         # e.g. h0tp-ftw-ankimon-a1b2c3d -> a1b2c3d
-        return root_dir.split("ankimon-")[-1]
+        ref = root_dir.split("ankimon-")[-1]
+        return ref if ref else "main"
     return "main"
 
 
@@ -224,11 +227,8 @@ def _download_and_extract_submodule(sha: str, dest_dir: Path, status_cb=None):
         raise Exception("Failed to download poke_engine submodule zip archive.")
 
     log("Extracting poke_engine submodule...")
+    temp_extract_dir = Path(tempfile.mkdtemp(prefix="ankimon_submodule_extract_"))
     try:
-        if dest_dir.exists():
-            shutil.rmtree(dest_dir)
-        dest_dir.mkdir(parents=True, exist_ok=True)
-
         with zipfile.ZipFile(zip_path) as zf:
             names = zf.namelist()
             if not names:
@@ -243,10 +243,22 @@ def _download_and_extract_submodule(sha: str, dest_dir: Path, status_cb=None):
                 if not rel_path or rel_path.endswith("/"):
                     continue
                 
-                dest_file = dest_dir / rel_path
+                dest_file = temp_extract_dir / rel_path
                 dest_file.parent.mkdir(parents=True, exist_ok=True)
                 with zf.open(name) as source, dest_file.open("wb") as target:
                     shutil.copyfileobj(source, target)
+        
+        # Atomic swap: Delete old dest_dir if it exists, rename temp_extract_dir to dest_dir
+        if dest_dir.exists():
+            shutil.rmtree(dest_dir)
+        shutil.move(str(temp_extract_dir), str(dest_dir))
+    except Exception as e:
+        if temp_extract_dir.exists():
+            try:
+                shutil.rmtree(temp_extract_dir)
+            except Exception:
+                pass
+        raise e
     finally:
         if os.path.exists(zip_path):
             try:
@@ -343,7 +355,7 @@ def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
             # --- Download and install matching poke_engine submodule version ---
             ref = _extract_ref_from_prefix(src_prefix)
             log(f"Resolving poke_engine submodule for ref '{ref}'...")
-            sub_sha = _fetch_submodule_sha(ref) or "f3092b03fbe1e37d1788ef802dee98906d621e36"
+            sub_sha = _fetch_submodule_sha(ref) or DEFAULT_SUBMODULE_SHA
             
             _download_and_extract_submodule(sub_sha, addon_dir / "poke_engine", status_cb)
 
