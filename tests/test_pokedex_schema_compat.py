@@ -95,6 +95,22 @@ def test_search_by_id_legacy_returns_not_found_for_missing():
         assert _pf.search_pokedex_by_id(99999) == "Pokémon not found"
 
 
+def test_search_by_id_with_none_arg_does_not_match_keyless_entries():
+    """A None query must not silently match entries that lack both
+    `species_id` and `num` — that would be a false positive."""
+    keyless = {"weirdmon": {"name": "Weirdmon"}}  # no species_id, no num
+    with _with_dex(keyless), patch("builtins.open"):
+        assert _pf.search_pokedex_by_id(None) == "Pokémon not found"
+
+
+def test_search_by_id_treats_explicit_null_species_id_as_missing():
+    """`"species_id": null` in JSON should fall back to `"num"`, matching
+    the behavior of search_pokedex."""
+    null_id_dex = {"bulbasaur": {"species_id": None, "num": 1, "name": "Bulbasaur"}}
+    with _with_dex(null_id_dex), patch("builtins.open"):
+        assert _pf.search_pokedex_by_id(1) == "bulbasaur"
+
+
 # --- search_pokedex_by_id: current schema -----------------------------------
 def test_search_by_id_current_schema():
     with _with_dex(CURRENT_DEX), patch("builtins.open"):

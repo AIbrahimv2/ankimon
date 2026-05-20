@@ -164,8 +164,13 @@ def search_pokedex_by_id(species_id):
         pokedex_data = json.load(json_file)
         for entry_name, attributes in pokedex_data.items():
             # Pre-Nov-2025 pokedex.json used "num" for the species id.
-            entry_species_id = attributes.get("species_id", attributes.get("num"))
-            if entry_species_id == species_id:
+            # Mirror the None-handling in search_pokedex so the two functions
+            # agree, and so a None argument can't false-match entries that
+            # happen to lack both keys.
+            entry_species_id = attributes.get("species_id")
+            if entry_species_id is None:
+                entry_species_id = attributes.get("num")
+            if entry_species_id is not None and entry_species_id == species_id:
                 return entry_name
     return "Pokémon not found"
 
