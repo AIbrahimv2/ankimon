@@ -78,7 +78,7 @@ database_complete, collected_pokemon_ids, backup_manager = run_startup_sequence(
 
 # --- Web exports for reviewer UI ---
 mw.addonManager.setWebExports(
-    __name__, r"user_files/.*\.(css|js|jpg|gif|html|ttf|png|mp3)"
+    __name__, r"(web|user_files)/.*\.(css|js|jpg|gif|html|ttf|png|mp3)"
 )
 
 def on_webview_will_set_content(web_content: WebContent, context) -> None:
@@ -86,7 +86,7 @@ def on_webview_will_set_content(web_content: WebContent, context) -> None:
         return
     ankimon_package = mw.addonManager.addonFromModule(__name__)
     web_content.js.append(
-        f"/_addons/{ankimon_package}/user_files/web/ankimon_hud_portal.js"
+        f"/_addons/{ankimon_package}/web/ankimon_hud_portal.js"
     )
 
 webview_will_set_content.append(on_webview_will_set_content)

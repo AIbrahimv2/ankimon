@@ -4785,6 +4785,172 @@
             "type": "file"
         },
         {
+            "name": "data_files",
+            "type": "folder",
+            "children": [
+                {
+                    "name": "evolution_triggers.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "items.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "item_flavor_text.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "item_names.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "learnsets.json",
+                    "type": "file"
+                },
+                {
+                    "name": "moves.json",
+                    "type": "file"
+                },
+                {
+                    "name": "move_flavor_text.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokedex.json",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_evolution.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_species.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_species_flavor_text.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_species_names.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_stats.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "machines.csv",
+                    "type": "file"
+                },
+                {
+                    "name": "move_names.json",
+                    "type": "file"
+                },
+                {
+                    "name": "move_names_es_latam.json",
+                    "type": "file"
+                },
+                {
+                    "name": "moves_latam.tsv",
+                    "type": "file"
+                },
+                {
+                    "name": "pokemon_tm_learnset.json",
+                    "type": "file"
+                }
+            ]
+        },
+        {
+            "name": "web",
+            "type": "folder",
+            "children": [
+                {
+                    "name": "assetts",
+                    "type": "folder",
+                    "children": [
+                        {
+                            "name": "Early GameBoy.ttf",
+                            "type": "file"
+                        },
+                        {
+                            "name": "PokemonGB.ttf",
+                            "type": "file"
+                        },
+                        {
+                            "name": "styles.css",
+                            "type": "file"
+                        },
+                        {
+                            "name": "styles_png.css",
+                            "type": "file"
+                        }
+                    ]
+                },
+                {
+                    "name": "Early_GameBoy.ttf",
+                    "type": "file"
+                },
+                {
+                    "name": "eggbounce.html",
+                    "type": "file"
+                },
+                {
+                    "name": "egg_hatching.html",
+                    "type": "file"
+                },
+                {
+                    "name": "images",
+                    "type": "folder",
+                    "children": [
+                        {
+                            "name": "exp_tile.jpg",
+                            "type": "file"
+                        }
+                    ]
+                },
+                {
+                    "name": "index.html",
+                    "type": "file"
+                },
+                {
+                    "name": "player.js",
+                    "type": "file"
+                },
+                {
+                    "name": "pokeball.png",
+                    "type": "file"
+                },
+                {
+                    "name": "poketeam_front.js",
+                    "type": "file"
+                },
+                {
+                    "name": "sounds",
+                    "type": "folder",
+                    "children": [
+                        {
+                            "name": "desktop.ini",
+                            "type": "file"
+                        }
+                    ]
+                },
+                {
+                    "name": "styles.css",
+                    "type": "file"
+                },
+                {
+                    "name": "transparent.js",
+                    "type": "file"
+                }
+            ]
+        },
+        {
             "name": "user_files",
             "type": "folder",
             "children": [
@@ -4795,68 +4961,6 @@
                 {
                     "name": "data.json",
                     "type": "file"
-                },
-                {
-                    "name": "data_files",
-                    "type": "folder",
-                    "children": [
-                        {
-                            "name": "evolution_triggers.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "items.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "item_flavor_text.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "item_names.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "learnsets.json",
-                            "type": "file"
-                        },
-                        {
-                            "name": "moves.json",
-                            "type": "file"
-                        },
-                        {
-                            "name": "move_flavor_text.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokedex.json",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon_evolution.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon_species.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon_species_flavor_text.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon_species_names.csv",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokemon_stats.csv",
-                            "type": "file"
-                        }
-                    ]
                 },
                 {
                     "name": "download_sprites.py",
@@ -56875,90 +56979,6 @@
                 {
                     "name": "team.json",
                     "type": "file"
-                },
-                {
-                    "name": "web",
-                    "type": "folder",
-                    "children": [
-                        {
-                            "name": "assetts",
-                            "type": "folder",
-                            "children": [
-                                {
-                                    "name": "Early GameBoy.ttf",
-                                    "type": "file"
-                                },
-                                {
-                                    "name": "PokemonGB.ttf",
-                                    "type": "file"
-                                },
-                                {
-                                    "name": "styles.css",
-                                    "type": "file"
-                                },
-                                {
-                                    "name": "styles_png.css",
-                                    "type": "file"
-                                }
-                            ]
-                        },
-                        {
-                            "name": "Early_GameBoy.ttf",
-                            "type": "file"
-                        },
-                        {
-                            "name": "eggbounce.html",
-                            "type": "file"
-                        },
-                        {
-                            "name": "egg_hatching.html",
-                            "type": "file"
-                        },
-                        {
-                            "name": "images",
-                            "type": "folder",
-                            "children": [
-                                {
-                                    "name": "exp_tile.jpg",
-                                    "type": "file"
-                                }
-                            ]
-                        },
-                        {
-                            "name": "index.html",
-                            "type": "file"
-                        },
-                        {
-                            "name": "player.js",
-                            "type": "file"
-                        },
-                        {
-                            "name": "pokeball.png",
-                            "type": "file"
-                        },
-                        {
-                            "name": "poketeam_front.js",
-                            "type": "file"
-                        },
-                        {
-                            "name": "sounds",
-                            "type": "folder",
-                            "children": [
-                                {
-                                    "name": "desktop.ini",
-                                    "type": "file"
-                                }
-                            ]
-                        },
-                        {
-                            "name": "styles.css",
-                            "type": "file"
-                        },
-                        {
-                            "name": "transparent.js",
-                            "type": "file"
-                        }
-                    ]
                 }
             ]
         },

@@ -6,7 +6,7 @@ addon_dir = Path(__file__).parents[0]
 
 #safe route for updates
 user_path = addon_dir / "user_files"
-user_path_data = addon_dir / "user_files" / "data_files"
+data_files_path = addon_dir / "data_files"
 user_path_sprites = addon_dir / "user_files" / "sprites"
 user_path_credentials = addon_dir / "user_files" / "data.json"
 manifest_path = addon_dir / "manifest.json"
@@ -32,19 +32,19 @@ background_dialog_image_path  = addon_dir / "background_dialog_image.png"
 pokeball_path = addon_dir / "addon_files" / "pokeball.png"
 pokedex_image_path = addon_dir / "addon_sprites" / "pokedex_template.jpg"
 evolve_image_path = addon_dir / "addon_sprites" / "evo_temp.jpg"
-learnset_path = addon_dir / "user_files" / "data_files" / "learnsets.json"
-pokedex_path = addon_dir / "user_files" / "data_files" / "pokedex.json"
-stats_csv = addon_dir / "user_files" / "data_files" / "pokemon_stats.csv"
-moves_file_path = addon_dir / "user_files" / "data_files" / "moves.json"
-move_names_file_path = addon_dir / "user_files" / "data_files" / "move_names.json"
+learnset_path = data_files_path / "learnsets.json"
+pokedex_path = data_files_path / "pokedex.json"
+stats_csv = data_files_path / "pokemon_stats.csv"
+moves_file_path = data_files_path / "moves.json"
+move_names_file_path = data_files_path / "move_names.json"
 items_path = addon_dir / "user_files" / "sprites" / "items"
 badges_path = addon_dir / "user_files" / "sprites" / "badges"
 itembag_path = addon_dir / "user_files" / "items.json"
 badgebag_path = addon_dir / "user_files" / "badges.json"
-pokenames_lang_path = addon_dir / "user_files" / "data_files" / "pokemon_species_names.csv"
-pokedesc_lang_path = addon_dir / "user_files" / "data_files" / "pokemon_species_flavor_text.csv"
-poke_evo_path = addon_dir / "user_files" / "data_files" / "pokemon_evolution.csv"
-poke_species_path = addon_dir / "user_files" / "data_files" / "pokemon_species.csv"
+pokenames_lang_path = data_files_path / "pokemon_species_names.csv"
+pokedesc_lang_path = data_files_path / "pokemon_species_flavor_text.csv"
+poke_evo_path = data_files_path / "pokemon_evolution.csv"
+poke_species_path = data_files_path / "pokemon_species.csv"
 eff_chart_html_path = addon_dir / "addon_files" / "eff_chart_html.html"
 effectiveness_chart_file_path = addon_dir / "addon_files" / "eff_chart.json"
 table_gen_id_html_path = addon_dir / "addon_files" / "table_gen_id.html"
@@ -53,11 +53,11 @@ sound_list_path = addon_dir / "addon_files" / "sound_list.json"
 badges_list_path = addon_dir / "addon_files" / "badges.json"
 items_list_path = addon_dir / "addon_files" / "items.json"
 rate_path = addon_dir / "user_files" / "rate_this.json"
-csv_file_items = addon_dir / "user_files" / "data_files" / "item_names.csv"
-csv_file_descriptions = addon_dir / "user_files" / "data_files" / "item_flavor_text.csv"
-csv_file_items_cost = addon_dir / "user_files" / "data_files" / "items.csv"
-pokemon_csv = addon_dir / "user_files" / "data_files" / "pokemon.csv"
-pokemon_tm_learnset_path = addon_dir / "user_files" / "data_files" / "pokemon_tm_learnset.json"
+csv_file_items = data_files_path / "item_names.csv"
+csv_file_descriptions = data_files_path / "item_flavor_text.csv"
+csv_file_items_cost = data_files_path / "items.csv"
+pokemon_csv = data_files_path / "pokemon.csv"
+pokemon_tm_learnset_path = data_files_path / "pokemon_tm_learnset.json"
 pokeapi_db_path = addon_dir / "user_files" / "ankimon.db"
 
 #effect sounds paths
@@ -567,7 +567,6 @@ def ensure_ankimon_infrastructure(base_path, base_user_path):
     """
     # Create user files directory
     os.makedirs(base_user_path, exist_ok=True)
-    os.makedirs(os.path.join(base_user_path, "data_files"), exist_ok=True)
     os.makedirs(os.path.join(base_user_path, "sprites"), exist_ok=True)
 
     # Automatically initialize git submodule for local developers if missing

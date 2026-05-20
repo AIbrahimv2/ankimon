@@ -7,9 +7,9 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-# Find the actual learnsets.json file in the user_files directory
+# Find the actual learnsets.json file in the addon data_files directory
 _src = Path(__file__).parent.parent / "src"
-actual_learnset_path = _src / "Ankimon" / "user_files" / "data_files" / "learnsets.json"
+actual_learnset_path = _src / "Ankimon" / "data_files" / "learnsets.json"
 
 # Load the data once for the test
 with open(actual_learnset_path, "r", encoding="utf-8") as file:
