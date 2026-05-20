@@ -183,6 +183,78 @@ def _collect_code_files(gitignore_patterns: list[str]) -> dict[str, Path]:
     return code_files
 
 
+def _extract_ref_from_prefix(src_prefix: str) -> str:
+    # src_prefix is e.g. "ankimon-main/src/Ankimon/" or "h0tp-ftw-ankimon-a1b2c3d/src/Ankimon/"
+    parts = src_prefix.strip("/").replace("\\", "/").split("/")
+    if not parts:
+        return "main"
+    root_dir = parts[0]
+    # Remove repo name prefix if present
+    if root_dir.startswith("ankimon-"):
+        return root_dir[len("ankimon-"):]
+    elif "ankimon-" in root_dir:
+        # e.g. h0tp-ftw-ankimon-a1b2c3d -> a1b2c3d
+        return root_dir.split("ankimon-")[-1]
+    return "main"
+
+
+def _fetch_submodule_sha(ref: str) -> Optional[str]:
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/src/Ankimon/poke_engine?ref={ref}"
+    req = _make_request(url)
+    try:
+        with urllib.request.urlopen(req, timeout=DOWNLOAD_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode())
+            if isinstance(data, dict) and data.get("type") == "submodule":
+                return data.get("sha")
+    except Exception:
+        pass
+    return None
+
+
+def _download_and_extract_submodule(sha: str, dest_dir: Path, status_cb=None):
+    def log(msg):
+        if status_cb:
+            status_cb(msg)
+
+    url = f"https://github.com/ArdentRoe/poke-engine/archive/{sha}.zip"
+    log("Downloading poke_engine submodule package...")
+    
+    zip_path = _download_zip_to_temp(url)
+    if not zip_path:
+        raise Exception("Failed to download poke_engine submodule zip archive.")
+
+    log("Extracting poke_engine submodule...")
+    try:
+        if dest_dir.exists():
+            shutil.rmtree(dest_dir)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        with zipfile.ZipFile(zip_path) as zf:
+            names = zf.namelist()
+            if not names:
+                raise Exception("poke_engine submodule archive is empty.")
+            # The root directory in zip is e.g. "poke-engine-{sha}"
+            root_prefix = names[0].split("/")[0] + "/"
+            
+            for name in names:
+                if not name.startswith(root_prefix) or name == root_prefix:
+                    continue
+                rel_path = name[len(root_prefix):]
+                if not rel_path or rel_path.endswith("/"):
+                    continue
+                
+                dest_file = dest_dir / rel_path
+                dest_file.parent.mkdir(parents=True, exist_ok=True)
+                with zf.open(name) as source, dest_file.open("wb") as target:
+                    shutil.copyfileobj(source, target)
+    finally:
+        if os.path.exists(zip_path):
+            try:
+                os.unlink(zip_path)
+            except Exception:
+                pass
+
+
 def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
     def log(msg):
         if status_cb:
@@ -267,6 +339,13 @@ def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
                 with zf.open(zip_name) as source, dest.open("wb") as target:
                     shutil.copyfileobj(source, target)
                 installed += 1
+
+            # --- Download and install matching poke_engine submodule version ---
+            ref = _extract_ref_from_prefix(src_prefix)
+            log(f"Resolving poke_engine submodule for ref '{ref}'...")
+            sub_sha = _fetch_submodule_sha(ref) or "f3092b03fbe1e37d1788ef802dee98906d621e36"
+            
+            _download_and_extract_submodule(sub_sha, addon_dir / "poke_engine", status_cb)
 
             cleanup()
             log(f"Update complete. Installed {installed} files.")
