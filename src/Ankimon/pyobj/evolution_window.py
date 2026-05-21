@@ -352,7 +352,9 @@ class EvoWindow(QWidget):
             hp = calculate_hp(hp_stat, level, ev, iv)
             pokemon["current_hp"] = int(hp)
             pokemon["growth_rate"] = get_growth_rate(evo_id)
-            pokemon["base_experience"] = get_base_experience(search_pokedex(evo_name.lower(), "actual_id"))
+            pokemon["base_experience"] = get_base_experience(
+                search_pokedex(evo_name.lower(), "actual_id")
+            )
             abilities = search_pokedex(evo_name.lower(), "abilities")
             numeric_abilities = None
             try:
