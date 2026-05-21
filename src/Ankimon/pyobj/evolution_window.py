@@ -38,7 +38,7 @@ from ..pyobj.translator import Translator
 from ..pyobj.test_window import TestWindow
 from ..pyobj.reviewer_obj import Reviewer_Manager
 from ..pyobj.error_handler import show_warning_with_traceback
-from ..business import resize_pixmap_img
+from ..business import calculate_cp_from_dict, resize_pixmap_img
 from ..resources import (
     addon_dir,
     frontdefault,
@@ -366,6 +366,12 @@ class EvoWindow(QWidget):
                 pokemon["ability"] = random.choice(abilities_list)
             else:
                 pokemon["ability"] = self.translator.translate("no_ability")
+
+            old_nickname = pokemon.get("nickname", "")
+            if not old_nickname or old_nickname.lower() == prevo_name.lower():
+                pokemon["nickname"] = evo_name.capitalize()
+
+            pokemon["cp"] = calculate_cp_from_dict(pokemon)
 
             # Save to database
             db.save_pokemon(pokemon)
