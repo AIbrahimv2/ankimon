@@ -288,21 +288,27 @@ class EvoWindow(QWidget):
             if widget:
                 widget.deleteLater()
 
-    def evolve_pokemon(self, individual_id, prevo_id, prevo_name, evo_id, evo_name, main_pokemon):
+    def evolve_pokemon(
+        self, individual_id, prevo_id, prevo_name, evo_id, evo_name, main_pokemon
+    ):
         """Evolve a pokemon and save to database."""
         db = mw.ankimon_db
-        
+
         try:
             pokemon = db.get_pokemon(individual_id)
             if not pokemon:
-                self.logger.log("error", f"Could not find pokemon with id {individual_id}")
+                self.logger.log(
+                    "error", f"Could not find pokemon with id {individual_id}"
+                )
                 return
 
             pokemon["name"] = evo_name.capitalize()
             pokemon["id"] = evo_id
             pokemon["type"] = search_pokedex(evo_name.lower(), "types")
             attacks = pokemon["attacks"]
-            new_attacks = get_random_moves_for_pokemon(evo_name.lower(), int(pokemon["level"]))
+            new_attacks = get_random_moves_for_pokemon(
+                evo_name.lower(), int(pokemon["level"])
+            )
             for new_attack in new_attacks:
                 if new_attack not in attacks:
                     if len(attacks) < 4:
@@ -314,17 +320,32 @@ class EvoWindow(QWidget):
                             try:
                                 index_to_replace = attacks.index(selected_attack)
                                 attacks[index_to_replace] = new_attack
-                                self.logger.log_and_showinfo("info", self.translator.translate("replaced_selected_attack", selected_attack=selected_attack, new_attack=new_attack))
+                                self.logger.log_and_showinfo(
+                                    "info",
+                                    self.translator.translate(
+                                        "replaced_selected_attack",
+                                        selected_attack=selected_attack,
+                                        new_attack=new_attack,
+                                    ),
+                                )
                             except ValueError:
-                                self.logger.log_and_showinfo("info", self.translator.translate("selected_attack_not_found", selected_attack=selected_attack))
+                                self.logger.log_and_showinfo(
+                                    "info",
+                                    self.translator.translate(
+                                        "selected_attack_not_found",
+                                        selected_attack=selected_attack,
+                                    ),
+                                )
                         else:
-                            self.logger.log_and_showinfo("info", self.translator.translate("no_attack_selected"))
+                            self.logger.log_and_showinfo(
+                                "info", self.translator.translate("no_attack_selected")
+                            )
             pokemon["attacks"] = attacks
             base_stats = search_pokedex(evo_name.lower(), "baseStats")
             pokemon["base_stats"] = base_stats
             pokemon["stats"] = base_stats
             pokemon["xp"] = 0
-            hp_stat = int(base_stats['hp'])
+            hp_stat = int(base_stats["hp"])
             iv = pokemon["iv"]
             ev = pokemon["ev"]
             level = pokemon["level"]
@@ -343,10 +364,15 @@ class EvoWindow(QWidget):
                 pokemon["ability"] = random.choice(abilities_list)
             else:
                 pokemon["ability"] = self.translator.translate("no_ability")
-            
+
             # Save to database
             db.save_pokemon(pokemon)
-            self.logger.log_and_showinfo("info", self.translator.translate("mainpokemon_has_evolved", prevo_name=prevo_name, evo_name=evo_name))
+            self.logger.log_and_showinfo(
+                "info",
+                self.translator.translate(
+                    "mainpokemon_has_evolved", prevo_name=prevo_name, evo_name=evo_name
+                ),
+            )
         except Exception as e:
             show_warning_with_traceback(
                 parent=mw, exception=e, message=f"Error occured in evolving pokemon"
@@ -385,18 +411,20 @@ class EvoWindow(QWidget):
     def cancel_evolution(self, individual_id, prevo_name):
         """Cancel evolution and save changes to database."""
         db = mw.ankimon_db
-        
+
         try:
             pokemon_to_update = db.get_pokemon(individual_id)
             if not pokemon_to_update:
-                self.logger.log(f"Could not find pokemon with individual_id {individual_id} to cancel evolution.")
+                self.logger.log(
+                    f"Could not find pokemon with individual_id {individual_id} to cancel evolution."
+                )
                 return
 
             # Add logic to learn new moves
             attacks = pokemon_to_update.get("attacks", [])
-            level = pokemon_to_update.get("level", 1) 
+            level = pokemon_to_update.get("level", 1)
             new_attacks = get_random_moves_for_pokemon(prevo_name.lower(), int(level))
-            
+
             for new_attack in new_attacks:
                 if new_attack not in attacks:
                     if len(attacks) < 4:
@@ -408,15 +436,30 @@ class EvoWindow(QWidget):
                             try:
                                 index_to_replace = attacks.index(selected_attack)
                                 attacks[index_to_replace] = new_attack
-                                self.logger.log_and_showinfo("info", self.translator.translate("replaced_attack", selected_attack=selected_attack, new_attack=new_attack))
+                                self.logger.log_and_showinfo(
+                                    "info",
+                                    self.translator.translate(
+                                        "replaced_attack",
+                                        selected_attack=selected_attack,
+                                        new_attack=new_attack,
+                                    ),
+                                )
                             except ValueError:
-                                self.logger.log_and_showinfo("info", self.translator.translate("selected_attack_not_found", selected_attack=selected_attack))
+                                self.logger.log_and_showinfo(
+                                    "info",
+                                    self.translator.translate(
+                                        "selected_attack_not_found",
+                                        selected_attack=selected_attack,
+                                    ),
+                                )
                         else:
-                            self.logger.log_and_showinfo("info", self.translator.translate("no_attack_selected"))
-            
+                            self.logger.log_and_showinfo(
+                                "info", self.translator.translate("no_attack_selected")
+                            )
+
             pokemon_to_update["attacks"] = attacks
             pokemon_to_update["everstone"] = True
-            
+
             # Save to database
             db.save_pokemon(pokemon_to_update)
 
@@ -424,7 +467,9 @@ class EvoWindow(QWidget):
             if self.main_pokemon and self.main_pokemon.individual_id == individual_id:
                 self.main_pokemon, _ = update_main_pokemon(self.main_pokemon)
 
-            self.logger.log_and_showinfo("info", f"Canceled evolution for {prevo_name}.")
+            self.logger.log_and_showinfo(
+                "info", f"Canceled evolution for {prevo_name}."
+            )
             self.close()
 
         except Exception as e:
