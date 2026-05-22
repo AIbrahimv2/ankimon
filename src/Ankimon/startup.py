@@ -114,14 +114,14 @@ def _init_first_enemy():
     (
         name, id, level, ability, type, base_stats, enemy_attacks,
         base_experience, growth_rate, ev, iv, gender,
-        battle_status, battle_stats, tier, ev_yield, shiny,
+        battle_status, battle_stats, tier, ev_yield, shiny, nature,
     ) = generate_random_pokemon(main_pokemon.level, ankimon_tracker_obj)
 
     enemy_pokemon.update_stats(
         name=name, id=id, level=level, ability=ability, type=type,
         base_stats=base_stats, attacks=enemy_attacks,
         base_experience=base_experience, growth_rate=growth_rate,
-        ev=ev, iv=iv, gender=gender, battle_status=battle_status,
+        ev=ev, iv=iv, gender=gender, nature=nature, battle_status=battle_status,
         battle_stats=battle_stats, tier=tier, ev_yield=ev_yield, shiny=shiny,
     )
     max_hp = enemy_pokemon.calculate_max_hp()
