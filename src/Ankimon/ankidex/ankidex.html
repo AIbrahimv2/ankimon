@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ankidex</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="ankidex.css">
+</head>
+<body class="dark-mode">
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="pokedex-logo">
+                    <img src="../user_files/sprites/items/poke-ball.png" class="app-logo">
+                    <h1>ANKIDEX</h1>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-group">
+                    <label>Mode</label>
+                    <button class="nav-item active" data-mode="collection">
+                         Collection
+                    </button>
+                    <button class="nav-item" data-mode="discovery">
+                         Discovery Map
+                    </button>
+                </div>
+
+                <div class="nav-group">
+                    <label>Scope</label>
+                    <button class="nav-item active" data-scope="national">
+                        <img src="../user_files/sprites/items/poke-ball.png" class="nav-item-icon"> National Dex
+                    </button>
+                    <div id="gen-filters" class="sub-nav">
+                        <!-- Gen items will be injected here -->
+                    </div>
+                </div>
+
+                <div id="collection-filters">
+                    <div class="nav-group">
+                        <label>Collection</label>
+                        <button class="nav-item active" data-filter="all">All Pokémon</button>
+                        <button class="nav-item" data-filter="caught">Caught</button>
+                        <button class="nav-item" data-filter="seen">Seen</button>
+                        <button class="nav-item" data-filter="uncaught">Unseen</button>
+                        <button class="nav-item" data-filter="shiny">Shiny Owned</button>
+                    </div>
+
+                    <div class="nav-group">
+                        <label>Types</label>
+                        <div id="type-filters" class="type-grid">
+                            <!-- Type icons will be injected here -->
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="progress-card">
+                    <div class="progress-info">
+                        <span>Registry Progress</span>
+                        <span id="global-progress-percent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="global-progress-fill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-stats">
+                        <span id="global-progress-count">0 / 0 Caught</span>
+                        <span id="global-seen-count" style="font-size: 0.7rem; color: var(--text-muted); opacity: 0.8;">(0 Seen)</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="search-container">
+                    <span class="search-icon"></span>
+                    <div class="search-input-wrapper">
+                        <input type="text" id="pokemon-search" placeholder="Search by name or #ID... (Press /)">
+                        <button id="clear-search" class="clear-btn hidden" title="Clear search">×</button>
+                    </div>
+                </div>
+                
+                <div class="top-actions">
+                    <div class="sort-control">
+                        <label>Sort:</label>
+                        <select id="sort-mode">
+                            <option value="id-asc">Number (Asc)</option>
+                            <option value="id-desc">Number (Desc)</option>
+                            <option value="name-asc">Name (A-Z)</option>
+                            <option value="name-desc">Name (Z-A)</option>
+                            <option value="stat-desc">Base Stat Total</option>
+                        </select>
+                    </div>
+                    
+                    <button id="clear-filters" class="btn btn-secondary" title="Clear all filters">
+                        Clear Filters
+                    </button>
+                    
+                    <div class="view-toggle">
+                        <button class="view-btn active" data-view="grid" title="Grid View">田</button>
+                        <button class="view-btn" data-view="list" title="List View">≡</button>
+                    </div>
+
+                    <button id="sprite-toggle" class="btn btn-secondary" title="Toggle Static/Animated Sprites">
+                        <span id="sprite-toggle-text">Static</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="content-scroll">
+                <div id="pokemon-grid" class="pokemon-grid">
+                    <!-- Grid items will be injected here -->
+                </div>
+
+            </div>
+
+            <!-- Discovery Map View -->
+            <div id="discovery-view" class="discovery-view hidden">
+                <div class="map-progress-overlay">
+                    <div class="map-progress-header">
+                        <span>Map Completion</span>
+                        <span id="map-progress-percent" style="color: var(--accent-blue);">0%</span>
+                    </div>
+                    <div class="map-progress-bar">
+                        <div id="map-progress-fill" class="map-progress-fill"></div>
+                    </div>
+                    
+                    <div class="map-progress-header" style="margin-top: 12px;">
+                        <span>Chains Completed</span>
+                        <span id="map-chains-percent" style="color: var(--accent-gold);">0%</span>
+                    </div>
+                    <div class="map-progress-bar" style="height: 4px; background: rgba(255,255,255,0.03);">
+                        <div id="map-chains-fill" class="map-progress-fill" style="background: linear-gradient(90deg, var(--accent-gold), #ffd700); box-shadow: 0 0 8px rgba(210, 153, 34, 0.3);"></div>
+                    </div>
+
+                    <div class="map-progress-stats" style="margin-top: 12px;">
+                        <span id="map-caught-count" style="color: var(--accent-blue); opacity: 0.9;">0 / 0 Caught</span>
+                        <span id="map-chains-count" style="color: var(--accent-gold); opacity: 0.9;">0 / 17 Chains</span>
+                    </div>
+                </div>
+
+                <!-- Two-panel layout -->
+                <div class="map-body">
+                    <!-- Canvas Area -->
+                    <div class="map-canvas-area" id="map-canvas-area">
+                        <div id="discovery-map-content" class="discovery-map-content">
+                            <svg id="discovery-svg" class="discovery-svg"></svg>
+                            <div id="discovery-nodes" class="discovery-nodes"></div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+                
+                <!-- Empty State -->
+                <div id="empty-state" class="empty-state hidden">
+                    <div class="empty-icon"></div>
+                    <h2>No Pokémon found</h2>
+                    <p>Try adjusting your search or filters.</p>
+                    <button onclick="document.getElementById('clear-filters').click()" class="btn btn-primary">Clear all filters</button>
+                </div>
+            </main>
+
+            <!-- Detail Panel -->
+            <section class="detail-panel" id="detail-panel">
+            
+            <button id="close-detail" class="close-btn detail-close-global" title="Close Panel">✕</button>
+
+            <!-- Panel Mode Switcher (Discovery Map Only) -->
+            <div id="panel-mode-switcher" class="panel-mode-switcher hidden">
+                <button class="panel-mode-btn" data-panel-mode="details">Details</button>
+                <button class="panel-mode-btn active" data-panel-mode="briefing">Chain Briefing</button>
+            </div>
+
+            <!-- Details Placeholder -->
+            <div id="detail-placeholder" class="detail-placeholder">
+                <div class="placeholder-icon"></div>
+                <h3>Registry Database</h3>
+                <p>Select a Pokémon from the field log to access its detailed research dossier.</p>
+            </div>
+
+            <!-- Briefing Placeholder -->
+            <div id="briefing-placeholder" class="detail-placeholder hidden">
+                <div class="placeholder-icon" style="background-image: none; display: flex; align-items: center; justify-content: center; font-size: 2rem;">🎯</div>
+                <h3>Target Inspector</h3>
+                <p>Select a Pokémon in the Discovery Map to inspect its chain and requirements.</p>
+            </div>
+            
+            <!-- Detail View -->
+            <div id="detail-content" class="detail-content hidden">
+                <div class="detail-header-fixed">
+                    <!-- Close button moved -->
+                </div>
+
+                <div class="detail-body">
+                    <!-- Hero Section (Now Scrollable) -->
+                    <div class="detail-hero-scroll">
+                        <div id="det-glow" class="detail-glow"></div>
+                        <span id="det-id" class="det-id-badge">#0000</span>
+                        <h2 id="det-name" class="det-name-main">Pokémon Name</h2>
+                        
+                        <div class="det-status-row">
+                            <div id="det-types" class="detail-types"></div>
+                        </div>
+
+                        <div class="detail-sprite">
+                            <img id="det-sprite" src="" alt="">
+                        </div>
+                    </div>
+
+                    <!-- Description Section -->
+                    <div class="det-section">
+                        <div class="det-section-label">Ankidex Entry</div>
+                        <div id="det-description-container" class="lore-section">
+                            <p id="det-description" class="dex-entry-text"></p>
+                        </div>
+                    </div>
+
+                    <!-- Stats Section -->
+                    <div class="det-section">
+                        <div class="det-section-label">Base Stats</div>
+                        <div id="det-stats" class="stats-grid"></div>
+                        <div class="stat-total">
+                            <span>Total</span>
+                            <span id="det-stat-total">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Abilities Section (Moved Here) -->
+                    <div id="det-abilities-container" class="det-section">
+                        <div class="det-section-label">Abilities</div>
+                        <div id="det-abilities" class="abilities-list"></div>
+                    </div>
+
+                        <!-- Evolution Section -->
+                        <div id="det-evo-section" class="det-section">
+                            <div class="det-section-label">Evolution Chain</div>
+                            <div id="det-evo" class="evo-chain"></div>
+                            <div id="evo-note" class="evo-disclaimer"></div>
+                        </div>
+
+                        <!-- Forms Section -->
+                        <div id="det-forms-section" class="det-section">
+                            <div class="det-section-label">Available Forms</div>
+                            <div id="det-forms" class="detail-forms-list"></div>
+                        </div>
+
+                        <!-- Prerequisites Section -->
+                        <div id="det-prereqs-section" class="det-section hidden">
+                            <div class="det-section-label">Capture Requirements</div>
+                            <div id="det-prereqs" class="prereqs-list"></div>
+                        </div>
+
+                        <!-- Metadata Section -->
+                        <div class="det-section">
+                            <div class="det-section-label">Technical Data</div>
+                            <div class="meta-grid">
+                                <div class="meta-item">
+                                    <span class="meta-label">Height</span>
+                                    <span id="det-height" class="meta-value">0.0m</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Weight</span>
+                                    <span id="det-weight" class="meta-value">0.0kg</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Generation</span>
+                                    <span id="det-gen" class="meta-value">I</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Category</span>
+                                    <span id="det-category" class="meta-value">Seed</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            <!-- Chain Briefing View -->
+            <div id="briefing-content" class="briefing-content hidden">
+                <!-- Briefing Header -->
+                <div class="briefing-header">
+                    <img id="briefing-sprite" src="" alt="">
+                    <div class="briefing-identity">
+                        <span id="briefing-id">#0000</span>
+                        <h2 id="briefing-name">Pokémon</h2>
+                    </div>
+                    <div id="briefing-state-badge" class="state-badge">Locked</div>
+                </div>
+
+                <div class="briefing-scroll-area">
+                    <!-- Chain Status -->
+                    <div class="briefing-section">
+                        <p id="briefing-status-summary" class="briefing-summary">Status summary goes here.</p>
+                    </div>
+
+                    <!-- Next Step Callout -->
+                    <div class="briefing-section">
+                        <div class="briefing-callout">
+                            <div class="callout-header">Next Step</div>
+                            <div id="briefing-next-step" class="callout-body">Instruction goes here.</div>
+                        </div>
+                    </div>
+
+                    <!-- Encounter Hints -->
+                    <div id="briefing-hints-section" class="briefing-section hidden">
+                        <div class="briefing-hint-card">
+                            <div class="hint-header">Research Tip</div>
+                            <div id="briefing-hint-text" class="hint-body">Travel info goes here.</div>
+                        </div>
+                    </div>
+
+                    <!-- Requirements List -->
+                    <div id="briefing-reqs-section" class="briefing-section">
+                        <div class="briefing-section-label">
+                            <span>Capture Requirements</span>
+                            <span id="briefing-reqs-count" class="reqs-count">0 / 0</span>
+                        </div>
+                        <div id="briefing-reqs-list" class="briefing-reqs-list">
+                            <!-- JS injected rows -->
+                        </div>
+                    </div>
+
+                    <!-- Chain Context -->
+                    <div id="briefing-context-section" class="briefing-section">
+                        <div class="briefing-section-label">Chain Context</div>
+                        <div id="briefing-context-list" class="briefing-context-list">
+                            <!-- JS injected rows -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </section>
+    </div>
+
+    <!-- Templates -->
+    <template id="card-template">
+        <div class="pokemon-card">
+            <div class="card-badges">
+                <span class="shiny-badge hidden">✨</span>
+                <span class="favorite-badge hidden">⭐</span>
+            </div>
+            <div class="card-id">#000</div>
+            <div class="card-sprite">
+                <img src="" alt="" loading="lazy">
+            </div>
+            <div class="card-info">
+                <span class="card-name">???</span>
+                <div class="card-types"></div>
+            </div>
+            <div class="caught-indicator"></div>
+        </div>
+    </template>
+
+    <template id="drawer-template">
+        <div class="expansion-drawer">
+            <div class="drawer-content">
+                <div class="drawer-forms">
+                    <h4>Available Forms</h4>
+                    <div class="drawer-forms-list"></div>
+                </div>
+                <div class="drawer-quick-stats">
+                    <!-- Stats will be injected here -->
+                </div>
+                <button class="close-drawer">×</button>
+            </div>
+        </div>
+    </template>
+
+    <script src="ankidex.js"></script>
+</body>
+</html>
