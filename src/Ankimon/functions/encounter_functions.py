@@ -181,10 +181,11 @@ def modify_percentages(total_reviews, daily_average, trainer_level):
                 if main_pokemon.level < level_thresholds.get(tier, float("inf")):
                     percentages[tier] = 0
 
-        # Normalize percentages to ensure they sum to 100
-        total = sum(percentages.values())
-        for tier in percentages:
-            percentages[tier] = (percentages[tier] / total) * 100 if total > 0 else 0 
+    # Force starter probability to 0 and normalize
+    percentages["Starter"] = 0
+    total = sum(percentages.values())
+    for tier in percentages:
+        percentages[tier] = (percentages[tier] / total) * 100 if total > 0 else 0
 
     #MODIFIED FOR TESTING: Fixed percentages, review restrictions.
     """percentages = {
@@ -234,7 +235,8 @@ def get_random_pokemon_in_tier(tier):
     elif tier == "Gmax":
         id_data = encounter_data.GMAX
     elif tier == "Starter":
-        id_data = encounter_data.STARTERS
+        #id_data = encounter_data.STARTERS   #Uncomment to acticate starters
+        id_data = []
     else:
         return 1
 
@@ -473,7 +475,8 @@ def get_all_pokemon_in_tier(tier: str) -> list[int]:
     if tier == "Mythical": return encounter_data.MYTHICAL
     if tier == "Mega": return encounter_data.MEGA
     if tier == "Gmax": return encounter_data.GMAX
-    if tier == "Starter": return encounter_data.STARTERS
+    #if tier == "Starter": return encounter_data.STARTERS #Uncomment to acticate starters
+    if tier == "Starter": return []
     return []
 
 
