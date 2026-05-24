@@ -1,6 +1,5 @@
 import json
 import os
-import shutil
 from aqt import mw
 from aqt.utils import showInfo
 from PyQt6.QtWidgets import (
@@ -17,13 +16,20 @@ from ..resources import user_path
 
 DEFAULT_CONFIG = {
     "battle.automatic_battle": 0,
+    "battle.automatic_catch_special": True,
     "battle.cards_per_round": 2,
     "battle.daily_average": 100,
     "battle.card_max_time": 60,
     "battle.review_based_damage": True,
+    "evolution.friendship_time_enabled": True,
+    "evolution.day_start_hour": 6,
+    "evolution.night_start_hour": 18,
+    "evolution.timezone_auto": True,
+    "evolution.timezone_offset": 0.0,
     "controls.pokemon_buttons": True,
     "controls.defeat_key": "5",
     "controls.catch_key": "6",
+    "controls.team_cycle_key": "9",
     "controls.key_for_opening_closing_ankimon": "Ctrl+Shift+P",
     "controls.allow_to_choose_moves": False,
     "gui.animate_time": True,
@@ -68,6 +74,8 @@ DEFAULT_CONFIG = {
     "trainer.sprite": "ash",
     "trainer.id": 0,
     "trainer.cash": 0,
+    "trainer.cash_reward_amount": 100,
+    "trainer.cash_reward_interval": 10,
     "trainer.level": 0,
     "trainer.xp": 0,
 }
@@ -120,17 +128,6 @@ class Settings:
                         try:
                             mw.ankimon_db.save_all_config(config)
                             print("Ankimon: Migrated config from config.obf to database")
-                            
-                            # Archive config.obf after successful migration
-                            try:
-                                backup_dir = user_path / "json"
-                                backup_dir.mkdir(exist_ok=True)
-                                dest = backup_dir / "config.obf"
-                                shutil.move(str(obfuscated_config_path), str(dest))
-                                print(f"Ankimon: Archived config.obf to {backup_dir}")
-                            except Exception as e:
-                                print(f"Ankimon: Failed to archive config.obf: {e}")
-                                
                         except Exception as e:
                             print(f"Ankimon: Failed to migrate config to database: {e}")
                             
@@ -141,14 +138,20 @@ class Settings:
         # Ensure all default settings are present
         modified = False
         for key in DEFAULT_CONFIG:
-            if key not in config:
+            if key not in config or config[key] is None:
                 modified = True
                 config[key] = DEFAULT_CONFIG[key]
 
         if modified:
             self.save_config(config)
 
-        return config
+        if not hasattr(self, 'config'):
+            self.config = {}
+        if self.config is not config:
+            self.config.clear()
+            self.config.update(config)
+        self.compute_gui_config()
+        return self.config
     
     def _apply_type_coercion(self, config):
         """Apply type coercion to config values that need to be integers."""
@@ -168,35 +171,42 @@ class Settings:
 
     def save_config(self, config):
         from ..pyobj.ankimon_sync import AnkimonDataSync  # To reuse obfuscation logic
-        from ..pyobj.ankimon_sync import AnkimonDataSync  # To reuse obfuscation logic
 
-        # 1. Always save to database if available
+        obfuscated_config_path = user_path / "config.obf"
+        sync_handler = AnkimonDataSync()  # Re-use the obfuscation logic
+
+        # Always save to the database if available
         if hasattr(mw, 'ankimon_db') and mw.ankimon_db is not None:
             try:
                 mw.ankimon_db.save_all_config(config)
-                print("Ankimon: Saved config to database")
             except Exception as e:
                 print(f"Ankimon: Failed to save config to database: {e}")
 
-        # 2. Also save to obfuscated file if it exists (legacy support)
-        # Note: Once moved to the archive folder, this will no longer be found here.
-        obfuscated_config_path = user_path / "config.obf"
-        if obfuscated_config_path.is_file():
-            try:
-                sync_handler = AnkimonDataSync()  # Re-use the obfuscation logic
-                obfuscated_str = sync_handler._obfuscate_data(config)
-                warning_message = "WARNING: This file contains important user data. Do not delete or modify this file. Deleting or modifying this file can lead to data loss in the Ankimon addon.\n---"
-                file_content = warning_message + obfuscated_str
-                with open(obfuscated_config_path, "w", encoding="utf-8") as f:
-                    f.write(file_content)
-            except Exception as e:
-                print(f"Ankimon: Could not save obfuscated config: {e}")
+        # # Keep config.obf updated if it exists for backwards compatibility
+        # if obfuscated_config_path.is_file():
+        #     try:
+        #         obfuscated_str = sync_handler._obfuscate_data(config)
+        #         warning_message = "WARNING: This file contains important user data. Do not delete or modify this file. Deleting or modifying this file can lead to data loss in the Ankimon addon.\n---"
+        #         file_content = warning_message + obfuscated_str
+        #         with open(obfuscated_config_path, "w", encoding="utf-8") as f:
+        #             f.write(file_content)
+        #     except Exception as e:
+        #         print(f"Ankimon: Could not save obfuscated config: {e}")
 
-        self.config = config
+        if not hasattr(self, 'config'):
+            self.config = {}
+        if self.config is not config:
+            self.config.clear()
+            self.config.update(config)
         self.compute_gui_config()
 
     def get(self, key, default=None):
-        return self.config.get(key, default)
+        value = self.config.get(key)
+        if value is not None:
+            return value
+        if default is not None:
+            return default
+        return DEFAULT_CONFIG.get(key)
 
     def set(self, key, value):
         self.config[key] = value

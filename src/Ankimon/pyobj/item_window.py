@@ -43,7 +43,7 @@ from ..functions.pokedex_functions import (
 from ..resources import icon_path, items_path, csv_file_items_cost, poke_evo_path
 from ..functions.badges_functions import check_for_badge, receive_badge
 from ..functions.pokemon_functions import save_fossil_pokemon
-from ..utils import play_effect_sound
+from ..utils import play_effect_sound, is_alive
 from .error_handler import show_warning_with_traceback
 
 # At the moment when I write this line, "UserRole" is defined as UserRole 1000 in the Ankimon __init__.py file. IDK what it's about.
@@ -188,6 +188,8 @@ class ItemWindow(QWidget):
         self.resize(initial_width, initial_height)
 
     def renewWidgets(self):
+        if not is_alive(self.contentLayout):
+            return
         # Clear the existing widgets from the content layout
         for i in reversed(range(self.contentLayout.count())):
             widget = self.contentLayout.itemAt(i).widget()
@@ -293,6 +295,11 @@ class ItemWindow(QWidget):
             if target_pokemon_data:
                 pokemon_obj = PokemonObject.from_dict(target_pokemon_data)
                 pokemon_obj.give_held_item(item_name)
+                
+                # Sync the main_pokemon singleton if it's the target
+                if self.main_pokemon and self.main_pokemon.individual_id == individual_id:
+                    self.main_pokemon.held_item = item_name
+                    
                 self.logger.log_and_showinfo("info", f"{item_name} was given to {target_pokemon_data.get('name')}.")
                 self.renewWidgets()
             else:
@@ -633,6 +640,8 @@ class ItemWindow(QWidget):
         return normalized
 
     def clear_layout(self, layout):
+        if not is_alive(layout):
+            return
         while layout.count():
             item = layout.takeAt(0)
             widget = item.widget()

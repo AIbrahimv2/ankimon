@@ -7,7 +7,7 @@ from datetime import datetime
 from aqt.utils import showWarning
 from aqt import mw
 
-from .pokedex_functions import get_base_experience, get_growth_rate, search_pokedex, search_pokedex_by_id
+from .pokedex_functions import get_base_experience, get_growth_rate, search_pokedex, search_pokedex_by_id, safe_int
 from .battle_functions import calculate_hp
 from ..resources import (
     pokedex_path,
@@ -26,8 +26,8 @@ def pick_random_gender(pokemon_name):
     Returns:
         str: "M" for male, "F" for female, or "Genderless" for genderless Pokémon.
     """
-    with open(pokedex_path, 'r', encoding="utf-8") as file:
-        pokedex_data = json.load(file)
+    from .pokedex_functions import _load_pokedex_cache
+    pokedex_data = _load_pokedex_cache()
     pokemon_name = pokemon_name.lower()  # Normalize Pokémon name to lowercase
     pokemon = pokedex_data.get(pokemon_name)
     if not pokemon:
@@ -50,6 +50,25 @@ def pick_random_gender(pokemon_name):
     return gender
     # Randomly choose between "M" and "F"
 
+_next_lvl_cache = None
+
+def _load_next_lvl_cache():
+    global _next_lvl_cache
+    if _next_lvl_cache is None:
+        try:
+            _next_lvl_cache = {}
+            with open(next_lvl_file_path, 'r', encoding='utf-8') as file:
+                csv_reader = csv.DictReader(file, delimiter=';')
+                fieldnames = [field.strip() for field in csv_reader.fieldnames]
+                first_col = fieldnames[0]
+                for row in csv_reader:
+                    level_str = row[first_col]
+                    _next_lvl_cache[level_str] = row
+        except Exception as e:
+            print(f"Error loading next_lvl_cache: {e}")
+            _next_lvl_cache = {}
+    return _next_lvl_cache
+
 def calculate_max_hp_wildpokemon(enemy_pokemon):
     wild_pk_max_hp = enemy_pokemon.calculate_max_hp()
     return wild_pk_max_hp
@@ -70,23 +89,11 @@ def find_experience_for_level(group_growth_rate, level, remove_levelcap=True):
     # Specify the growth rate and level you're interested in
     growth_rate = f'{group_growth_rate}'
     if level < 100:
-        # Open the CSV file
-        csv_file_path = str(next_lvl_file_path)  # Replace 'your_file_path.csv' with the actual path to your CSV file
-        # Default if no row matches or the growth_rate column is unknown —
-        # prevents UnboundLocalError from breaking the level-up path.
         experience = 0
-        with open(csv_file_path, 'r', encoding='utf-8') as file:
-            # Create a CSV reader
-            csv_reader = csv.DictReader(file, delimiter=';')
-
-            # Get the fieldnames from the CSV file
-            fieldnames = [field.strip() for field in csv_reader.fieldnames]
-
-            # Iterate through rows and find the experience for the specified growth rate and level
-            for row in csv_reader:
-                if row[fieldnames[0]] == str(level):  # Use the first fieldname to access the 'Level' column
-                    experience = row.get(growth_rate, 0)
-                    break
+        cache = _load_next_lvl_cache()
+        row = cache.get(str(level))
+        if row:
+            experience = safe_int(row.get(growth_rate, 0))
 
         return experience
     elif level > 99:
@@ -229,7 +236,7 @@ def save_fossil_pokemon(pokemon_id):
         "iv": iv,
         "attacks": attacks,
         "base_experience": base_experience,
-        "current_hp": calculate_hp(int(stats["hp"]), level, ev, iv),
+        "current_hp": calculate_hp(safe_int(stats.get("hp", 0)), level, ev, iv),
         "growth_rate": growth_rate,
         "friendship": 0,
         "pokemon_defeated": 0,

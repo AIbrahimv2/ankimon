@@ -68,6 +68,7 @@ class AnkimonTracker:
             0  # count for general card count for battle
         )
         self.caught = 0  # check if pokemon is caught
+        self.faint_processed = False # guard against duplicate faint processing
 
         # Start the session timer when the object is initialized
         self.start_session_timer()

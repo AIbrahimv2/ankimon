@@ -476,6 +476,12 @@ def get_effort_values(actual_id: int) -> dict[str, int]:
 
 def get_growth_rate(species_id: int) -> str:
     """Get the growth rate for a pokemon species"""
+    # Coerce string callers to int so they match the integer CSV ids; a
+    # non-numeric argument keeps the original "not found" behaviour.
+    try:
+        species_id = int(species_id)
+    except (TypeError, ValueError):
+        raise ValueError(species_id)
     poke_species_data = _load_poke_species_cache()  # Use cache instead of file I/O
     if species_id in poke_species_data:
         growth_rate_id = safe_int(poke_species_data[species_id].get("growth_rate_id", 2))
@@ -618,59 +624,87 @@ def check_evolution_by_item(pokemon_id, item_id, file_path=poke_evo_path):
 
 
 def check_evolution_for_pokemon(
-    individual_id, pokemon_id, level, evo_window, everstone=False
+    individual_id, pokemon_id, level, evo_window, everstone=False, evolution_rejected=False
 ):
     """
     Check if a Pokémon evolves using a specific item or level condition.
+    Prioritizes pokedex.json for regional forms, falling back to species CSVs.
 
     Args:
-        individual_id (int): The ID of the individual Pokémon.
-        id (int): A unique identifier for the Pokémon instance.
-        pokemon_id (int): The ID of the Pokémon species.
+        individual_id (str): The ID of the individual Pokémon.
+        pokemon_id (int): The ID of the Pokémon species/form.
         level (int): The current level of the Pokémon.
         evo_window (object): The evolution window object for displaying evolution information.
         everstone (bool): Whether the Pokémon is holding an Everstone. Defaults to False.
+        evolution_rejected (bool): Whether the evolution was previously rejected. Defaults to False.
 
     Returns:
         int | None: The evolution ID if an evolution is found, or None otherwise.
     """
-    if not everstone:
-        try:
-            # Get the evolution data for the given Pokémon ID
-            possible_evos = pokemon_evolves_from_id(
-                pokemon_id
-            )  # Ensure this returns a list of possible evolutions
-            if not possible_evos:
-                # showWarning("No possible evolutions found")
-                return None
+    if evolution_rejected or everstone:
+        return None
 
-            # Check each possible evolution
+    try:
+        from .friendship_evolution import get_time_of_day
+        current_time = get_time_of_day()
+
+        # 1. PRIORITY CHECK: Form-aware evolution from pokedex.json
+        # This handles Alolan/Galarian etc. forms that aren't in the base species CSV
+        pokedex_data = _load_pokedex_cache()
+        internal_name = search_pokedex_by_id(pokemon_id)
+        
+        if internal_name in pokedex_data:
+            details = pokedex_data[internal_name]
+            evo_list = details.get("evos")
+            
+            if evo_list:
+                for target_evo_name in evo_list:
+                    normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "")
+                    target_data = pokedex_data.get(normalized_target) or pokedex_data.get(target_evo_name.lower())
+                    
+                    if target_data:
+                        # In Smogon-style pokedex.json, evoLevel is stored on the evolved species
+                        min_level = safe_int(target_data.get("evoLevel"))
+                        
+                        if min_level > 0 and level >= min_level:
+                            condition = (target_data.get("evoCondition") or "").lower()
+                            time_of_day = None
+                            if "day" in condition:
+                                time_of_day = "day"
+                            elif "night" in condition:
+                                time_of_day = "night"
+
+                            if time_of_day is None or time_of_day == current_time:
+                                evo_id = safe_int(target_data.get("actual_id") or target_data.get("species_id"))
+                                if evo_id > 0:
+                                    evo_window.ask_pokemon_evo(individual_id, pokemon_id, evo_id)
+                                    return evo_id
+
+        # 2. LEGACY FALLBACK: Species CSV lookup
+        # This covers base forms and legacy data mapping
+        possible_evos = pokemon_evolves_from_id(pokemon_id)
+        if possible_evos:
             for evos in possible_evos:
                 evo_data = get_pokemon_evolution_data(safe_int(evos))
-                # Only handle level-up evolutions (trigger_id == 1)
                 if evo_data and safe_int(evo_data.get("evolution_trigger_id", 0)) == 1:
-                    min_level_str = evo_data.get("minimum_level", "")
-                    # Only proceed if min_level_str represents a valid integer
-                    if not min_level_str or not str(min_level_str).isdigit():
-                        continue  # Skip this evolution if minimum_level is missing or not a number
-                    min_level = safe_int(min_level_str)
-                    if min_level <= level:
-                        evo_window.ask_pokemon_evo(
-                            individual_id, pokemon_id, safe_int(evos)
-                        )
-                        return safe_int(evos)  # Return the evolution ID
+                    min_level = safe_int(evo_data.get("minimum_level"))
+                    if min_level > 0 and level >= min_level:
+                        time_raw = (evo_data.get("time_of_day") or "").strip().lower()
+                        time_of_day = time_raw if time_raw in ("day", "night") else None
 
-            # If no evolutions fit the criteria
-            # showWarning("No fitting evolution found for the given level")
-            return None
-        except Exception as e:
-            show_warning_with_traceback(
-                parent=mw,
-                exception=e,
-                message=f"Error checking evolution for Pokémon ID {pokemon_id}",
-            )
-            return None
-    else:
+                        if time_of_day is None or time_of_day == current_time:
+                            evo_window.ask_pokemon_evo(individual_id, pokemon_id, safe_int(evos))
+                            return safe_int(evos)
+
+        return None
+
+        
+    except Exception as e:
+        show_warning_with_traceback(
+            parent=mw,
+            exception=e,
+            message=f"Error checking evolution for Pokémon ID {pokemon_id}",
+        )
         return None
 
 
@@ -754,6 +788,42 @@ def check_key_in_table(column_name, value, file_path):
 
     # Return the matching row or None if no match is found
     return matching_row
+
+
+def rows_for_key_in_table(column_name, value, file_path):
+    """Return *all* rows where ``column_name`` equals ``value`` (as a list).
+
+    Unlike :func:`check_key_in_table`, which stops at the first hit, this returns
+    every matching row. The bundled ``pokemon_evolution.csv`` stores one row per
+    evolution *method*, so a single evolved species can appear on several rows —
+    e.g. Sylveon has a blank row and a separate ``minimum_happiness`` row, and
+    Persian has both a level-up row and a friendship row. Callers that need to
+    pick the row matching a specific method (level vs. friendship) must see them
+    all rather than just whichever comes first in the file.
+
+    Args:
+        column_name: The column to match on.
+        value: The value to match (compared as a string, like
+            :func:`check_key_in_table`).
+        file_path: Path to the CSV file to scan.
+
+    Returns:
+        A list of matching rows (each a ``dict``); empty on no match or error.
+    """
+    matching_rows = []
+    try:
+        with open(file_path, mode="r", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                # Use .get() to prevent KeyError if the column doesn't exist.
+                if row.get(column_name) and str(row[column_name]) == str(value):
+                    matching_rows.append(row)
+    except FileNotFoundError:
+        print(f"Error: The file {file_path} does not exist.")
+    except Exception as e:
+        print(f"Error: {e}")
+
+    return matching_rows
 
 
 def return_name_for_id(pokemon_id):

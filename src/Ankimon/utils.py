@@ -49,6 +49,17 @@ with open(pokedex_path, "r", encoding="utf-8") as f:
     POKEMON_NAME_LOOKUP = {x: data[x]["name"] for x in data}
 
 
+def is_alive(obj):
+    """Check if a QObject/QWidget's C++ part is still alive."""
+    if obj is None:
+        return False
+    try:
+        obj.objectName()
+        return True
+    except (RuntimeError, AttributeError):
+        return False
+
+
 def format_pokemon_name(name: str) -> str:
     """
     Look up the official Pokémon name using the normalized key.
@@ -548,7 +559,13 @@ def get_item_description(item_name, language_id):
         return None
 
 
+_FONT_CACHE = {}
+
 def load_custom_font(font_size, language):
+    cache_key = (font_size, language)
+    if cache_key in _FONT_CACHE:
+        return _FONT_CACHE[cache_key]
+
     if language == 1:
         font_file = "pkmn_w.ttf"
         font_file_path = font_path / font_file
@@ -564,13 +581,15 @@ def load_custom_font(font_size, language):
         font_file = "Early GameBoy.ttf"
         font_size = int((font_size * 2) / 5)
 
-    # Register the custom font with its file path
-    QFontDatabase.addApplicationFont(str(font_path / font_file))
+    # Register the custom font with its file path if not already added
+    font_id = QFontDatabase.addApplicationFont(str(font_path / font_file))
+    
     custom_font = QFont(
         font_name
     )  # Use the font family name you specified in the font file
     custom_font.setPointSize(int(font_size))  # Adjust the font size as needed
 
+    _FONT_CACHE[cache_key] = custom_font
     return custom_font
 
 
@@ -936,3 +955,23 @@ def png_to_base64(path: str) -> str:
 
 def close_anki():
     mw.close()
+
+
+def is_dev_mode() -> bool:
+    """Check if the user is a developer based on profile name or trainer name."""
+    try:
+        # Check Anki profile name (case-insensitive check for 'dev' triggers)
+        if mw and mw.pm and mw.pm.name:
+            profile_name = mw.pm.name.lower()
+            if "dev_" in profile_name or "_dev" in profile_name:
+                return True
+                
+        # Check Trainer name in config
+        if mw and hasattr(mw, "settings_obj") and mw.settings_obj:
+            trainer_name = mw.settings_obj.get("trainer.name", "").lower()
+            if "dev_" in trainer_name or "_dev" in trainer_name:
+                return True
+    except Exception:
+        pass
+    return False
+

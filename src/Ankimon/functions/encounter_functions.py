@@ -33,12 +33,15 @@ from ..functions.pokedex_functions import (
     return_name_for_id,
     search_pokedex,
     search_pokedex_by_id,
+    safe_int,
+    get_pretty_name_for_name
 )
+from ..functions.friendship_evolution import check_friendship_evolution_for_pokemon
 from ..pyobj.error_handler import show_warning_with_traceback
 from ..functions.trainer_functions import xp_share_gain_exp
 from ..functions.badges_functions import check_for_badge, receive_badge
 from ..functions.drawing_utils import tooltipWithColour
-from ..utils import limit_ev_yield, play_effect_sound, get_ev_spread
+from ..utils import limit_ev_yield, play_effect_sound, get_ev_spread, is_alive
 from ..business import calc_experience, calculate_cp_from_dict
 from ..const import gen_ids
 from ..singletons import (
@@ -50,22 +53,96 @@ from ..singletons import (
     ankimon_db,
     pokemon_pc,
 )
+from . import encounter_data
 
+ALL_NATURES = [
+    "Hardy", "Lonely", "Brave", "Adamant", "Naughty",
+    "Bold", "Docile", "Relaxed", "Impish", "Lax",
+    "Timid", "Hasty", "Serious", "Jolly", "Naive",
+    "Modest", "Mild", "Quiet", "Bashful", "Rash",
+    "Calm", "Gentle", "Sassy", "Careful", "Quirky"
+]
+
+
+def _build_regional_lookup() -> None:
+    """Populates encounter_data.REGIONAL_FORM_LOOKUP from pokedex.json.
+
+    Maps species_id -> {region -> [actual_id, ...]} for all encounterable
+    regional forms. Called once at module import. Silently no-ops if
+    pokedex.json is unavailable (e.g. first-run before data files exist).
+    """
+    import os
+    
+    try:
+        pokedex_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "user_files", "data_files", "pokedex.json"
+        )
+        with open(pokedex_path, "r", encoding="utf-8") as f:
+            pokedex = json.load(f)
+        aid_to_sid: dict[int, int] = {
+            v["actual_id"]: v["species_id"]
+            for v in pokedex.values()
+            if "actual_id" in v and "species_id" in v
+        }
+        for region, aids in encounter_data.REGIONAL_FORMS.items():
+            for aid in aids:
+                sid = aid_to_sid.get(aid)
+                if sid is None:
+                    continue
+                region_map = encounter_data.REGIONAL_FORM_LOOKUP.setdefault(sid, {})
+                region_map.setdefault(region, []).append(aid)
+    except Exception as e:
+        print(f"[Ankimon] Warning: Could not build regional form lookup: {e}")
+
+
+_build_regional_lookup()
+
+
+# === PERFORMANCE FIX: Cache percentage calculations ===
+_percentages_cache = {
+    'percentages': None,
+    'total_reviews': None,
+    'trainer_level': None,
+    'main_pokemon_level': None,
+}
 
 def modify_percentages(total_reviews, daily_average, trainer_level):
     """
     Modify Pokémon encounter percentages based on total reviews, trainer level, and main Pokémon level.
+    CACHED: Only recalculates when inputs change.
     """
-    # Start with the base percentages
-    percentages = {"Baby": 2, "Legendary": 0.5, "Mythical": 0.2, "Normal": 92.3, "Ultra": 5}
+    # Check if cache is valid
+    if (_percentages_cache['percentages'] is not None and
+        _percentages_cache['total_reviews'] == total_reviews and
+        _percentages_cache['trainer_level'] == trainer_level and
+        _percentages_cache['main_pokemon_level'] == main_pokemon.level):
+        return _percentages_cache['percentages']
+        
 
+    # Start with the base percentages
+    percentages = {
+        "Baby": 2,
+        "Legendary": 0.5,
+        "Mythical": 0.2,
+        "Normal": 88.6,
+        "Starter": 2.5,
+        "Ultra": 5,
+        "Mega": 0.7,
+        "Gmax": 0.5,
+    }
     # Adjust percentages based on total reviews relative to the daily average
     review_ratio = total_reviews / daily_average if daily_average > 0 else 0
-
     # Adjust for review progress
     if review_ratio < 0.4:
-        percentages["Normal"] += percentages.pop("Baby", 0) + percentages.pop("Legendary", 0) + \
-                                 percentages.pop("Mythical", 0) + percentages.pop("Ultra", 0)
+        percentages["Normal"] += (
+            percentages.pop("Baby", 0)
+            + percentages.pop("Legendary", 0)
+            + percentages.pop("Mythical", 0)
+            + percentages.pop("Ultra", 0)
+            + percentages.pop("Mega", 0)
+            + percentages.pop("Gmax", 0)
+        )
     elif review_ratio < 0.6:
         percentages["Baby"] += 2
         percentages["Normal"] -= 2
@@ -75,42 +152,72 @@ def modify_percentages(total_reviews, daily_average, trainer_level):
     else:
         percentages["Legendary"] += 2
         percentages["Ultra"] += 3
-        percentages["Normal"] -= 5
-
+        percentages["Mega"] += 2
+        percentages["Gmax"] += 1.5
+        percentages["Normal"] -= 8.5
     # Restrict access to certain tiers based on main Pokémon level
     if main_pokemon.level:
         # Define level thresholds for each tier
         level_thresholds = {
-            "Ultra": 30,  # Example threshold for Ultra Pokémon
-            "Legendary": 50,  # Example threshold for Legendary Pokémon
-            "Mythical": 75  # Example threshold for Mythical Pokémon
+            "Starter": 30,
+            "Ultra": 30,
+            "Legendary": 50,
+            "Mega": 60,
+            "Gmax": 65,
+            "Mythical": 75,
         }
+        
+        # Example modification based on trainer level
+        if trainer_level:
+            adjustment = 5
+            if trainer_level > 10:
+                for tier in percentages:
+                    if tier == "Normal":
+                        percentages[tier] = max(percentages[tier] - adjustment, 0)
+                    else:
+                        percentages[tier] = percentages.get(tier, 0) + adjustment
 
-        for tier in ["Ultra", "Legendary", "Mythical"]:
-            if main_pokemon.level < level_thresholds.get(tier, float("inf")):
-                percentages[tier] = 0  # Set percentage to 0 if the level requirement isn't met
+        for tier in ["Starter", "Ultra", "Legendary", "Mythical", "Mega", "Gmax"]:
+                if main_pokemon.level < level_thresholds.get(tier, float("inf")):
+                    percentages[tier] = 0
 
-    # Example modification based on trainer level
-    if trainer_level:
-        adjustment = 5  # Adjustment value for the example
-        if trainer_level > 10:
-            for tier in percentages:
-                if tier == "Normal":
-                    percentages[tier] = max(percentages[tier] - adjustment, 0)
-                else:
-                    percentages[tier] = percentages.get(tier, 0) + adjustment
+        # Normalize percentages to ensure they sum to 100
+        total = sum(percentages.values())
+        for tier in percentages:
+            percentages[tier] = (percentages[tier] / total) * 100 if total > 0 else 0 
 
-    # Normalize percentages to ensure they sum to 100
-    total = sum(percentages.values())
-    for tier in percentages:
-        percentages[tier] = (percentages[tier] / total) * 100 if total > 0 else 0
-    # this function gets called maybe 10 times per battle round, which is concerning.
-    # it could be rewritten to run ONLY when the change in review ratio is detected.
+    #MODIFIED FOR TESTING: Fixed percentages, review restrictions.
+    """percentages = {
+                "Baby": 0,
+                "Normal": 10,
+                "Starter": 0,
+                "Legendary": 0,
+                "Mythical": 0,
+                "Ultra": 0,
+                "Mega": 90,
+                "Gmax": 0,
+            }"""
+
+    # Cache the result
+    _percentages_cache['percentages'] = percentages
+    _percentages_cache['total_reviews'] = total_reviews
+    _percentages_cache['trainer_level'] = trainer_level
+    _percentages_cache['main_pokemon_level'] = main_pokemon.level
+    
     return percentages
 
+def clear_encounter_cache():
+    """Clear cache when needed"""
+    global _percentages_cache
+    _percentages_cache = {
+        'percentages': None,
+        'total_reviews': None,
+        'trainer_level': None,
+        'main_pokemon_level': None,
+    }
 
 def get_random_pokemon_in_tier(tier):
-    from . import encounter_data
+    
 
     if tier == "Normal":
         id_data = encounter_data.NORMAL
@@ -122,12 +229,52 @@ def get_random_pokemon_in_tier(tier):
         id_data = encounter_data.LEGENDARY
     elif tier == "Mythical":
         id_data = encounter_data.MYTHICAL
+    elif tier == "Mega":
+        id_data = encounter_data.MEGA
+    elif tier == "Gmax":
+        id_data = encounter_data.GMAX
+    elif tier == "Starter":
+        id_data = encounter_data.STARTERS
     else:
-        raise ValueError()
+        return 1
 
-    # Select a random Pokemon ID from those in the tier
-    random_pokemon_id = random.choice(id_data)
-    return random_pokemon_id
+    return random.choice(id_data) if id_data else 1
+
+def _player_owns_base_form(actual_id: int, collected_ids: set) -> bool:
+    """Return True if the player owns the base species of this Mega/Gmax form."""
+    name = search_pokedex_by_id(actual_id)
+    if not name or name == "Pokémon not found":
+        return True  # can't determine — allow through
+    species_id = safe_int(search_pokedex(name, "species_id"))
+    if not species_id:
+        return True
+    return species_id in collected_ids
+
+
+def _meets_prerequisites(pokemon_id: int, collected_ids: set) -> bool:
+    """Return True if all prerequisite Pokémon for this ID are collected.
+
+    Prerequisite chains are defined in encounter_data.PREREQUISITES.
+    Handles forms by checking the species_id prerequisites.
+    """
+    
+    check_id = pokemon_id
+    if pokemon_id >= 10000:
+        name = search_pokedex_by_id(pokemon_id)
+        species_id = safe_int(search_pokedex(name, "species_id"))
+        if species_id:
+            check_id = species_id
+
+    required = encounter_data.PREREQUISITES.get(check_id)
+    if not required:
+        return True
+
+    if isinstance(required, tuple) and len(required) == 2 and required[0] == "OR":
+        # Any of these must be present
+        return any(rid in collected_ids for rid in required[1])
+
+    # All must be present (default behavior for sets)
+    return required.issubset(collected_ids)
 
 
 def get_tier(total_reviews, trainer_level=1, event_modifier=None):
@@ -167,7 +314,6 @@ def choose_random_pkmn_from_tier():
     try:
         tier = get_tier(total_reviews, trainer_level)
         id = get_random_pokemon_in_tier(tier)
-        mw.logger.game_log(f"Selected tier: {tier}, Resulting Pokemon ID: {id}")
         return id, tier
     except Exception as e:
         mw.logger.log("error", f"Error in choose_random_pkmn_from_tier: {str(e)}")
@@ -175,16 +321,43 @@ def choose_random_pkmn_from_tier():
 
 
 def check_min_generate_level(name):
+    
+
     evoType = search_pokedex(name.lower(), "evoType")
     evoLevel = search_pokedex(name.lower(), "evoLevel")
     if evoLevel:
-        return int(evoLevel)
+        min_level = safe_int(evoLevel)
     elif evoType != []:
         min_level = 100
-        return min_level
     else:
         min_level = 1
-        return min_level
+
+    # Ensure special forms (Mega/Gmax) and Legendaries inherit correct level caps.
+    # We check both species_id and actual_id against the rarity lists.
+    species_id = safe_int(search_pokedex(name.lower(), "species_id"))
+    actual_id = safe_int(search_pokedex(name.lower(), "actual_id"))
+    
+    is_mythical = (species_id in encounter_data.MYTHICAL) or (actual_id in encounter_data.MYTHICAL)
+    is_legendary = (species_id in encounter_data.LEGENDARY) or (actual_id in encounter_data.LEGENDARY)
+    is_ultra = (species_id in encounter_data.ULTRA) or (actual_id in encounter_data.ULTRA)
+    is_starter = (species_id in encounter_data.STARTERS) or (actual_id in encounter_data.STARTERS)
+    is_mega = (species_id in encounter_data.MEGA) or (actual_id in encounter_data.MEGA)
+    is_gmax = (species_id in encounter_data.GMAX) or (actual_id in encounter_data.GMAX)
+
+    if is_mythical:
+        min_level = max(min_level, 75)
+    elif is_gmax:
+        min_level = max(min_level, 65)
+    elif is_mega:
+        min_level = max(min_level, 60)
+    elif is_legendary:
+        min_level = max(min_level, 50)
+    elif is_ultra:
+        min_level = max(min_level, 30)
+    elif is_starter:
+        min_level = max(min_level, 30)
+
+    return min_level
 
 
 def check_id_ok(id_num: Union[int, list[int]]):
@@ -197,6 +370,42 @@ def check_id_ok(id_num: Union[int, list[int]]):
     if not isinstance(id_num, int):
         return False
 
+    # Mega/Gmax forms have actual_ids >= 10000, which fall outside
+    # the normal gen ranges. Resolve to base species for generation check.
+    if id_num >= 10000:
+        name = search_pokedex_by_id(id_num)
+        if not name or name == "Pokémon not found":
+            return True  # fallback
+
+        species_id = safe_int(search_pokedex(name, "species_id"))
+        gen_config = [settings_obj.get(f"misc.gen{i}") for i in range(1, 10)]
+
+        # Check base species generation
+        base_gen = 0
+        for gen, max_id in gen_ids.items():
+            if species_id <= max_id:
+                base_gen = int(gen.split("_")[1])
+                break
+        if base_gen == 0:
+            return True  # fallback
+        if not gen_config[base_gen - 1]:
+            return False  # base gen disabled
+
+        # For regional forms, also require the form's intro gen to be enabled
+        
+        if id_num in encounter_data.REGIONAL_FORM_REGION:
+            forme = search_pokedex(name, "forme") or ""
+            intro_gen = None
+            for f_name, g in encounter_data.REGIONAL_FORME_GEN.items():
+                if f_name in forme:
+                    intro_gen = g
+                    break
+            
+            if intro_gen and not gen_config[intro_gen - 1]:
+                return False  # regional form's intro gen disabled
+
+        return True
+
     generation = 0
     for gen, max_id in gen_ids.items():
         if id_num <= max_id:
@@ -206,6 +415,66 @@ def check_id_ok(id_num: Union[int, list[int]]):
             return gen_config[generation - 1]
 
     return False
+
+
+def get_regional_substitute(species_id: int, region: str = None) -> "int | None":
+    """
+    Returns a regional form actual_id for the given species and region, or None.
+    If region is None, returns any valid regional variant from any region.
+    """
+    
+    
+    eligible = []
+    lookup = encounter_data.REGIONAL_FORM_LOOKUP.get(species_id, {})
+    
+    if region:
+        options = lookup.get(region, [])
+        for v in options:
+            if check_id_ok(v):
+                eligible.append(v)
+    else:
+        for reg_variants in lookup.values():
+            for v in reg_variants:
+                if check_id_ok(v):
+                    eligible.append(v)
+                    
+    if eligible:
+        return random.choice(eligible)
+    return None
+
+def get_boosted_gens_for_region(region: str) -> list[int]:
+    mapping = {
+        "kanto": [1], "johto": [2], "hoenn": [3], "sinnoh": [4],
+        "unova": [5], "kalos": [6], "alola": [7], "galar": [8],
+        "paldea": [9], "hisui": [4, 8]
+    }
+    return mapping.get(region, [])
+
+def get_boosted_pool_chance(region: str) -> float:
+    return 0.40 if region == "hisui" else 0.30
+
+def get_base_species_gen(actual_id: int) -> int:
+    species_id = actual_id
+    if actual_id >= 10000:
+        name = search_pokedex_by_id(actual_id)
+        if name and name != "Pokémon not found":
+            species_id = safe_int(search_pokedex(name, "species_id")) or actual_id
+
+    for gen, max_id in gen_ids.items():
+        if species_id <= max_id:
+            return int(gen.split("_")[1])
+    return 0
+
+def get_all_pokemon_in_tier(tier: str) -> list[int]:
+    if tier == "Normal": return encounter_data.NORMAL
+    if tier == "Baby": return encounter_data.BABY
+    if tier == "Ultra": return encounter_data.ULTRA
+    if tier == "Legendary": return encounter_data.LEGENDARY
+    if tier == "Mythical": return encounter_data.MYTHICAL
+    if tier == "Mega": return encounter_data.MEGA
+    if tier == "Gmax": return encounter_data.GMAX
+    if tier == "Starter": return encounter_data.STARTERS
+    return []
 
 
 def generate_random_pokemon(
@@ -257,30 +526,122 @@ def generate_random_pokemon(
     wild_pokemon_lvl = max(
         1, wild_pokemon_lvl
     )  # Ensures that the wild pokemon's level is at least 1
-    if main_pokemon_level == 100:
+    if main_pokemon.level == 100:
         wild_pokemon_lvl = 100
 
-    # First, we draw a random, valid pokemon id.
-    pokemon_id, tier = choose_random_pkmn_from_tier()
+    from ..utils import load_collected_pokemon_ids
+    collected_ids = load_collected_pokemon_ids()
+
+    # FALLBACK HIERARCHY
+    # If a rolled tier fails, try the next one in the list.
+    TIER_ORDER = ["Mythical", "Mega", "Legendary", "Gmax", "Ultra", "Starter", "Normal", "Baby"]
+    
+    selected_pokemon_id = None
+    selected_tier = None
+    
+    # 1. Select the initial tier based on probabilities
+    initial_tier = get_tier(ankimon_tracker_obj.get_total_reviews(), trainer_card.level)
+    
+    # Find starting point in fallback order
+    try:
+        start_idx = TIER_ORDER.index(initial_tier)
+    except ValueError:
+        start_idx = TIER_ORDER.index("Normal")
+        
+    # Iterate through tiers starting from the rolled one
+    for i in range(start_idx, len(TIER_ORDER)):
+        current_tier = TIER_ORDER[i]
+        
+        tier_ids = get_all_pokemon_in_tier(current_tier)
+        full_pool = []
+        for pokemon_id in tier_ids:
+            name = search_pokedex_by_id(pokemon_id)
+            if not name or name == "Pokémon not found":
+                continue
+                
+            # Guard 1: Generation check
+            if not check_id_ok(pokemon_id):
+                continue
+
+            # Guard 2: Level check
+            min_allowed_pokemon_lvl = check_min_generate_level(str(name.lower()))
+            if wild_pokemon_lvl < min_allowed_pokemon_lvl:
+                continue
+
+            # Guard 3: Mega/Gmax base ownership
+            if current_tier in ("Mega", "Gmax") and not _player_owns_base_form(pokemon_id, collected_ids):
+                continue
+
+            # Guard 4: Prerequisite check
+            if not _meets_prerequisites(pokemon_id, collected_ids):
+                continue
+                
+            full_pool.append(pokemon_id)
+            
+        if not full_pool:
+            continue
+
+        active_region = settings_obj.get("misc.active_region")
+        boosted_pool = []
+
+        if active_region:
+            boosted_gens = get_boosted_gens_for_region(active_region)
+            
+            for pid in full_pool:
+                if get_base_species_gen(pid) in boosted_gens:
+                    if pid not in boosted_pool:
+                        boosted_pool.append(pid)
+                
+                # Add eligible regional variants for the active region
+                options = encounter_data.REGIONAL_FORM_LOOKUP.get(pid, {}).get(active_region, [])
+                for opt in options:
+                    if check_id_ok(opt) and opt not in boosted_pool:
+                        boosted_pool.append(opt)
+
+        if active_region and boosted_pool:
+            chance = get_boosted_pool_chance(active_region)
+            if random.random() < chance:
+                selected_pokemon_id = random.choice(boosted_pool)
+            else:
+                selected_pokemon_id = random.choice(full_pool)
+        else:
+            selected_pokemon_id = random.choice(full_pool)
+
+        selected_tier = current_tier
+        break
+            
+    # Final fallback if somehow everything failed (e.g. settings restrict all IDs)
+    if not selected_pokemon_id:
+        selected_pokemon_id = 19 # Rattata
+        selected_tier = "Normal"
+
+    # --- Regional form resolution ---
+    # Apply 7%-per-variant resolution for base species.
+    if selected_pokemon_id < 10000:
+        region_forms = encounter_data.REGIONAL_FORM_LOOKUP.get(selected_pokemon_id, {})
+        num_eligible = 0
+        for variants in region_forms.values():
+            for v in variants:
+                if check_id_ok(v):
+                    num_eligible += 1
+        
+        if num_eligible > 0:
+            if random.random() < 0.07 * num_eligible:
+                sub = get_regional_substitute(selected_pokemon_id)
+                if sub:
+                    selected_pokemon_id = sub
+    # --- End form resolution ---
+
+    pokemon_id = selected_pokemon_id
+    tier = selected_tier
     name = search_pokedex_by_id(pokemon_id)
-    min_allowed_pokemon_lvl = check_min_generate_level(
-        str(name.lower())
-    )  # Gets the minimum allowed level for that pokemon given its stage of evolution
-    while (not check_id_ok(pokemon_id)) or (
-        wild_pokemon_lvl < min_allowed_pokemon_lvl
-    ):  # We keep drawing a random pokemon until we find a valid one
-        pokemon_id, tier = choose_random_pkmn_from_tier()
-        name = search_pokedex_by_id(pokemon_id)
-        min_allowed_pokemon_lvl = check_min_generate_level(
-            str(name.lower())
-        )  # Gets the minimum allowed level for that pokemon given its stage of evolution
 
     # Now we get all necessary information about the chosen pokemon.
     pokemon_type = search_pokedex(name, "types")
     base_experience = get_base_experience(
         search_pokedex(name, "actual_id")
     )  # Experience that the wild pokemon will give once beaten
-    growth_rate = get_growth_rate(pokemon_id)
+    growth_rate = get_growth_rate(search_pokedex(name, "species_id") or pokemon_id)
     ev_yield = get_effort_values(search_pokedex(name, "actual_id"))
     gender = pick_random_gender(name)
     is_shiny = shiny_chance()
@@ -307,6 +668,7 @@ def generate_random_pokemon(
     # mu = 31 * (1 - math.exp(-ankimon_tracker_obj.total_reviews / tau))  # At total reviews > 3 * tau, we get mu ~= 31
     # iv = {stat: iv_rand_gauss(mu=mu, sigma=5) for stat in stat_names}  # The higher the number of reviews, the higher the IVs
     iv = {stat: random.randint(0, 31) for stat in stat_names}
+    nature = random.choice(ALL_NATURES)
     final_stats = base_stats
 
     ankimon_tracker_obj.pokemon_encounter = 0  # 0: Start of Battle: 1: Current Battle
@@ -330,8 +692,8 @@ def generate_random_pokemon(
         tier,
         ev_yield,
         is_shiny,
+        nature,
     )
-
 
 def new_pokemon(
     pokemon: PokemonObject,
@@ -357,6 +719,7 @@ def new_pokemon(
     Returns:
         PokemonObject: The updated `pokemon` object representing the newly generated wild Pokémon ready for battle.
     """
+    ankimon_tracker.faint_processed = False
     (
         name,
         pkmn_id,
@@ -375,6 +738,7 @@ def new_pokemon(
         tier,
         ev_yield,
         is_shiny,
+        nature,
     ) = generate_random_pokemon(main_pokemon.level, ankimon_tracker_obj)
     pokemon_data = {
         "name": name,
@@ -389,6 +753,7 @@ def new_pokemon(
         "ev": ev,
         "iv": iv,
         "gender": gender,
+        "nature": nature,
         "battle_status": battle_status,
         "battle_stats": battle_stats,
         "stat_stages": {
@@ -412,7 +777,10 @@ def new_pokemon(
 
     ankimon_tracker.randomize_battle_scene()
     if test_window is not None:
-        test_window.display_first_encounter()
+        try:
+            test_window.display_first_encounter()
+        except RuntimeError:
+            pass
 
     class Container(object):
         pass
@@ -420,6 +788,20 @@ def new_pokemon(
     reviewer = Container()
     reviewer.web = mw.reviewer.web
     reviewer_obj.update_life_bar(reviewer, 0, 0)
+
+    # Track as seen in Pokedex
+    if hasattr(mw, 'ankimon_db'):
+        if hasattr(mw.ankimon_db, 'mark_as_seen'):
+            mw.ankimon_db.mark_as_seen(pkmn_id)
+        else:
+            # Fallback tracking if not restarted
+            try:
+                seen_ids = mw.ankimon_db.get_user_data("pokedex_seen", [])
+                if not isinstance(seen_ids, list): seen_ids = []
+                if pkmn_id not in seen_ids:
+                    seen_ids.append(pkmn_id)
+                    mw.ankimon_db.set_user_data("pokedex_seen", seen_ids)
+            except: pass
 
     return pokemon
 
@@ -456,6 +838,8 @@ def save_main_pokemon_progress(
             parent=mw, exception=e, message="Error loading main pokemon data."
         )
         return
+
+    evolution_prompted = False
     while int(
         find_experience_for_level(
             main_pokemon.growth_rate,
@@ -486,8 +870,10 @@ def save_main_pokemon_progress(
             main_pokemon.level,
             evo_window,
             main_pokemon.everstone,
+            getattr(main_pokemon, "evolution_rejected", False),
         )
         if evo_id is not None:
+            evolution_prompted = True
             logger.log_and_showinfo(
                 "info",
                 translator.translate(
@@ -570,7 +956,39 @@ def save_main_pokemon_progress(
         mainpkmndata["stats"] = main_pokemon.stats
         mainpkmndata["xp"] = int(main_pokemon.xp)
         mainpkmndata["level"] = int(main_pokemon.level)
-        ev_yield = limit_ev_yield(mainpkmndata["ev"], enemy_pokemon.ev_yield)
+        # Clone raw EV yield to avoid mutating the in-memory enemy template
+        raw_ev_yield = enemy_pokemon.ev_yield.copy()
+        
+        # Normalize keys to the standard long form expected by limit_ev_yield
+        normalized_yield = {
+            "hp": raw_ev_yield.get("hp", 0),
+            "attack": raw_ev_yield.get("attack", 0) + raw_ev_yield.get("atk", 0),
+            "defense": raw_ev_yield.get("defense", 0) + raw_ev_yield.get("def", 0),
+            "special-attack": raw_ev_yield.get("special-attack", 0) + raw_ev_yield.get("spa", 0),
+            "special-defense": raw_ev_yield.get("special-defense", 0) + raw_ev_yield.get("spd", 0),
+            "speed": raw_ev_yield.get("speed", 0) + raw_ev_yield.get("spe", 0),
+        }
+
+        held_item = mainpkmndata.get("held_item", main_pokemon.held_item)
+
+        # Apply EV-boosting held items
+        if held_item == "macho-brace":
+            for stat in normalized_yield:
+                normalized_yield[stat] *= 2
+        else:
+            power_item_mapping = {
+                "power-weight": "hp",
+                "power-bracer": "attack",
+                "power-belt": "defense",
+                "power-lens": "special-attack",
+                "power-band": "special-defense",
+                "power-anklet": "speed",
+            }
+            if held_item in power_item_mapping:
+                stat_to_boost = power_item_mapping[held_item]
+                normalized_yield[stat_to_boost] += 8
+
+        ev_yield = limit_ev_yield(mainpkmndata["ev"], normalized_yield)
         mainpkmndata["ev"]["hp"] += ev_yield["hp"]
         mainpkmndata["ev"]["atk"] += ev_yield["attack"]
         mainpkmndata["ev"]["def"] += ev_yield["defense"]
@@ -590,9 +1008,19 @@ def save_main_pokemon_progress(
         main_pokemon.invalidate_cp_cache()
         mainpkmndata["current_hp"] = int(main_pokemon.hp)
         main_pokemon.friendship += random.randint(5, 9)
-        if main_pokemon.friendship > 255:
-            main_pokemon.friendship = 255
         mainpkmndata["friendship"] = main_pokemon.friendship
+
+        # Trigger friendship evolution check if level-up evolution didn't happen
+        if not evolution_prompted:
+            check_friendship_evolution_for_pokemon(
+                main_pokemon.individual_id,
+                main_pokemon.id,
+                evo_window,
+                main_pokemon.everstone,
+                main_pokemon.friendship,
+                getattr(main_pokemon, "evolution_rejected", False),
+            )
+
         main_pokemon.pokemon_defeated += 1
         mainpkmndata["pokemon_defeated"] = main_pokemon.pokemon_defeated
         if hasattr(main_pokemon, "tier"):
@@ -601,8 +1029,8 @@ def save_main_pokemon_progress(
             mainpkmndata["is_favorite"] = main_pokemon.is_favorite
 
         # Save to database (replaces JSON file I/O for performance)
-        ankimon_db.save_main_pokemon(mainpkmndata)
-        ankimon_db.save_pokemon(mainpkmndata)  # Also update the captured pokemon collection
+        mw.ankimon_db.save_main_pokemon(mainpkmndata)
+        mw.ankimon_db.save_pokemon(mainpkmndata)  # Also update the captured pokemon collection
 
     return main_pokemon.level
 
@@ -713,7 +1141,7 @@ def save_caught_pokemon(
     _max_hp = enemy_pokemon.calculate_max_hp()
     caught_pokemon = enemy_pokemon.to_dict()
     caught_pokemon.update({
-        "name": enemy_pokemon.name.capitalize(),
+        "name": enemy_pokemon.name,
         "nickname": nickname or "",
         "ev": {"hp": 0, "atk": 0, "def": 0, "spa": 0, "spd": 0, "spe": 0},
         "friendship": 0,
@@ -733,7 +1161,7 @@ def save_caught_pokemon(
     caught_pokemon["cp"] = calculate_cp_from_dict(caught_pokemon)
 
     # Save to database (replaces JSON file I/O for performance)
-    ankimon_db.save_pokemon(caught_pokemon)
+    mw.ankimon_db.save_pokemon(caught_pokemon)
 
 
 def catch_pokemon(
@@ -754,7 +1182,7 @@ def catch_pokemon(
 
     # If we arrive here, this means that ankimon_tracker_obj.caught == 1
     if not nickname:
-        nickname = enemy_pokemon.name.capitalize()
+        nickname = get_pretty_name_for_name(enemy_pokemon.name)
     if collected_pokemon_ids is not None:
         collected_pokemon_ids.add(enemy_pokemon.id)  # Update cache
     save_caught_pokemon(enemy_pokemon, nickname, achievements)
@@ -762,7 +1190,7 @@ def catch_pokemon(
     ankimon_tracker_obj.general_card_count_for_battle = 0
 
     msg = translator.translate(
-        "caught_wild_pokemon", enemy_pokemon_name=enemy_pokemon.name.capitalize()
+        "caught_wild_pokemon", enemy_pokemon_name=get_pretty_name_for_name(enemy_pokemon.name)
     )
 
     if settings_obj.get("gui.pop_up_dialog_message_on_defeat") is True:
@@ -780,7 +1208,8 @@ def catch_pokemon(
                 parent=mw, exception=e, message="Error while catching Pokemon:"
             )  # Display a message when the Pokémon is caught
 
-    pokemon_pc.refresh_pokemon_grid()
+        if is_alive(pokemon_pc):
+            pokemon_pc.refresh_pokemon_grid()
 
 
 def handle_enemy_faint(
@@ -796,6 +1225,9 @@ def handle_enemy_faint(
     """
     Handles what automatically happens when the enemy Pokémon faints, based on auto-battle settings.
     """
+    if ankimon_tracker_obj.faint_processed:
+        return
+    
     try:
         auto_battle_setting = int(settings_obj.get("battle.automatic_battle"))
         if not (0 <= auto_battle_setting <= 3):
@@ -803,10 +1235,25 @@ def handle_enemy_faint(
     except ValueError:
         auto_battle_setting = 0  # fallback
 
+    name_lower = enemy_pokemon.name.lower()
+    forme = search_pokedex(name_lower, "forme")
+    
+    is_mega = (enemy_pokemon.id in encounter_data.MEGA)
+    is_gmax = (enemy_pokemon.id in encounter_data.GMAX)
+    
+    is_special = (
+        enemy_pokemon.tier in ["Ultra", "Legendary", "Mythical", "Starter"] or
+        is_mega or
+        is_gmax 
+    )
+    
+    should_catch_always = settings_obj.get("battle.automatic_catch_special", True) and is_special
+
     if auto_battle_setting == 3:  # Catch if uncollected
         enemy_id = enemy_pokemon.id
-        # Check cache instead of file
-        if enemy_id not in collected_pokemon_ids or enemy_pokemon.shiny:
+        
+        if enemy_id not in collected_pokemon_ids or enemy_pokemon.shiny or should_catch_always:
+            ankimon_tracker_obj.faint_processed = True
             catch_pokemon(
                 enemy_pokemon,
                 ankimon_tracker_obj,
@@ -816,6 +1263,7 @@ def handle_enemy_faint(
                 achievements,
             )
         else:
+            ankimon_tracker_obj.faint_processed = True
             kill_pokemon(
                 main_pokemon,
                 enemy_pokemon,
@@ -828,6 +1276,7 @@ def handle_enemy_faint(
             enemy_pokemon, test_window, ankimon_tracker_obj, reviewer_obj
         )  # Show a new random Pokémon
     elif auto_battle_setting == 1:  # Existing auto-catch
+        ankimon_tracker_obj.faint_processed = True
         catch_pokemon(
             enemy_pokemon,
             ankimon_tracker_obj,
@@ -840,15 +1289,32 @@ def handle_enemy_faint(
             enemy_pokemon, test_window, ankimon_tracker_obj, reviewer_obj
         )  # Show a new random Pokémon
     elif auto_battle_setting == 2:  # Existing auto-defeat
-        kill_pokemon(
-            main_pokemon, enemy_pokemon, evo_window, logger, achievements, trainer_card
-        )
+        if enemy_pokemon.shiny or should_catch_always:
+            ankimon_tracker_obj.faint_processed = True
+            catch_pokemon(
+                enemy_pokemon,
+                ankimon_tracker_obj,
+                logger,
+                "",
+                collected_pokemon_ids,
+                achievements,
+            )
+        else:
+            ankimon_tracker_obj.faint_processed = True
+            kill_pokemon(
+                main_pokemon, enemy_pokemon, evo_window, logger, achievements, trainer_card
+            )
         new_pokemon(
             enemy_pokemon, test_window, ankimon_tracker_obj, reviewer_obj
         )  # Show a new random Pokémon
+    else:
+        # For Manual mode (auto_battle_setting == 0): show the death/catch screen
+        if test_window is not None:
+            try:
+                test_window.display_pokemon_death()
+            except RuntimeError:
+                pass
 
-    # For Manual mode (auto_battle_setting == 0): no need to show window or do actions automatically
-    test_window.display_pokemon_death()
     main_pokemon.reset_bonuses()
     ankimon_tracker_obj.general_card_count_for_battle = 0
 

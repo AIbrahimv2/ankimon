@@ -31,7 +31,7 @@ from .functions.battle_functions import (
     process_battle_data,
 )
 from .functions.drawing_utils import tooltipWithColour
-from .utils import safe_get_random_move, play_effect_sound, play_sound
+from .utils import safe_get_random_move, play_effect_sound, play_sound, is_alive
 from .functions.ankimon_hooks_to_poke_engine import simulate_battle_with_poke_engine
 from .classes.choose_move_dialog import MoveSelectionDialog
 from .pyobj.error_handler import show_warning_with_traceback
@@ -96,12 +96,19 @@ def on_review_card(*args):
         s.item_receive_value -= 1
         if s.item_receive_value <= 0:
             s.item_receive_value = random.randint(3, 385)
-            test_window.display_item()
+            win = getattr(mw, "test_window", None)
+            if is_alive(win):
+                try:
+                    win.display_item()
+                except RuntimeError:
+                    pass
             if not check_for_badge(achievements, 6):
                 receive_badge(6, achievements)
 
-        if total_reviews == settings_obj.get("battle.daily_average"):
-            settings_obj.set("trainer.cash", settings_obj.get("trainer.cash") + 200)
+        cash_interval = int(settings_obj.get("trainer.cash_reward_interval"))
+        cash_amount = int(settings_obj.get("trainer.cash_reward_amount"))
+        if total_reviews % cash_interval == 0:
+            settings_obj.set("trainer.cash", settings_obj.get("trainer.cash") + cash_amount)
             trainer_card.cash = settings_obj.get("trainer.cash")
 
         if battle_sounds == True and ankimon_tracker_obj.general_card_count_for_battle == 1:
@@ -245,13 +252,13 @@ def on_review_card(*args):
 
             if enemy_pokemon.hp < 1:
                 enemy_pokemon.hp = 0
-                test_window.display_battle()
+                win = getattr(mw, "test_window", None)
                 handle_enemy_faint(
                     main_pokemon,
                     enemy_pokemon,
                     s.collected_pokemon_ids,
-                    test_window,
-                    evo_window,
+                    win if is_alive(win) else None,
+                    getattr(mw, "evo_window", None),
                     reviewer_obj,
                     logger,
                     achievements,
@@ -262,8 +269,13 @@ def on_review_card(*args):
             play_sound(enemy_pokemon.id, settings_obj)
 
         if main_pokemon.hp < 1:
+            win = getattr(mw, "test_window", None)
             handle_main_pokemon_faint(
-                main_pokemon, enemy_pokemon, test_window, reviewer_obj, translator
+                main_pokemon, 
+                enemy_pokemon, 
+                win if is_alive(win) else None, 
+                reviewer_obj, 
+                translator
             )
             s.mutator_full_reset = 1
 
@@ -273,9 +285,13 @@ def on_review_card(*args):
         reviewer = Container()
         reviewer.web = mw.reviewer.web
         reviewer_obj.update_life_bar(reviewer, 0, 0)
-        if test_window is not None:
+        win = getattr(mw, "test_window", None)
+        if is_alive(win):
             if enemy_pokemon.hp > 0:
-                test_window.display_battle()
+                try:
+                    win.display_battle()
+                except RuntimeError:
+                    pass
     except Exception as e:
         show_warning_with_traceback(
             parent=mw, exception=e, message="An error occurred in reviewer:"

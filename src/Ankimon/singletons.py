@@ -191,6 +191,7 @@ def get_pokemon_pc():
         pokemon_pc = PokemonPC(
             logger=logger, translator=translator, reviewer_obj=reviewer_obj,
             test_window=test_window, settings=settings_obj, main_pokemon=main_pokemon,
+            achievements=achievements,
         )
         mw.pokemon_pc = pokemon_pc
     return pokemon_pc

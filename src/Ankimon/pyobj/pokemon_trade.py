@@ -1,7 +1,7 @@
 import json
 import hashlib
 import requests
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout, QFrame
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout, QFrame, QCheckBox
 from PyQt6.QtGui import QPixmap, QFont, QIcon, QColor
 from PyQt6.QtCore import QSize, Qt
 from aqt.utils import showWarning, showInfo
@@ -135,11 +135,50 @@ def check_and_award_monthly_pokemon(logger):
         # Still failing silently on the user's end, but with more detailed logs for debugging.
         pass
 
+def parse_to_canonical(code_str):
+    if not code_str:
+        return None
+    parts = [p.strip() for p in code_str.strip().split(',') if p.strip()]
+    if not parts:
+        return None
+    try:
+        if parts[0] == "-200":
+            if len(parts) < 18:
+                return None
+            species_id = int(parts[1])
+            level = int(parts[2])
+            gender = int(parts[3])
+            shiny = int(parts[4])
+            evs = [int(x) for x in parts[5:11]]
+            ivs = [int(x) for x in parts[11:17]]
+            nature = int(parts[17])
+            attacks = [int(x) for x in parts[18:]]
+        else:
+            if len(parts) < 16:
+                return None
+            species_id = int(parts[0])
+            level = int(parts[1])
+            gender = int(parts[2])
+            shiny = int(parts[3])
+            evs = [int(x) for x in parts[4:10]]
+            ivs = [int(x) for x in parts[10:16]]
+            nature = 12  # Default to Serious
+            attacks = [int(x) for x in parts[16:]]
+            
+        while len(attacks) < 4:
+            attacks.append(33)
+        attacks = attacks[:4]
+        
+        canonical = [species_id, level, gender, shiny] + evs + ivs + [nature] + attacks
+        return ",".join(map(str, canonical))
+    except Exception:
+        return None
+
 
 class PokemonTrade:
     TRADE_VERSION = "02"
 
-    def __init__(self, name, id, level, ability, iv, ev, gender, attacks, individual_id, shiny, logger, refresh_callback, parent_window=None):
+    def __init__(self, name, id, level, ability, iv, ev, gender, attacks, individual_id, shiny, logger, refresh_callback, parent_window=None, nature="serious"):
         self.name = name
         self.id = id
         self.level = level
@@ -150,6 +189,7 @@ class PokemonTrade:
         self.attacks = attacks
         self.individual_id = individual_id
         self.shiny = shiny
+        self.nature = nature
         self.refresh_callback = refresh_callback
         self.logger = logger
         self.parent_window = parent_window
@@ -209,7 +249,7 @@ class PokemonTrade:
         sprite_size = QSize(64, 64)
         your_pokemon_sprite_label.setMaximumSize(sprite_size)
         your_pokemon_sprite_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        your_pokemon_gif_path = get_sprite_path(side="front", sprite_type="gif", id=self.id, shiny=getattr(self, "shiny", False), gender=self.gender)
+        your_pokemon_gif_path = get_sprite_path(side="front", sprite_type="gif", id=self.id, shiny=getattr(self, "shiny", False), gender=self.gender, pokemon_name=self.name)
         
         your_pokemon_movie = QMovie(your_pokemon_gif_path)
         def set_bw_frame():
@@ -260,22 +300,39 @@ class PokemonTrade:
         self.trade_code_layout = QVBoxLayout()
         self.trade_code_layout.setSpacing(5)
 
+        self.legacy_checkbox = QCheckBox("Legacy Mode (Trade with Official Release)")
+        self.legacy_checkbox.setFont(QFont("Arial", 10))
+        self.trade_code_layout.addWidget(self.legacy_checkbox)
+
         self.your_code_label = QLabel("Your Trade Code:")
         self.your_code_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
         self.trade_code_layout.addWidget(self.your_code_label)
 
         self.code_display_layout = QHBoxLayout()
-        clipboard_info = f"{self.id},{self.level},{self.format_gender()},{self.format_shiny()},{self.ev_string()},{self.iv_string()},{self.attack_ids()}"
-        self.trade_code_display = QLineEdit(clipboard_info)
+        self.trade_code_display = QLineEdit()
         self.trade_code_display.setReadOnly(True)
         self.trade_code_display.setFont(QFont("Courier New", 10))
         self.code_display_layout.addWidget(self.trade_code_display)
 
         self.copy_button = QPushButton("Copy")
         self.copy_button.setToolTip("Copy the trade code to your clipboard")
-        self.copy_button.clicked.connect(lambda: self.copy_to_clipboard(clipboard_info))
         self.code_display_layout.addWidget(self.copy_button)
         self.trade_code_layout.addLayout(self.code_display_layout)
+
+        def update_my_trade_code():
+            if self.legacy_checkbox.isChecked():
+                code = f"{self.id},{self.level},{self.format_gender()},{self.format_shiny()},{self.ev_string()},{self.iv_string()},{self.attack_ids()}"
+            else:
+                code = f"-200,{self.id},{self.level},{self.format_gender()},{self.format_shiny()},{self.ev_string()},{self.iv_string()},{self.format_nature()},{self.attack_ids()}"
+            self.trade_code_display.setText(code)
+            try:
+                self.copy_button.clicked.disconnect()
+            except TypeError:
+                pass
+            self.copy_button.clicked.connect(lambda: self.copy_to_clipboard(code))
+
+        self.legacy_checkbox.stateChanged.connect(lambda _: update_my_trade_code())
+        update_my_trade_code()
 
         main_layout.addLayout(self.trade_code_layout)
 
@@ -299,16 +356,23 @@ class PokemonTrade:
     def generate_and_show_passwords(self, window):
         code1 = self.trade_code_display.text().strip()
         code2 = self.trade_code_input.text().strip()
-        if not code1 or not code2 or len(code2) < 16:
+        if not code1 or not code2:
             showWarning("Please enter a valid trade code from the other user.")
             return
 
-        parts = code2.split(',')
-        if len(parts) > 0 and parts[0].isdigit():
-            incoming_id = int(parts[0])
-            if incoming_id == self.id:
-                showWarning("You cannot trade with a Pokémon of the same species (ID) as the one you're trading away!")
-                return
+        canonical1 = parse_to_canonical(code1)
+        canonical2 = parse_to_canonical(code2)
+
+        if not canonical1 or not canonical2:
+            showWarning("Invalid trade code format. Please check the code.")
+            return
+
+        # Same species check using canonical species IDs
+        id1 = int(canonical1.split(',')[0])
+        id2 = int(canonical2.split(',')[0])
+        if id1 == id2:
+            showWarning("You cannot trade with a Pokémon of the same species (ID) as the one you're trading away!")
+            return
 
         self.your_code_label.hide()
         self.trade_code_display.hide()
@@ -317,18 +381,35 @@ class PokemonTrade:
         self.trade_code_input.hide()
         self.trade_button.hide()
 
-        codes = sorted([code1, code2])
-        combo = codes[0] + "|" + codes[1]
-        hash_digest = hashlib.sha256(combo.encode()).hexdigest()
-        part1 = hash_digest[:len(hash_digest) // 2]
-        part2 = hash_digest[len(hash_digest) // 2:]
+        # Check if we should use legacy hashing (checkbox checked OR either code is unversioned)
+        is_legacy = self.legacy_checkbox.isChecked() or (not code1.startswith("-200")) or (not code2.startswith("-200"))
 
-        if code1 < code2:
-            my_part = part1
-            self._their_password_part = part2
+        if is_legacy:
+            codes = sorted([code1, code2])
+            combo = codes[0] + "|" + codes[1]
+            hash_digest = hashlib.sha256(combo.encode()).hexdigest()
+            part1 = hash_digest[:len(hash_digest) // 2]
+            part2 = hash_digest[len(hash_digest) // 2:]
+
+            if code1 < code2:
+                my_part = part1
+                self._their_password_part = part2
+            else:
+                my_part = part2
+                self._their_password_part = part1
         else:
-            my_part = part2
-            self._their_password_part = part1
+            codes = sorted([canonical1, canonical2])
+            combo = codes[0] + "|" + codes[1]
+            hash_digest = hashlib.sha256(combo.encode()).hexdigest()
+            part1 = hash_digest[:len(hash_digest) // 2]
+            part2 = hash_digest[len(hash_digest) // 2:]
+
+            if canonical1 < canonical2:
+                my_part = part1
+                self._their_password_part = part2
+            else:
+                my_part = part2
+                self._their_password_part = part1
 
         my_part += self.TRADE_VERSION
         self._their_password_part += self.TRADE_VERSION
@@ -386,9 +467,9 @@ class PokemonTrade:
 
         if their_part_entered == self._their_password_part:
             code = self.trade_code_input.text().strip()
-            parts = code.split(',')
-            if len(parts) > 0 and parts[0].isdigit():
-                incoming_id = int(parts[0])
+            canonical = parse_to_canonical(code)
+            if canonical:
+                incoming_id = int(canonical.split(',')[0])
                 if incoming_id == self.id:
                     showWarning("You cannot trade with a Pokémon of the same species (ID) as the one you're trading away!")
                     return
@@ -402,22 +483,27 @@ class PokemonTrade:
         showInfo("Trade code copied to clipboard!")
 
     def update_other_pokemon_sprite(self, code):
-        from PyQt6.QtGui import QMovie
+        from PyQt6.QtGui import QMovie, QPixmap
         try:
             sprite_size = QSize(64, 64)
-            parts = code.split(',')
             self.other_pokemon_sprite_label.clear()
             self.other_pokemon_sprite_label.setPixmap(QPixmap())
             self.other_pokemon_name_label.setText("")
-            if len(parts) > 0 and parts[0].isdigit():
+            
+            canonical = parse_to_canonical(code)
+            if canonical:
+                parts = canonical.split(',')
                 pokemon_id = int(parts[0])
-                other_gender = "M"
-                other_shiny = False
-                if len(parts) > 2:
-                    gender_map = {"0": "M", "1": "F", "2": "N"}
-                    other_gender = gender_map.get(parts[2], "M")
+                gender_id = parts[2]
+                shiny_val = int(parts[3])
                 
-                sprite_path = get_sprite_path(side="front", sprite_type="gif", id=pokemon_id, shiny=other_shiny, gender=other_gender)
+                gender_map = {"0": "M", "1": "F", "2": "N"}
+                other_gender = gender_map.get(gender_id, "M")
+                other_shiny = (shiny_val == 1)
+                
+                other_name = self.get_pokemon_name_by_id(pokemon_id)
+                self.other_pokemon_name_label.setText(other_name)
+                sprite_path = get_sprite_path(side="front", sprite_type="gif", id=pokemon_id, shiny=other_shiny, gender=other_gender, pokemon_name=other_name)
                 
                 if hasattr(self, '_other_pokemon_movie') and self._other_pokemon_movie is not None:
                     self._other_pokemon_movie.stop()
@@ -435,8 +521,6 @@ class PokemonTrade:
                 self.other_pokemon_sprite_label.setMovie(other_pokemon_movie)
                 other_pokemon_movie.start()
                 set_other_frame()
-                name = self.get_pokemon_name_by_id(pokemon_id)
-                self.other_pokemon_name_label.setText(name if name else "Unknown Pokémon")
             else:
                 self.other_pokemon_sprite_label.setPixmap(QPixmap(":/icons/pokeball.png").scaled(QSize(64, 64), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
                 self.other_pokemon_name_label.setText("")
@@ -448,6 +532,11 @@ class PokemonTrade:
         try:
             with open(self.pokedex_path, 'r', encoding='utf-8') as file:
                 pokedex = json.load(file)
+                # First pass: check actual_id for precise form match (e.g. Mega Diancie)
+                for details in pokedex.values():
+                    if details.get('actual_id') == pokemon_id:
+                        return details.get('name', str(pokemon_id))
+                # Second pass fallback: check species_id
                 for details in pokedex.values():
                     if details.get('species_id') == pokemon_id:
                         return details.get('name', str(pokemon_id))
@@ -459,10 +548,15 @@ class PokemonTrade:
         from PyQt6.QtWidgets import QMessageBox
         code = self.trade_code_input.text()
         name = "the other Pokémon"
-        parts = code.split(',')
-        if len(parts) > 0 and parts[0].isdigit():
-            pokemon_id = int(parts[0])
-            name = self.get_pokemon_name_by_id(pokemon_id)
+        parts = [p.strip() for p in code.split(',')]
+        if len(parts) > 0:
+            if parts[0] == "-200":
+                if len(parts) > 1 and parts[1].isdigit():
+                    pokemon_id = int(parts[1])
+                    name = self.get_pokemon_name_by_id(pokemon_id)
+            elif parts[0].isdigit():
+                pokemon_id = int(parts[0])
+                name = self.get_pokemon_name_by_id(pokemon_id)
         msg = QMessageBox(parent_window)
         msg.setIcon(QMessageBox.Icon.Question)
         msg.setWindowTitle("Confirm Trade")
@@ -480,6 +574,11 @@ class PokemonTrade:
                 showWarning("Code is incomplete.")
                 return
             incoming_id = numbers[0]
+            if incoming_id == -200:
+                if len(numbers) < 18:
+                    showWarning("Code is incomplete.")
+                    return
+                incoming_id = numbers[1]
             if incoming_id == self.id:
                 showWarning("You cannot trade with a Pokémon of the same species (ID) as the one you're trading away!")
                 return
@@ -491,10 +590,19 @@ class PokemonTrade:
         from ..functions.pokedex_functions import search_pokedex, get_all_pokemon_moves
         import random
         try:
-            pokemon_id, level, gender_id, shiny = numbers[0], numbers[1], numbers[2], numbers[3]
-            ev_stats = dict(zip(['hp', 'atk', 'def', 'spa', 'spd', 'spe'], numbers[4:10]))
-            iv_stats = dict(zip(['hp', 'atk', 'def', 'spa', 'spd', 'spe'], numbers[10:16]))
-            attacks = [self.find_move_by_num(attack_id)['name'] for attack_id in numbers[16:]]
+            if len(numbers) > 0 and numbers[0] == -200:
+                pokemon_id, level, gender_id, shiny = numbers[1], numbers[2], numbers[3], numbers[4]
+                ev_stats = dict(zip(['hp', 'atk', 'def', 'spa', 'spd', 'spe'], numbers[5:11]))
+                iv_stats = dict(zip(['hp', 'atk', 'def', 'spa', 'spd', 'spe'], numbers[11:17]))
+                nature_id = numbers[17]
+                nature = self.nature_from_id(nature_id)
+                attacks = [self.find_move_by_num(attack_id)['name'] for attack_id in numbers[18:]]
+            else:
+                pokemon_id, level, gender_id, shiny = numbers[0], numbers[1], numbers[2], numbers[3]
+                ev_stats = dict(zip(['hp', 'atk', 'def', 'spa', 'spd', 'spe'], numbers[4:10]))
+                iv_stats = dict(zip(['hp', 'atk', 'def', 'spa', 'spd', 'spe'], numbers[10:16]))
+                nature = "serious"
+                attacks = [self.find_move_by_num(attack_id)['name'] for attack_id in numbers[16:]]
 
             details = self.find_pokemon_by_id(pokemon_id)
             if not details:
@@ -528,13 +636,14 @@ class PokemonTrade:
                 "ev": ev_stats,
                 "iv": iv_stats,
                 "attacks": attacks,
-                "growth_rate": get_growth_rate(pokemon_id),
+                "growth_rate": get_growth_rate(details["species_id"]),
                 "current_hp": self.calculate_max_hp(details["baseStats"]["hp"], level, ev_stats, iv_stats),
                 "base_experience": base_experience,
                 "friendship": 0,
                 "pokemon_defeated": 0,
                 "everstone": False,
                 "shiny": bool(shiny),
+                "nature": nature,
                 "mega": False,
                 "special_form": None,
                 "capture_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -568,6 +677,11 @@ class PokemonTrade:
         try:
             with open(self.pokedex_path, 'r', encoding='utf-8') as file:
                 pokedex = json.load(file)
+                # First pass: check actual_id for precise form match (e.g. Mega Diancie)
+                for details in pokedex.values():
+                    if details.get('actual_id') == pokemon_id:
+                        return details
+                # Second pass fallback: check species_id
                 for details in pokedex.values():
                     if details.get('species_id') == pokemon_id:
                         return details
@@ -602,6 +716,32 @@ class PokemonTrade:
     
     def format_shiny(self):
         return 1 if self.shiny else 0
+
+    def format_nature(self):
+        nature_name = getattr(self, 'nature', 'serious').lower()
+        natures = [
+            "hardy", "lonely", "brave", "adamant", "naughty",
+            "bold", "docile", "relaxed", "impish", "lax",
+            "timid", "hasty", "serious", "jolly", "naive",
+            "modest", "mild", "quiet", "bashful", "rash",
+            "calm", "gentle", "sassy", "careful", "quirky"
+        ]
+        try:
+            return natures.index(nature_name)
+        except ValueError:
+            return 12  # "serious"
+
+    def nature_from_id(self, nature_id):
+        natures = [
+            "hardy", "lonely", "brave", "adamant", "naughty",
+            "bold", "docile", "relaxed", "impish", "lax",
+            "timid", "hasty", "serious", "jolly", "naive",
+            "modest", "mild", "quiet", "bashful", "rash",
+            "calm", "gentle", "sassy", "careful", "quirky"
+        ]
+        if 0 <= nature_id < len(natures):
+            return natures[nature_id]
+        return "serious"
 
     def ev_string(self):
         return ','.join(str(value) for value in self.ev.values())

@@ -454,5 +454,17 @@
   "futuresight_fails": "Seher schlägt fehl!",
   "weather_raindance_still": "Es regnet immer noch!",
   "wish_started": "{pokemon_name} hat sich etwas gewünscht! Es wird bald {heal_amount} KP heilen.",
-  "pc_box_label": "Box {current}/{total}"
+  "pc_box_label": "Box {current}/{total}",
+  "cp_label": "WP",
+  "bp_label": "KP",
+  "combat_power": "Wettkampfpunkte",
+  "battle_power": "Kampfstärke",
+  "pokemon_about_to_evolve_friendship": "{main_pokemon_name} ist bereit, sich zu {evo_pokemon_name} zu entwickeln!",
+  "friendship_label": "Freundschaft",
+  "friendship_tooltip": "Misst die Bindung zwischen dir und deinem Pokémon.",
+  "bff_tooltip": "💖 Bester Freund (Höchste Freundschaft)",
+  "evolve_now_button": "✨ Jetzt zu {evo_name} entwickeln! ✨",
+  "badge_ready": "✨ Bereit zur Entwicklung!",
+  "badge_wait_day": "☀️ Bereit zur Entwicklung am Tag",
+  "badge_wait_night": "🌙 Bereit zur Entwicklung in der Nacht"
 }

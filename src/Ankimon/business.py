@@ -85,10 +85,10 @@ def calculate_cpm(level: int) -> float:
 
     Models the Pokemon GO idea of a level-scaling multiplier that grows
     quickly at low levels and tapers off as the Pokemon approaches its
-    level ceiling. Asymptotes just below ``0.84`` — the approximate max
+    level ceiling. Asymptotes just below ``1.2`` — the approximate max
     CPM in Pokemon GO — but is smooth and defined for any Anki level.
     """
-    return 0.84 * (1 - math.exp(-max(level, 1) / 20))
+    return 3.5 * (1 - math.exp(-max(level, 1) / 85))
 
 
 def pokemon_go_raw_stats(base_stats: dict, iv: dict, ev: dict):

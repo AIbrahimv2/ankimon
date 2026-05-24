@@ -454,5 +454,17 @@
   "futuresight_fails": "Prescience échoue !",
   "weather_raindance_still": "Il pleut encore !",
   "wish_started": "{pokemon_name} a fait un vœu ! Il récupérera {heal_amount} PV bientôt.",
-  "pc_box_label": "Box {current}/{total}"
+  "pc_box_label": "Box {current}/{total}",
+  "cp_label": "PC",
+  "bp_label": "PB",
+  "combat_power": "Puissance de combat",
+  "battle_power": "Puissance de combat",
+  "pokemon_about_to_evolve_friendship": "{main_pokemon_name} est prêt à évoluer en {evo_pokemon_name} !",
+  "friendship_label": "Amitié",
+  "friendship_tooltip": "Mesure le lien entre vous et votre Pokémon.",
+  "bff_tooltip": "💖 Meilleur Ami (Amitié maximale)",
+  "evolve_now_button": "✨ Évoluer en {evo_name} ! ✨",
+  "badge_ready": "✨ Prêt à évoluer !",
+  "badge_wait_day": "☀️ Prêt à évoluer pendant la journée",
+  "badge_wait_night": "🌙 Prêt à évoluer pendant la nuit"
 }

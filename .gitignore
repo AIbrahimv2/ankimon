@@ -16,6 +16,7 @@ src/Ankimon/user_files/backups
 *.pyc
 .vscode
 .gemini
+.agents
 debug_console.py
 src/Ankimon/user_files/todays_shop.json
 src/Ankimon/user_files/meta.json
@@ -29,6 +30,11 @@ src/Ankimon/updateinfos.md
 cycle_keys.py
 src/Ankimon/user_files/download_complete.flag
 src/Ankimon/user_files/ankimon.db
+src/Ankimon/user_files/ankimon.db-shm
+src/Ankimon/user_files/ankimon.db-wal
+src/Ankimon/user_files/ankimonDEV.db
+src/Ankimon/user_files/ankimonDEV.db-shm
+src/Ankimon/user_files/ankimonDEV.db-wal
 src/Ankimon/user_files/json/*
 # Sprites are downloaded on first run, not tracked in git.
 # Source of truth: https://github.com/h0tp-ftw/ankimon-sprites

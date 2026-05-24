@@ -318,6 +318,14 @@ class AnkimonDB:
         cursor.execute(query, parameters)
         return cursor
 
+    def switch_database(self, db_filename: str):
+        """Closes the current connection and opens a new database file."""
+        self.close()
+        self.db_path = user_path / db_filename
+        self._connection = None
+        self._setup_database()
+        self._log("info", f"Switched database to {db_filename}")
+
     def get_pokemons_by_individual_ids(self, ids: List[str]) -> List[Dict[str, Any]]:
         """Retrieves multiple pokemon by their individual_ids."""
         if not ids:
@@ -353,10 +361,17 @@ class AnkimonDB:
         cursor.execute("UPDATE captured_pokemon SET is_main = 0 WHERE is_main = 1")
         
         # Save/update this pokemon and set as main
-        cursor.execute(
-            "INSERT OR REPLACE INTO captured_pokemon (individual_id, is_main, data) VALUES (?, 1, ?)",
-            (individual_id, obfuscated_data)
-        )
+        cursor.execute("SELECT 1 FROM captured_pokemon WHERE individual_id = ?", (individual_id,))
+        if cursor.fetchone():
+            cursor.execute(
+                "UPDATE captured_pokemon SET is_main = 1, data = ? WHERE individual_id = ?",
+                (obfuscated_data, individual_id)
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO captured_pokemon (individual_id, is_main, data) VALUES (?, 1, ?)",
+                (individual_id, obfuscated_data)
+            )
         conn.commit()
         return True
 
@@ -659,13 +674,29 @@ class AnkimonDB:
         cursor = self.execute("SELECT key, value FROM user_data")
         result = {}
         for row in cursor.fetchall():
-            key = row["key"]
-            val = row["value"]
+            key = row[0]
+            val = row[1]
             try:
                 result[key] = json.loads(val)
             except:
                 result[key] = val
         return result
+
+    # --- Pokedex Seen Tracking ---
+
+    def mark_as_seen(self, pokedex_id: int):
+        """Marks a Pokémon ID as seen in the user_data."""
+        seen_ids = self.get_seen_ids()
+        if pokedex_id not in seen_ids:
+            seen_ids.add(pokedex_id)
+            self.set_user_data("pokedex_seen", list(seen_ids))
+
+    def get_seen_ids(self) -> set:
+        """Retrieves the set of seen Pokémon IDs."""
+        data = self.get_user_data("pokedex_seen", [])
+        if isinstance(data, list):
+            return set(data)
+        return set()
 
     # --- Config Operations (replaces config.obf) ---
 

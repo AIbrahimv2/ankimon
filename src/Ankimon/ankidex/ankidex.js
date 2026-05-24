@@ -151,11 +151,17 @@ function formatLoreName(name) {
   return name;
 }
 
+function resolveActualId(id) {
+  return id === 718 ? 10119 : id;
+}
+
 function getVisibilityState(id) {
-  if (state.collection.owned.has(id)) return 2; // CAUGHT
-  if (state.collection.seen.has(id)) return 1; // SEEN
+  const actualId = resolveActualId(id);
+  if (state.collection.owned.has(actualId)) return 2; // CAUGHT
+  if (state.collection.seen.has(actualId)) return 1; // SEEN
   return 0; // NOT SEEN
 }
+
 
 async function loadAbilityData() {
   try {
@@ -1109,12 +1115,12 @@ function renderBriefing(p, id, visState, displayId) {
     reqs = [reqs];
   }
 
-  const isEncounterable = state.collection.encounterable.has(id);
-  const isOwned = state.collection.owned.has(id);
+  const isEncounterable = state.collection.encounterable.has(resolveActualId(id));
+  const isOwned = state.collection.owned.has(resolveActualId(id));
 
   let caughtCount = 0;
   reqs.forEach((reqId) => {
-    if (state.collection.owned.has(reqId)) caughtCount++;
+    if (state.collection.owned.has(resolveActualId(reqId))) caughtCount++;
   });
 
   const totalReqs = isOR ? 1 : reqs.length;
@@ -1144,7 +1150,7 @@ function renderBriefing(p, id, visState, displayId) {
     badgeEl.classList.add("in-progress");
     summaryEl.textContent = `${caughtCount} of ${totalReqs} requirements caught.`;
 
-    const missingReqs = reqs.filter((rId) => !state.collection.owned.has(rId));
+    const missingReqs = reqs.filter((rId) => !state.collection.owned.has(resolveActualId(rId)));
     if (isOR) {
       nextStepEl.textContent = `Catch any one of the alternative requirements.`;
     } else if (missingReqs.length === 1) {
@@ -1648,7 +1654,7 @@ function renderRequirements(p) {
 
   idsToDisplay.forEach((reqId) => {
     const item = document.createElement("div");
-    const isCaught = state.collection.owned.has(reqId);
+    const isCaught = state.collection.owned.has(resolveActualId(reqId));
     item.className = `prereq-item ${isCaught ? "caught" : "locked"}`;
 
     const reqPokemon = state.fullSpeciesMap[reqId];
@@ -1946,8 +1952,8 @@ function renderDiscoveryMap() {
       if (!nodes[reqId]) return;
       const src = nodes[reqId];
       const dst = nodes[targetId];
-      const srcCaught = state.collection.owned.has(reqId);
-      const dstCaught = state.collection.owned.has(targetId);
+      const srcCaught = state.collection.owned.has(resolveActualId(reqId));
+      const dstCaught = state.collection.owned.has(resolveActualId(targetId));
       let lineClass = "discovery-line";
       if (srcCaught) lineClass += " line-met";
       if (dstCaught) lineClass += " line-completed";
@@ -1976,8 +1982,8 @@ function renderDiscoveryMap() {
     const visState = getVisibilityState(id);
     const el = document.createElement("div");
     el.className = `discovery-node tier-${pos.tier} state-${ns} vis-${visState}`;
-    const isOwned = state.collection.owned.has(id);
-    if (!isOwned && (ns === "locked" || ns === "in-progress")) {
+    const isNodeOwned = state.collection.owned.has(resolveActualId(id));
+    if (!isNodeOwned && (ns === "locked" || ns === "in-progress")) {
       el.classList.add("state-restricted");
     }
     el.dataset.id = id;
@@ -2050,7 +2056,7 @@ function updateMapProgress(nodes, chains, finalTargets) {
   Object.keys(nodes).forEach((idStr) => {
     const id = parseInt(idStr);
     totalNodes++;
-    if (state.collection.owned.has(id)) caughtNodes++;
+    if (state.collection.owned.has(resolveActualId(id))) caughtNodes++;
   });
 
   // 2. Calculate visual chain completion (the counter)
@@ -2066,7 +2072,7 @@ function updateMapProgress(nodes, chains, finalTargets) {
     const isDone = groupIds.some(
       (id) =>
         (APEX_IDS.has(id) || TARGET_IDS.has(id)) &&
-        state.collection.owned.has(id),
+        state.collection.owned.has(resolveActualId(id)),
     );
     if (isDone) completedChains++;
   });
@@ -2206,14 +2212,14 @@ function clearChainPreview() {
 // ============================================================
 
 function getNodeState(id) {
-  if (state.collection.owned.has(id)) return "caught";
+  if (state.collection.owned.has(resolveActualId(id))) return "caught";
   const reqs = state.prerequisites[id];
   if (!reqs) return "available";
   let metCount = 0,
     total = 0;
   if (Array.isArray(reqs) && reqs[0] === "OR") {
     const any = reqs[1].some(
-      (rid) => typeof rid === "number" && state.collection.owned.has(rid),
+      (rid) => typeof rid === "number" && state.collection.owned.has(resolveActualId(rid)),
     );
     return any ? "available" : "locked";
   } else {
@@ -2221,7 +2227,7 @@ function getNodeState(id) {
     ids.forEach((rid) => {
       if (typeof rid === "number") {
         total++;
-        if (state.collection.owned.has(rid)) metCount++;
+        if (state.collection.owned.has(resolveActualId(rid))) metCount++;
       }
     });
     if (metCount === total) return "available";

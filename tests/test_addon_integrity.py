@@ -127,7 +127,7 @@ def test_ankimon_initialization(qapp):
             "Ankimon.poke_engine.setup",
             "Ankimon.pyobj.tip_of_the_day",
             "Ankimon.singletons",
-            "Ankimon.poke_engine.ankimon_hooks_to_poke_engine",
+            "Ankimon.functions.ankimon_hooks_to_poke_engine",
         ]
 
         for importer, modname, ispkg in pkgutil.walk_packages(package.__path__, prefix):

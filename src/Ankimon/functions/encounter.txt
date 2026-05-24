@@ -1,9 +1,13 @@
-Excluded Pokemon:
-Legendary:
+Excluded Pokemon: None
+
+Prerequisite chains:
+#Legendary: OLD
 
 144 - Articuno
 145 - Zapdos
 146 - Moltres
+=> need all 3 to catch Lugia
+249 - Lugia
 
 => need Mew first to catch:
 150 - Mewtwo
@@ -11,16 +15,8 @@ Legendary:
 243 - Raikou
 244 - Entei
 245 - Suicune
-=> need all 3 to catch Ho-Oh or Lugia
+=> need all 3 to catch Ho-Oh
 250 - Ho-Oh
-249 - Lugia
-
-
-377 - Regirock
-378 - Regoce
-379 - Regice
-=> need all 3 to catch:
-486 - Regigigas
 
 380 - Latias
 381 - Latios
@@ -32,13 +28,91 @@ Legendary:
 
 483 - Dialga
 484 - Palkia
-=> need both to catch Giratina or Arceus
-
+=> need both to catch Giratina
 487 - Giratina
 
-Mythical:
-151 - Mew
-251 - Celebi
-386 - Deoxys
+480 - Uxie
+481 - Mesprit
+482 - Azelf
+=> need all 3 to catch Dialga or Palkia:
+483 - Dialga
+484 - Palkia
+
+480 - Uxie
+481 - Mesprit
+482 - Azelf
+483 - Dialga
+484 - Palkia
+487 - Giratina
+=> need all 6 to catch Arceus
 493 - Arceus
-649 - Genesect
+
+489 - Manaphy
+=> need to catch:
+490 - Phione
+
+638 - Cobalion
+639 - Terrakion
+640 - Virizion
+=> need all 3 to catch:
+647 - Keldeo
+
+641 - Tornadus
+642 - Thundurus
+=> need both to catch Landorus:
+645 - Landorus
+
+641 - Tornadus
+642 - Thundurus
+645 - Landorus
+=> need all 3 to catch Enamorus:
+905 - Enamorus
+
+643 - Reshiram
+644 - Zekrom
+=> need both to catch:
+646 - Kyurem
+
+716 - Xerneas
+717 - Yveltal
+=> need both to catch:
+718 - Zygarde
+
+791 - Solgaleo
+792 - Lunala
+=> need both to catch:
+800 - Necrozma
+
+772 - Type: Null
+=> need to catch:
+773 - Silvally
+
+888 - Zacian
+889 - Zamazenta
+=> need both to catch:
+890 - Eternatus
+
+
+898 - Calyrex
+=> need to catch:
+896 - Glastrier
+897 - Spectrier
+
+894 - Regieleki
+895 - Regidrago
+377 - Regirock
+378 - Regice
+379 - Registeel
+=> need all 5 to catch:
+486 - Regigigas
+
+1014 - Okidogi
+1015 - Munkidori
+1016 - Fezandipiti
+=> need all 3 to catch Pecharunt:
+1025 - Pecharunt
+
+1007 - Koraidon
+1008 - Miraidon
+=> need either to catch:
+1024 - Terapagos

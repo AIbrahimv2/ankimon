@@ -37,7 +37,14 @@ def answerCard_after(rev, card, ease):
     ankimon_tracker_obj.reset_card_timer()
 
 
+_hooks_registered = False
+
 def register_card_hooks():
+    global _hooks_registered
+    if _hooks_registered:
+        return
+    _hooks_registered = True
+
     gui_hooks.reviewer_did_show_question.append(on_show_question)
     gui_hooks.reviewer_did_show_answer.append(on_show_answer)
     gui_hooks.reviewer_did_show_question.append(on_reviewer_did_show_question)

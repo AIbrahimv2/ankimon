@@ -4,6 +4,7 @@ from .badges_functions import get_achieved_badges
 from .pokedex_functions import extract_ids_from_file
 from .pokemon_functions import find_experience_for_level
 from .pokedex_functions import check_evolution_for_pokemon, return_name_for_id
+from .friendship_evolution import check_friendship_evolution_for_pokemon
 from aqt.utils import showInfo, showWarning
 from aqt import mw
 
@@ -78,6 +79,11 @@ def xp_share_gain_exp(logger, settings_obj, evo_window, main_pokemon_id, exp, xp
     evolution_triggered = False
 
     pokemon = db.get_pokemon(xp_share_individual_id)
+    if not pokemon:
+        # Fixed: if pokemon not found in current DB (e.g. after account swap), skip sharing
+        mw.logger.log("warning", f"XP Share target {xp_share_individual_id} not found in current database.")
+        return exp
+        
     current_level = int(pokemon['level'])  # MODIFIED: Use local variable for level
     if pokemon.get('held_item') == "lucky-egg":
         exp = int(exp * 1.5) # Multiply by 1.5 if pokemon holds lucky egg
@@ -106,11 +112,12 @@ def xp_share_gain_exp(logger, settings_obj, evo_window, main_pokemon_id, exp, xp
 
     # Check for evolution
     evo_id = check_evolution_for_pokemon(
-        pokemon['individual_id'],
-        pokemon['id'],
-        pokemon['level'],
+        pokemon["individual_id"],
+        pokemon["id"],
+        pokemon["level"],
         evo_window,
-        pokemon['everstone']
+        pokemon["everstone"],
+        pokemon.get("evolution_rejected", False),
     )
 
     if evo_id is not None:
@@ -121,6 +128,16 @@ def xp_share_gain_exp(logger, settings_obj, evo_window, main_pokemon_id, exp, xp
         db.save_pokemon(pokemon)
 
         # Now call evolution (which will read the updated file and handle the evolution)
+    else:
+        # Trigger friendship evolution check if level-up evolution didn't happen
+        check_friendship_evolution_for_pokemon(
+            pokemon["individual_id"],
+            pokemon["id"],
+            evo_window,
+            pokemon["everstone"],
+            pokemon.get("friendship", 0),
+            pokemon.get("evolution_rejected", False),
+        )
 
     # Only save to database if no evolution was triggered (since evolution already saved)
     if not evolution_triggered:

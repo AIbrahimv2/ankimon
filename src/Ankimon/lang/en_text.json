@@ -39,6 +39,7 @@
   "open_pokedex_button": "Open Pokedex",
   "eff_chart_button": "Check Effectiveness Chart",
   "gen_chart_button": "Check Generation Chart",
+  "nature_chart_button": "Check Nature Chart",
   "join_discord_button": "Join Discord Channel",
   "ankimon_credits_button": "Ankimon Credits",
   "ankimon_about_and_license_button": "Ankimon About and License",
@@ -457,5 +458,13 @@
   "cp_label": "CP",
   "bp_label": "BP",
   "combat_power": "Combat Power",
-  "battle_power": "Battle Power"
+  "battle_power": "Battle Power",
+  "pokemon_about_to_evolve_friendship": "{main_pokemon_name} is ready to evolve into {evo_pokemon_name}!",
+  "friendship_label": "Friendship",
+  "friendship_tooltip": "Measures the bond between you and your Pokémon.",
+  "bff_tooltip": "💖 Best Friend (Highest Friendship)",
+  "evolve_now_button": "✨ Evolve into {evo_name}! ✨",
+  "badge_ready": "✨ Ready to evolve!",
+  "badge_wait_day": "☀️ Ready to evolve during the day",
+  "badge_wait_night": "🌙 Ready to evolve at night"
 }

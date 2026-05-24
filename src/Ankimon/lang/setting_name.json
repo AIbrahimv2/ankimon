@@ -1,5 +1,6 @@
 {
     "battle.automatic_battle": "Automatic Battle",
+    "battle.automatic_catch_special": "Always catch Special Pokémon",
     "battle.cards_per_round": "Cards per Round",
     "battle.daily_average": "Goal of Daily Average Cards",
     "battle.card_max_time": "Card Max Time",
@@ -8,6 +9,7 @@
     "controls.pokemon_buttons": "Show Pokémon Buttons",
     "controls.defeat_key": "Key for Defeat",
     "controls.catch_key": "Key for Catching",
+    "controls.team_cycle_key": "Key for Team Cycling",
     "controls.key_for_opening_closing_ankimon": "Key for Opening/Closing Ankimon",
     "controls.allow_to_choose_moves": "Allow Choosing Moves",
     
@@ -42,6 +44,7 @@
     "misc.gen7": "Generation 7",
     "misc.gen8": "Generation 8",
     "misc.gen9": "Generation 9",
+    "misc.active_region": "Active Region",
     "misc.remove_level_cap": "Remove Level Cap",
     "misc.language": "Language",
     "misc.ssh": "SSH Access",
@@ -52,6 +55,11 @@
     "misc.discord_rich_presence_text": "Discord Rich Presence - Quote Type",
     "misc.show_tip_on_startup": "Show Tip of the Day On Startup",
     "misc.developer_mode": "Developer Mode",
-    "trainer.name": "Trainer Name"
+    "trainer.name": "Trainer Name",
+    "trainer.cash_reward_amount": "Cash Reward Per Interval",
+    "trainer.cash_reward_interval": "Cards Per Cash Reward",
 
-}
+    "evolution.friendship_time_enabled": "Friendship & Time Evolution",
+    "evolution.timezone_auto": "Auto-detect Time Zone",
+    "evolution.timezone_offset": "Time Zone UTC Offset"
+    }

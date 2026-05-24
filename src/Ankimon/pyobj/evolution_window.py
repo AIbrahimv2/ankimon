@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
 )
 
-from ..utils import load_custom_font
+from ..utils import load_custom_font, is_alive
 from ..functions.pokedex_functions import (
     get_base_experience,
     get_growth_rate,
@@ -38,7 +38,7 @@ from ..pyobj.translator import Translator
 from ..pyobj.test_window import TestWindow
 from ..pyobj.reviewer_obj import Reviewer_Manager
 from ..pyobj.error_handler import show_warning_with_traceback
-from ..business import resize_pixmap_img
+from ..business import resize_pixmap_img, calculate_cp_from_dict
 from ..resources import (
     addon_dir,
     frontdefault,
@@ -72,7 +72,7 @@ class EvoWindow(QWidget):
 
     def init_ui(self):
         basic_layout = QVBoxLayout()
-        self.setWindowTitle("Your Pokemon is about to Evolve")
+        self.setWindowTitle("Your Pokémon is about to Evolve")
         self.setLayout(basic_layout)
 
     def open_dynamic_window(self):
@@ -93,10 +93,15 @@ class EvoWindow(QWidget):
         layout = self.layout()
         pkmn_label = self._display_evo_complete_layout(prevo_id, evo_id)
         layout.addWidget(pkmn_label)
+
+        close_button = QPushButton("Close")
+        close_button.clicked.connect(self.close)
+        layout.addWidget(close_button)
+
         self.setStyleSheet("background-color: rgb(14,14,14);")
         self.setLayout(layout)
         self.setMaximumWidth(500)
-        self.setMaximumHeight(300)
+        self.setMaximumHeight(350)
         self.show()
 
     def _display_evo_complete_layout(self, prevo_id: int, evo_id: int):
@@ -291,11 +296,16 @@ class EvoWindow(QWidget):
     def evolve_pokemon(self, individual_id, prevo_id, prevo_name, evo_id, evo_name, main_pokemon):
         """Evolve a pokemon and save to database."""
         db = mw.ankimon_db
-        
+
         try:
             pokemon = db.get_pokemon(individual_id)
             if not pokemon:
                 self.logger.log("error", f"Could not find pokemon with id {individual_id}")
+                return
+
+            # Guard against double-evolution
+            if int(pokemon.get("id", 0)) != int(prevo_id):
+                self.logger.log("info", f"Evolution already completed for {pokemon.get('name')}.")
                 return
 
             pokemon["name"] = evo_name.capitalize()
@@ -330,8 +340,8 @@ class EvoWindow(QWidget):
             level = pokemon["level"]
             hp = calculate_hp(hp_stat, level, ev, iv)
             pokemon["current_hp"] = int(hp)
-            pokemon["growth_rate"] = search_pokeapi_db_by_id(evo_id,"growth_rate")
-            pokemon["base_experience"] = search_pokeapi_db_by_id(evo_id,"base_experience")
+            pokemon["growth_rate"] = get_growth_rate(int(evo_id))
+            pokemon["base_experience"] = get_base_experience(int(evo_id))
             abilities = search_pokedex(evo_name.lower(), "abilities")
             numeric_abilities = None
             try:
@@ -343,7 +353,16 @@ class EvoWindow(QWidget):
                 pokemon["ability"] = random.choice(abilities_list)
             else:
                 pokemon["ability"] = self.translator.translate("no_ability")
-            
+
+            # Update nickname only if it was never customized (matched pre-evo name)
+            old_nickname = pokemon.get("nickname", "")
+            if not old_nickname or old_nickname.lower() == prevo_name.lower():
+                pokemon["nickname"] = evo_name.capitalize()
+
+            # Recompute CP and clear rejection flag
+            pokemon["cp"] = calculate_cp_from_dict(pokemon)
+            pokemon["evolution_rejected"] = False
+
             # Save to database
             db.save_pokemon(pokemon)
             self.logger.log_and_showinfo("info", self.translator.translate("mainpokemon_has_evolved", prevo_name=prevo_name, evo_name=evo_name))
@@ -378,9 +397,13 @@ class EvoWindow(QWidget):
         if check is False:
             receive_badge(16, self.achievements)
 
-        from ..singletons import pokemon_pc
-
-        pokemon_pc.refresh_pokemon_grid()
+        from ..singletons import get_pokemon_pc
+        pc = get_pokemon_pc()
+        if pc and is_alive(pc):
+            pc.refresh_gui()
+            # If the evolved pokemon is the one currently selected in PC, refresh its details
+            if pc._selected_individual_id == individual_id:
+                pc.show_pokemon_details({"individual_id": individual_id})
 
     def cancel_evolution(self, individual_id, prevo_name):
         """Cancel evolution and save changes to database."""
@@ -415,8 +438,8 @@ class EvoWindow(QWidget):
                             self.logger.log_and_showinfo("info", self.translator.translate("no_attack_selected"))
             
             pokemon_to_update["attacks"] = attacks
-            pokemon_to_update["everstone"] = True
-            
+            pokemon_to_update["evolution_rejected"] = True
+
             # Save to database
             db.save_pokemon(pokemon_to_update)
 
@@ -424,7 +447,7 @@ class EvoWindow(QWidget):
             if self.main_pokemon and self.main_pokemon.individual_id == individual_id:
                 self.main_pokemon, _ = update_main_pokemon(self.main_pokemon)
 
-            self.logger.log_and_showinfo("info", f"Canceled evolution for {prevo_name}.")
+            self.logger.log_and_showinfo("info", f"Evolution rejected for {prevo_name}. You can still evolve it from the PC later.")
             self.close()
 
         except Exception as e:

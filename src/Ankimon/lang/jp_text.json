@@ -454,5 +454,17 @@
   "futuresight_fails": "未来予知が失敗した！",
   "weather_raindance_still": "まだ雨が降っている！",
   "wish_started": "{pokemon_name}は願い事をした！まもなく{heal_amount} HPを回復する。",
-  "pc_box_label": "Box {current}/{total}"
+  "pc_box_label": "Box {current}/{total}",
+  "cp_label": "CP",
+  "bp_label": "BP",
+  "combat_power": "戦闘力",
+  "battle_power": "バトルパワー",
+  "pokemon_about_to_evolve_friendship": "{main_pokemon_name}は{evo_pokemon_name}に進化する準備ができました！",
+  "friendship_label": "なかよし度",
+  "friendship_tooltip": "あなたとポケモンの絆の強さです。",
+  "bff_tooltip": "💖 最高の相棒 (なかよし度最大)",
+  "evolve_now_button": "✨ {evo_name}に進化させる！ ✨",
+  "badge_ready": "✨ 進化の準備ができました！",
+  "badge_wait_day": "☀️ 昼の間に進化できます",
+  "badge_wait_night": "🌙 夜の間に進化できます"
 }

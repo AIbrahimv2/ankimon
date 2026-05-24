@@ -224,3 +224,25 @@ class TrainerCard:
             self.on_level_up()
             # Recalculate for next iteration (in case multiple levels gained)
             xp_needed = self.xp_for_next_level()
+
+    def refresh(self):
+        """Reloads trainer data from current settings and database."""
+        self.trainer_name = self.settings_obj.get("trainer.name")
+        self.level = int(self.settings_obj.get("trainer.level"))
+        self.xp = int(self.settings_obj.get("trainer.xp"))
+        self.total_xp = int(self.settings_obj.get("trainer.total_xp", 0))
+        self.cash = int(self.settings_obj.get("trainer.cash"))
+        self.image_path = (
+            f"{trainer_sprites_path}"
+            + "/"
+            + self.settings_obj.get("trainer.sprite")
+            + ".png"
+        )
+        self.league = find_trainer_rank(
+            int(self.highest_pokemon_level()), int(self.level)
+        )
+        self.reload_team()
+        if hasattr(self, "main_pokemon") and self.main_pokemon:
+            self.favorite_pokemon = self.main_pokemon.name
+        else:
+            self.favorite_pokemon = "None"

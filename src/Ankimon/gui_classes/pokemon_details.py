@@ -1,7 +1,7 @@
 import math
 from math import exp
 import json
-from typing import Any
+from typing import Any, Callable, Optional, Union
 import re
 
 from aqt import mw, qconnect
@@ -42,6 +42,7 @@ from ..functions.pokedex_functions import (
     search_pokedex_by_id,
 )
 from ..functions.pokemon_functions import find_experience_for_level
+from ..functions.friendship_evolution import evolution_readiness, MAX_FRIENDSHIP
 from ..functions.gui_functions import type_icon_path, move_category_path
 from ..functions.sprite_functions import get_sprite_path
 from ..gui_entities import MovieSplashLabel
@@ -104,35 +105,63 @@ def PokemonCollectionDetails(
     tab_changed_callback=None,
     nature: str = "serious",
     base_stats: dict = None,
+    old_stats: dict = None,
+    friendship: int = 0,
+    evolution_rejected: bool = False,
+    trigger_evo_callback: Callable = None,
 ):
-    # Create a layout for the details panel
+    from ..pyobj.translator import Translator
+    translator = Translator(language)
+
+    # Create the layouts
+    header_layout = QVBoxLayout()
+    footer_layout = QVBoxLayout()
+    
     try:
-        lang_name = get_pokemon_diff_lang_name(int(id), language).capitalize()
-        lang_desc = get_pokemon_descriptions(int(id), language)
+        # For Mega/Gmax and Regional forms, the species CSV often has no entry or is hyphenated — use pretty name instead
+        if any(f in name.lower() for f in ['mega', 'gmax', 'alola', 'galar', 'hisui', 'paldea']):
+            from ..functions.pokedex_functions import get_pretty_name_for_name, search_pokedex
+            lang_name = get_pretty_name_for_name(name)
+            # Use species_id for description since descriptions CSV only has base species
+            desc_id = search_pokedex(name.lower().replace(" ", "").replace("-", ""), "species_id") or id
+            lang_desc = get_pokemon_descriptions(int(desc_id), language)
+        else:
+            lang_name = get_pokemon_diff_lang_name(int(id), language)
+            lang_desc = get_pokemon_descriptions(int(id), language)
         description = lang_desc
-        layout = QVBoxLayout()
         typelayout = QHBoxLayout()
         attackslayout = QVBoxLayout()
         # Display the Pokémon image
         pkmnimage_label = QLabel()
-        pkmnpixmap = QPixmap()
         pkmnimage_path = get_sprite_path(
-            "front", "gif" if gif_in_collection else "png", id, shiny, gender
+            "front", "gif" if gif_in_collection else "png", id, shiny, gender, name
         )
+
+        global _SCALED_PIXMAP_CACHE
+        if "_SCALED_PIXMAP_CACHE" not in globals():
+            _SCALED_PIXMAP_CACHE = {}
 
         if gif_in_collection:
             pkmnimage_label = MovieSplashLabel(pkmnimage_path)
         else:
-            if not pkmnpixmap.load(str(pkmnimage_path)):
-                logger.log_and_showinfo(
-                    "warning", f"Failed to load Pokémon image: {pkmnimage_path}"
-                )
-            max_width = 150
-            original_width = pkmnpixmap.width()
-            original_height = pkmnpixmap.height()
-            new_width = max_width
-            new_height = (original_height * max_width) // original_width
-            pkmnpixmap = pkmnpixmap.scaled(new_width, new_height)
+            cache_key = (str(pkmnimage_path), shiny, gender)
+            if cache_key in _SCALED_PIXMAP_CACHE:
+                pkmnpixmap = _SCALED_PIXMAP_CACHE[cache_key]
+            else:
+                pkmnpixmap = QPixmap()
+                if not pkmnpixmap.load(str(pkmnimage_path)):
+                    logger.log_and_showinfo(
+                        "warning", f"Failed to load Pokémon image: {pkmnimage_path}"
+                    )
+                max_width = 150
+                original_width = pkmnpixmap.width()
+                if original_width > 0:
+                    original_height = pkmnpixmap.height()
+                    new_width = max_width
+                    new_height = (original_height * max_width) // original_width
+                    pkmnpixmap = pkmnpixmap.scaled(new_width, new_height, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                    _SCALED_PIXMAP_CACHE[cache_key] = pkmnpixmap
+            
             pkmnimage_label.setPixmap(pkmnpixmap)
 
         # Load and set type icons
@@ -172,12 +201,38 @@ def PokemonCollectionDetails(
         namefont = load_custom_font(30, language)
         namefont.setUnderline(True)
 
-        if nickname is None:
-            capitalized_name = f"{lang_name.capitalize()} {' ⭐ ' if shiny else ''}"
+        # Better name and dex number logic
+        from ..functions.pokedex_functions import search_pokedex
+        
+        # Resolve species_id for the [No. XXX] display
+        # We use the internal 'name' to look up the species_id because forms share dex numbers
+        lookup_name = name.lower().replace(" ", "").replace("-", "")
+        species_id = search_pokedex(lookup_name, "species_id")
+        if not species_id:
+            species_id = id
+            
+        dex_prefix = f"[No. {str(species_id).zfill(3)}] "
+        # Avoid redundant "Name (Name)" display
+        # We check if nickname is empty, matches the formatted species name, or matches the raw internal name
+        def normalize_name(s):
+            if not s: return ""
+            return "".join(c for c in str(s).lower() if c.isalnum())
+            
+        base_display_name = lang_name  # Already formatted by format_lore_name
+        shiny_star = " ⭐ " if shiny else ""
+        
+        is_redundant = (
+            not nickname or 
+            not str(nickname).strip() or 
+            normalize_name(nickname) == normalize_name(base_display_name) or
+            normalize_name(nickname) == normalize_name(name)
+        )
+        
+        if is_redundant:
+            capitalized_name = f"{dex_prefix}{base_display_name}{shiny_star}"
         else:
-            capitalized_name = (
-                f"{nickname} {' ⭐ ' if shiny else ''} ({lang_name.capitalize()})"
-            )
+            capitalized_name = f"{dex_prefix}{nickname}{shiny_star} ({base_display_name})"
+
         if (
             language == 11
             or language == 12
@@ -193,30 +248,24 @@ def PokemonCollectionDetails(
         description_txt = f"Description: \n {description_formated}"
         lvl = f" Level: {level}"
         ability_txt = f" Ability: {ability.capitalize()}"
-        type_txt = f" Type:"
-        stats_list = []
-        for key, val in detail_stats.items():
-            if key not in ("hp", "atk", "def", "spa", "spd", "spe"):
-                continue
-            stat = PokemonObject.calc_stat(key, val, level, iv[key], ev[key], nature)
-            stats_list.append(stat)
-        stats_list.append(detail_stats.get("xp", 0))
-        stats_txt = f"Stats:\n Hp: {stats_list[0]}\n Attack: {stats_list[1]}\n Defense: {stats_list[2]}\n Special-attack: {stats_list[3]}\n Special-defense: {stats_list[4]}\n Speed: {stats_list[5]}\n XP: {stats_list[6]}"
+        nature_display = (nature or "serious").strip().title()
+        nature_txt = f" Nature: {nature_display}"
+        _stats_dict = {}
+        for key in ("hp", "atk", "def", "spa", "spd", "spe"):
+            if key in detail_stats:
+                _stats_dict[key] = PokemonObject.calc_stat(
+                    key, detail_stats[key], level, iv[key], ev[key], nature
+                )
+        _stats_dict["xp"] = detail_stats.get("xp", 0)
+        _stats_dict["friendship"] = friendship
+
+        stats_txt = f"Stats:\n Hp: {_stats_dict.get('hp', 0)}\n Attack: {_stats_dict.get('atk', 0)}\n Defense: {_stats_dict.get('def', 0)}\n Special-attack: {_stats_dict.get('spa', 0)}\n Special-defense: {_stats_dict.get('spd', 0)}\n Speed: {_stats_dict.get('spe', 0)}\n XP: {_stats_dict['xp']}"
         attacks_txt = "MOVES:"
         for attack in attacks:
             attacks_txt += f"\n{attack.capitalize()}"
 
-        _stats_dict = {
-            "hp": stats_list[0],
-            "atk": stats_list[1],
-            "def": stats_list[2],
-            "spa": stats_list[3],
-            "spd": stats_list[4],
-            "spe": stats_list[5],
-            "xp": stats_list[6],
-        }
         CompleteTable_layout = PokemonDetailsStats(
-            _stats_dict, growth_rate, level, remove_levelcap, language
+            _stats_dict, growth_rate, level, remove_levelcap, language, old_stats
         )
 
         if gender == "M":
@@ -236,7 +285,8 @@ def PokemonCollectionDetails(
             {"base_stats": _cp_stats, "iv": iv, "ev": ev, "level": level}
         )
 
-        name_label = QLabel(f"{capitalized_name} - {gender_symbol}")
+        display_full_name = f"{capitalized_name} - {gender_symbol}" if gender_symbol else capitalized_name
+        name_label = QLabel(display_full_name)
         name_label.setFont(namefont)
         description_label = QLabel(description_txt)
         level_label = QLabel(lvl)
@@ -255,16 +305,20 @@ def PokemonCollectionDetails(
         type_label = QLabel("Type:")
         type_label.setFont(custom_font)
         ability_label.setFont(custom_font)
-        attacks_label.setFont(custom_font)
+        nature_label = QLabel(nature_txt)
+        nature_label.setFont(custom_font)
+        attacks_label = QLabel(attacks_txt)
         description_label.setFont(
             load_custom_font(15 if language != 1 else 20, language)
         )
         pokemon_defeated_label.setFont(custom_font)
         captured_date_label.setFont(custom_font)
 
+
         if gif_in_collection is False:
             pkmnimage_label.setFixedHeight(100)
         pkmnimage_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         level_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         cp_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -277,17 +331,20 @@ def PokemonCollectionDetails(
         pokemon_defeated_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         captured_date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        level_label.setFixedWidth(230)
-        ability_label.setFixedWidth(230)
+        nature_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         attacks_label.setFixedWidth(230)
-        attacks_label.setFixedHeight(70)
+        attacks_label.setFixedHeight(80)
+
 
         first_layout = QHBoxLayout()
         TopL_layout_Box = QVBoxLayout()
         TopR_layout_Box = QVBoxLayout()
+        TopR_layout_Box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
         typelayout_widget = QWidget()
         TopL_layout_Box.addWidget(level_label)
         TopL_layout_Box.addWidget(cp_label)
+
         TopL_layout_Box.addWidget(pkmnimage_label)
 
         typelayout.addWidget(type_label)
@@ -301,8 +358,9 @@ def PokemonCollectionDetails(
 
         typelayout_widget.setLayout(typelayout)
         typelayout_widget.setFixedWidth(230)
-        TopL_layout_Box.addWidget(typelayout_widget)
+        TopL_layout_Box.addWidget(typelayout_widget, alignment=Qt.AlignmentFlag.AlignCenter)
         TopL_layout_Box.addWidget(ability_label)
+        TopL_layout_Box.addWidget(nature_label)
         TopL_layout_Box.addWidget(captured_date_label)
         TopL_layout_Box.addWidget(pokemon_defeated_label)
 
@@ -313,33 +371,120 @@ def PokemonCollectionDetails(
         qconnect(
             remember_attacks_details_button.clicked,
             lambda: remember_attack_details_window(
-                individual_id, attacks, all_attacks, logger
+                individual_id, attacks, all_attacks, logger, refresh_callback
             ),
         )
         forget_attacks_details_button = QPushButton("Forget Attacks")
         qconnect(
             forget_attacks_details_button.clicked,
-            lambda: forget_attack_details_window(individual_id, attacks, logger),
+            lambda: forget_attack_details_window(individual_id, attacks, logger, refresh_callback),
         )
 
         tm_attacks_details_button = QPushButton("Learn attacks from TMs")
         qconnect(
             tm_attacks_details_button.clicked,
-            lambda: tm_attack_details_window(id, individual_id, attacks, logger),
+            lambda: tm_attack_details_window(id, individual_id, attacks, logger, refresh_callback),
         )
 
+        # Pin padding across ALL button states so Anki's hover theme never shifts the geometry
+        _BTN_STYLE = (
+            "QPushButton {"
+            "  min-width: 230px; max-width: 230px;"
+            "  padding: 4px 8px;"
+            "  text-align: center;"
+            "}"
+            "QPushButton:hover {"
+            "  padding: 4px 8px;"   # identical padding — no layout reflow on hover
+            "}"
+            "QPushButton:pressed {"
+            "  padding: 4px 8px;"
+            "}"
+        )
+        for btn in [attacks_details_button, remember_attacks_details_button,
+                    forget_attacks_details_button, tm_attacks_details_button]:
+            btn.setFixedWidth(230)
+            btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            btn.setStyleSheet(_BTN_STYLE)
+
         TopR_layout_Box.addWidget(attacks_label)
+        TopR_layout_Box.setAlignment(attacks_label, Qt.AlignmentFlag.AlignHCenter)
         TopR_layout_Box.addWidget(attacks_details_button)
+        TopR_layout_Box.setAlignment(attacks_details_button, Qt.AlignmentFlag.AlignHCenter)
         TopR_layout_Box.addWidget(remember_attacks_details_button)
+        TopR_layout_Box.setAlignment(remember_attacks_details_button, Qt.AlignmentFlag.AlignHCenter)
         TopR_layout_Box.addWidget(forget_attacks_details_button)
+        TopR_layout_Box.setAlignment(forget_attacks_details_button, Qt.AlignmentFlag.AlignHCenter)
         TopR_layout_Box.addWidget(tm_attacks_details_button)
+        TopR_layout_Box.setAlignment(tm_attacks_details_button, Qt.AlignmentFlag.AlignHCenter)
 
-        first_layout.addLayout(TopL_layout_Box)
-        first_layout.addLayout(TopR_layout_Box)
+        # Evolution Readiness Check
+        pkmn_data_stub = {
+            "id": id,
+            "level": level,
+            "friendship": friendship,
+            "evolution_rejected": evolution_rejected,
+            "individual_id": individual_id,
+            "everstone": everstone,
+        }
+        readiness = evolution_readiness(pkmn_data_stub)
+        if readiness["ready"] and trigger_evo_callback:
+            evolve_text = translator.translate("evolve_now_button", evo_name=readiness['evo_name'])
+            evolve_now_button = QPushButton(evolve_text.upper())
+            evolve_now_button.setCursor(Qt.CursorShape.PointingHandCursor)
+            evolve_now_button.setObjectName("evolveNowButton")
+            
+            # Match TM button typography/color exactly, but increase height to 40px
+            evolve_now_button.setFixedHeight(40)
+            evolve_now_button.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2563eb, stop:1 #1d4ed8);
+                    color: #f8fafc;
+                    font-size: 11px;
+                    font-weight: 800;
+                    letter-spacing: 0.5px;
+                    border: 1px solid #1e40af;
+                    border-radius: 6px;
+                    margin-top: 12px;
+                    padding: 4px 8px;
+                    text-align: center;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #3b82f6, stop:1 #2563eb);
+                    border-color: #3b82f6;
+                    margin-top: 12px;
+                    padding: 4px 8px;
+                    text-align: center;
+                }
+                QPushButton:pressed {
+                    background: #1e40af;
+                    margin-top: 12px;
+                    padding: 5px 8px 3px 8px;
+                    text-align: center;
+                }
+            """)
+            qconnect(
+                evolve_now_button.clicked,
+                lambda: trigger_evo_callback(readiness["method"]),
+            )
+            TopR_layout_Box.addWidget(evolve_now_button)
 
-        layout.addWidget(name_label)
-        layout.addLayout(first_layout)
-        layout.addWidget(description_label)
+        TopR_widget = QWidget()
+        TopR_widget.setLayout(TopR_layout_Box)
+        TopR_widget.setFixedWidth(240)
+
+        first_layout.addLayout(TopL_layout_Box, 1)
+        first_layout.addWidget(TopR_widget)
+
+
+
+
+        # Create container widgets for split parts
+        header_widget = QWidget()
+        header_layout = QVBoxLayout(header_widget)
+        header_layout.addWidget(name_label)
+        header_layout.addLayout(first_layout)
+        header_layout.addWidget(description_label)
+
 
         # Create tabbed widget for Stats / IV / EV
         stats_tabs = QTabWidget()
@@ -368,7 +513,7 @@ def PokemonCollectionDetails(
         if tab_changed_callback:
             stats_tabs.currentChanged.connect(tab_changed_callback)
 
-        layout.addWidget(stats_tabs)
+
 
         free_pokemon_button = QPushButton("Release Pokemon")
         qconnect(
@@ -391,6 +536,7 @@ def PokemonCollectionDetails(
                 shiny,
                 logger,
                 refresh_callback,
+                nature=nature
             ),
         )
         rename_button = QPushButton("Rename Pokemon")
@@ -417,19 +563,24 @@ def PokemonCollectionDetails(
         rename_button.adjustSize()
         rename_layout.addWidget(rename_button, 0)
 
-        layout.addLayout(actions_layout)
-        layout.addLayout(rename_layout)
+        # Create container footer widget
+        footer_widget = QWidget()
+        footer_layout = QVBoxLayout(footer_widget)
+        footer_layout.addLayout(actions_layout)
+        footer_layout.addLayout(rename_layout)
 
-        return layout
+        # Return the split components and the newly calculated stats dict
+        return header_widget, stats_tabs, footer_widget, _stats_dict
 
     except Exception as e:
         show_warning_with_traceback(
             exception=e, message="Error occured in Pokemon Details Button:"
         )
-        return QVBoxLayout()
+        # Return empty structures on error
+        return QWidget(), QWidget(), QWidget(), {}
 
 
-def PokemonDetailsStats(detail_stats, growth_rate, level, remove_levelcap, language):
+def PokemonDetailsStats(detail_stats, growth_rate, level, remove_levelcap, language, old_stats=None):
     CompleteTable_layout = QVBoxLayout()
     CompleteTable_layout.addSpacing(15)
     # Stat colors
@@ -442,6 +593,7 @@ def PokemonDetailsStats(detail_stats, growth_rate, level, remove_levelcap, langu
         "spe": QColor(255, 192, 203),  # Pink
         "total": QColor(168, 168, 167),  # Beige
         "xp": QColor(58, 155, 220),  # lightblue
+        "friendship": QColor(255, 105, 180),  # Hot Pink
         # Add any other stats that might appear
         "current_hp": QColor(200, 0, 0),  # Darker red
         "max_hp": QColor(255, 0, 0),  # Red
@@ -460,6 +612,7 @@ def PokemonDetailsStats(detail_stats, growth_rate, level, remove_levelcap, langu
         "spd": "Sp. Def",
         "spe": "Speed",
         "xp": "XP",
+        "friendship": "Friendship",
     }
 
     for row, (stat, value) in enumerate(detail_stats.items()):
@@ -483,17 +636,28 @@ def PokemonDetailsStats(detail_stats, growth_rate, level, remove_levelcap, langu
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
         # Create a bar item
-        bar_item2 = QLabel()
+        if old_stats and stat in old_stats:
+            old_val = old_stats[stat]
+            if stat == "xp":
+                experience = int(find_experience_for_level(growth_rate, level, True))
+                old_val_mapped = int((int(old_val) / int(experience)) * max_width_stat_item)
+            elif stat == "friendship":
+                old_val_mapped = int((old_val / MAX_FRIENDSHIP) * max_width_stat_item)
+            else:
+                old_val_mapped = int(max_width_stat_item * (1 - exp(-old_val / max_width_stat_item)))
+        else:
+            old_val_mapped = 0
+
         if stat == "xp":
             experience = int(find_experience_for_level(growth_rate, level, True))
-            value = int((int(value) / int(experience)) * max_width_stat_item)
+            new_val_mapped = int((int(value) / int(experience)) * max_width_stat_item)
+        elif stat == "friendship":
+            new_val_mapped = int((value / MAX_FRIENDSHIP) * max_width_stat_item)
         else:
-            value = int(max_width_stat_item * (1 - exp(-value / max_width_stat_item)))
-        pixmap2 = createStatBar(stat_colors.get(stat), value)
-        # Convert the QPixmap to an QIcon
-        icon = QIcon(pixmap2)
-        # Set the QIcon as the background for the QLabel
-        bar_item2.setPixmap(pixmap2)
+            new_val_mapped = int(max_width_stat_item * (1 - exp(-value / max_width_stat_item)))
+            
+        bar_item2 = AnimatedStatBar(stat_colors.get(stat), old_val_mapped, new_val_mapped)
+        
         layout_row = QHBoxLayout()
         layout_row.setContentsMargins(0, 0, 0, 0)  # Tight layout
         layout_row.addStretch()  # Add stretch padding at start (Centers the content)
@@ -503,34 +667,58 @@ def PokemonDetailsStats(detail_stats, growth_rate, level, remove_levelcap, langu
         layout_row.addWidget(bar_item2)
         layout_row.addStretch()  # Ensure alignment logic is identical
         stat_item2.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bar_item2.setAlignment(Qt.AlignmentFlag.AlignCenter)
         CompleteTable_layout.addLayout(layout_row)
 
     return CompleteTable_layout
 
 
+from PyQt6.QtCore import QPropertyAnimation, pyqtProperty, QEasingCurve
+
+class AnimatedStatBar(QWidget):
+    def __init__(self, color: QColor, old_value: float, new_value: float, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(200, 10)
+        self._color = color if color else QColor(128, 128, 128)
+        self._current_value = float(old_value)
+        self.new_value = float(new_value)
+
+        # Ensure values don't exceed max width
+        if self._current_value > 200: self._current_value = 200
+        if self.new_value > 200: self.new_value = 200
+
+        self.animation = QPropertyAnimation(self, b"current_value")
+        self.animation.setDuration(800)  # 800ms for a smooth slide
+        self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.animation.setStartValue(self._current_value)
+        self.animation.setEndValue(self.new_value)
+        self.animation.start()
+
+    @pyqtProperty(float)
+    def current_value(self):
+        return self._current_value
+
+    @current_value.setter
+    def current_value(self, val):
+        self._current_value = val
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Background bar
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(0, 0, 0, 200))  # Semi-transparent black
+        painter.drawRoundedRect(0, 0, 200, 10, 3, 3)
+        
+        # Foreground colored bar
+        painter.setBrush(self._color)
+        painter.drawRoundedRect(0, 0, int(self._current_value), 10, 3, 3)
+
 def createStatBar(color, value):
-    pixmap = QPixmap(200, 10)
-    pixmap.fill(QColor(0, 0, 0, 0))  # RGBA where A (alpha) is 0 for full transparency
-
-    # Default to gray if color is None
-    if color is None:
-        color = QColor(128, 128, 128)  # Gray
-
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-    # Draw bar in the background
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(QColor(0, 0, 0, 200))  # Semi-transparent black
-    painter.drawRoundedRect(0, 0, 200, 10, 3, 3)
-
-    # Draw the colored bar based on the value
-    painter.setBrush(color)  # Now color is guaranteed to be a valid QColor
-    painter.drawRoundedRect(0, 0, value, 10, 3, 3)
-
-    painter.end()  # Important: end the painter to avoid memory leaks
-    return pixmap
+    # Fallback for non-animated uses if any exist elsewhere, though we'll update PokemonDetailsStats
+    bar = AnimatedStatBar(color, value, value)
+    return bar
 
 
 def create_iv_ev_tab_layout(
@@ -797,7 +985,7 @@ def attack_details_window(attacks):
     window.exec()
 
 
-def remember_attack_details_window(individual_id, attack_set, all_attacks, logger):
+def remember_attack_details_window(individual_id, attack_set, all_attacks, logger, refresh_callback):
     window = QDialog()
     window.setWindowIcon(QIcon(str(icon_path)))
     outer_layout = QVBoxLayout(window)
@@ -829,7 +1017,7 @@ def remember_attack_details_window(individual_id, attack_set, all_attacks, logge
         qconnect(
             remember_attack_button.clicked,
             lambda checked, a=attack: remember_attack(
-                individual_id, attack_set, a, logger
+                individual_id, attack_set, a, logger, refresh_callback
             ),
         )
         attack_layout.addWidget(remember_attack_button)
@@ -844,7 +1032,7 @@ def remember_attack_details_window(individual_id, attack_set, all_attacks, logge
 
 
 def forget_attack_details_window(
-    individual_id: int, attack_set: list[str], logger: "InfoLogger.ShowInfoLogger"
+    individual_id: int, attack_set: list[str], logger: "InfoLogger.ShowInfoLogger", refresh_callback
 ) -> None:
     """
     Creates a window that will allow the user to erase moves from a Pokemon.
@@ -889,7 +1077,7 @@ def forget_attack_details_window(
         qconnect(
             forget_attack_button.clicked,
             lambda checked, a=attack: forget_attack(
-                individual_id, attack_set, a, logger
+                individual_id, attack_set, a, logger, refresh_callback
             ),
         )
         attack_layout.addWidget(forget_attack_button)
@@ -904,7 +1092,7 @@ def forget_attack_details_window(
 
 
 def remember_attack(
-    individual_id: str, attacks: list[str], new_attack: str, logger: ShowInfoLogger
+    individual_id: str, attacks: list[str], new_attack: str, logger: ShowInfoLogger, refresh_callback=None
 ):
     """Learn a new attack using database."""
     db = mw.ankimon_db
@@ -946,6 +1134,9 @@ def remember_attack(
     if main_pokemon and main_pokemon.get("individual_id") == individual_id:
         main_pokemon["attacks"] = attacks
         db.save_main_pokemon(main_pokemon)
+    
+    if refresh_callback:
+        refresh_callback()
 
 
 def forget_attack(
@@ -953,6 +1144,7 @@ def forget_attack(
     attacks: list[str],
     attack_to_forget: str,
     logger: ShowInfoLogger,
+    refresh_callback=None,
 ) -> None:
     """Forget a move using database."""
     db = mw.ankimon_db
@@ -984,110 +1176,75 @@ def forget_attack(
         main_pokemon["attacks"] = attacks
         db.save_main_pokemon(main_pokemon)
 
+    if refresh_callback:
+        refresh_callback()
+
 
 def tm_attack_details_window(
     id: int,
     individual_id: str,
     current_pokemon_moveset: list[str],
     logger: ShowInfoLogger,
+    refresh_callback,
 ) -> None:
     """
     Creates a window that will allow the user to learn TM moves.
-
-    Args:
-        id (int): The Pokemon's identifier.
-        individual_id (str): The Pokemon's unique identifier.
-        current_pokemon_moveset (list[str]): The moves that the Pokemon currently knows.
-        logger: Logger object that can log info and display windows containing messages.
-
-    Returns:
-        None
     """
-    window = QDialog()
-    window.setWindowIcon(QIcon(str(icon_path)))
-    layout = QHBoxLayout()
-    window.setWindowTitle("Learn TM Move")  # Optional: Set a window title
-    # Outer layout contains everything
-    outer_layout = QVBoxLayout(window)
-
-    # Create a scroll area that will contain our main layout
-    scroll_area = QScrollArea()
-    scroll_area.setWidgetResizable(True)
-
-    # Main widget that contains the content
-    content_widget = QWidget()
-    layout = QHBoxLayout(content_widget)  # The main layout is now set on this widget
-
-    # HTML content
-    html_content = remember_attack_details_window_template
-    from pathlib import Path
-
-    with open(pokemon_tm_learnset_path, "r") as f:
-        pokemon_tm_learnset = json.load(f)
-
-    pokemon_name = search_pokedex_by_id(id)
-    tm_learnset = pokemon_tm_learnset.get(
-        pokemon_name, []
-    )  # TMs that can be learnt by the Pokemon
+    from ..pyobj.move_picker import MovePickerDialog
     
-    # Get owned TMs from database
+    # 1. Get species/base name for TM lookup
+    internal_name = search_pokedex_by_id(id)
+    if not internal_name:
+        logger.log_and_showinfo("error", f"Could not find Pokémon data for ID: {id}")
+        return
+        
+    base_name = internal_name.split("-")[0].lower()
+    internal_name = internal_name.lower()
+    
+    # 2. Load TM learnsets
+    try:
+        with open(pokemon_tm_learnset_path, "r", encoding="utf-8") as f:
+            tm_learnsets = json.load(f)
+    except Exception as e:
+        logger.log_and_showinfo("error", f"Failed to load TM learnsets: {e}")
+        return
+
+    # 3. Get valid TMs for this species (check specific form then base species)
+    valid_tms = tm_learnsets.get(internal_name) or tm_learnsets.get(base_name)
+    if not valid_tms:
+        logger.log_and_showinfo("info", f"This Pokémon cannot learn any moves from TMs.")
+        return
+        
+    # 4. Get owned TMs from DB
     db = mw.ankimon_db
     all_items = db.get_all_items()
-    owned_tms = [item["item_name"] for item in all_items if (item.get("extra_data") or {}).get("type") == "TM"]
-    attack_set = [tm for tm in tm_learnset if tm in owned_tms]
-
-    # Loop through the list of attacks and add them to the HTML content
-    for attack in attack_set:
-        move = find_details_move(attack) or _lookup_move_data(attack)
-        display_name = format_move_name(attack)
-
-        html_content += f"""
-        <tr>
-          <td class="move-name">{display_name}</td>
-          <td><img src="{type_icon_path(move["type"])}" alt="{move["type"]}"/></td>
-          <td><img src="{move_category_path(move["category"].lower())}" alt="{move["category"]}"/></td>
-          <td class="basePower">{move["basePower"]}</td>
-          <td class="no-accuracy">{move["accuracy"]}</td>
-          <td>{move["pp"]}</td>
-          <td>{move["shortDesc"]}</td>
-        </tr>
-        """
-
-    html_content += remember_attack_details_window_template_end
-
-    # Create a QLabel to display the HTML content
-    label = QLabel(html_content)
-    label.setAlignment(
-        Qt.AlignmentFlag.AlignLeft
-    )  # Align the label's content to the top
-    label.setScaledContents(True)  # Enable scaling of the pixmap
-    attack_layout = QVBoxLayout()
-    for attack in attack_set:
-        move = find_details_move(attack)
-        learn_attack_button = QPushButton(f"Learn {attack}")  # add Details to Moves
-        learn_attack_button.clicked.connect(
-            lambda checked, a=attack: (
-                remember_attack(  # We can use "remember_attack()" because the process is the same
-                    individual_id, current_pokemon_moveset, a, logger
-                )
-            )
-        )
-        attack_layout.addWidget(learn_attack_button)
-    attack_layout_widget = QWidget()
-    attack_layout_widget.setLayout(attack_layout)
-    # Add the label and button layout widget to the main layout
-    layout.addWidget(label)
-    layout.addWidget(attack_layout_widget)
-
-    # Set the main widget with content as the scroll area's widget
-    scroll_area.setWidget(content_widget)
-
-    # Add the scroll area to the outer layout
-    outer_layout.addWidget(scroll_area)
-
-    window.setLayout(outer_layout)
-    window.resize(1000, 400)  # Optional: Set a default size for the window
-    window.exec()
+    owned_tm_moves = [
+        item["item_name"] 
+        for item in all_items 
+        if (item.get("extra_data") or {}).get("type") == "TM"
+    ]
+    
+    # 5. Filter valid TMs by ownership
+    learnable_tm_moves = [move for move in valid_tms if move in owned_tm_moves]
+    if not learnable_tm_moves:
+        logger.log_and_showinfo("info", "You don't own any TMs that this Pokémon can learn.")
+        return
+        
+    # 6. UI: Use MovePickerDialog
+    pkmn_data = db.get_pokemon(individual_id)
+    nickname = pkmn_data.get("nickname") if pkmn_data else None
+    raw_name = pkmn_data.get("name") if pkmn_data else internal_name
+    from ..functions.pokedex_functions import get_pretty_name_for_name
+    species_name = get_pretty_name_for_name(raw_name)
+    
+    title = f"TM Learning: {nickname if nickname else species_name}"
+    dialog = MovePickerDialog(title, learnable_tm_moves, current_pokemon_moveset, mw)
+    dialog.setWindowTitle("Learn from TMs")
+    
+    if dialog.exec():
+        new_move = dialog.get_selected_move()
+        if new_move:
+            remember_attack(individual_id, current_pokemon_moveset, new_move, logger, refresh_callback)
 
 
 def rename_pkmn(

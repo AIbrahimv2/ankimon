@@ -52,7 +52,11 @@ def update_main_pokemon(main_pokemon: Optional[PokemonObject] = None):
         main_pokemon_data = db.get_main_pokemon()
         if main_pokemon_data:
             mainpokemon_empty = False
-            pokemon_name = search_pokedex_by_id(main_pokemon_data["id"])
+            pokemon_name = main_pokemon_data.get("name")
+            if not pokemon_name:
+                pokemon_name = search_pokedex_by_id(main_pokemon_data["id"])
+                main_pokemon_data["name"] = pokemon_name
+
             main_pokemon_data["base_stats"] = search_pokedex(pokemon_name, "baseStats")
             if "stats" in main_pokemon_data:
                 del main_pokemon_data["stats"]

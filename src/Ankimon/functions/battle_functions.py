@@ -129,9 +129,9 @@ def _process_battle_effects(
 
     def get_pokemon_name(target_side: str) -> str:
         if target_side == 'user':
-            return main_pokemon.name.capitalize() if (main_pokemon and hasattr(main_pokemon, 'name')) else "Your Pokemon"
+            return main_pokemon.display_name if (main_pokemon and hasattr(main_pokemon, 'display_name')) else "Your Pokemon"
         else:
-            return enemy_pokemon.name.capitalize() if (enemy_pokemon and hasattr(enemy_pokemon, 'name')) else "Enemy Pokemon"
+            return enemy_pokemon.display_name if (enemy_pokemon and hasattr(enemy_pokemon, 'display_name')) else "Enemy Pokemon"
 
     def normalize_status_name(status_name: str) -> str:
         return status_name.lower().replace('_', '').replace(' ', '').replace('-', '')
@@ -219,7 +219,7 @@ def _process_battle_effects(
                     volatile_key = f"volatile_{norm_volatile}_still"
                     volatile_message = safe_translate(
                         volatile_key,
-                        pokemon_name=main_pokemon.name.capitalize(),
+                        pokemon_name=main_pokemon.display_name,
                         status_name=volatile_status.replace('_', ' ').title()
                     )
                     persistent_messages.append(volatile_message)
@@ -232,7 +232,7 @@ def _process_battle_effects(
                     volatile_key = f"volatile_{norm_volatile}_still"
                     volatile_message = safe_translate(
                         volatile_key,
-                        pokemon_name=enemy_pokemon.name.capitalize(),
+                        pokemon_name=enemy_pokemon.display_name,
                         status_name=volatile_status.replace('_', ' ').title()
                     )
                     persistent_messages.append(volatile_message)
@@ -556,7 +556,7 @@ def process_battle_data(
 
             enemy_attack_msg = translator.translate(
                 "enemy_attack_announcement",
-                pokemon_name=enemy_pokemon.name.capitalize(),
+                pokemon_name=enemy_pokemon.display_name,
                 attack_name=formatted_enemy_attack  # Use the formatted name
             )
             message_parts.append(enemy_attack_msg)
@@ -578,7 +578,7 @@ def process_battle_data(
                 # Normal attack resolution
                 user_attack_msg = translator.translate(
                     "player_attack_announcement",
-                    pokemon_name=main_pokemon.name.capitalize(),
+                    pokemon_name=main_pokemon.display_name,
                     attack_name=formatted_user_attack  # Use the formatted name
                 )
                 message_parts.append(user_attack_msg)
@@ -639,13 +639,13 @@ def _handle_special_battle_status(main_pokemon, battle_status: str, translator) 
         if battle_status in status_messages:
             return translator.translate(
                 status_messages[battle_status],
-                pokemon_name=main_pokemon.name.capitalize()
+                pokemon_name=main_pokemon.display_name
             )
         else:
             # Generic status message for unknown conditions
             return translator.translate(
                 "pokemon_special_condition",
-                pokemon_name=main_pokemon.name.capitalize(),
+                pokemon_name=main_pokemon.display_name,
                 condition=battle_status.replace('_', ' ').title()
             )
 
@@ -657,7 +657,7 @@ def _handle_special_battle_status(main_pokemon, battle_status: str, translator) 
         )
         return translator.translate(
             "pokemon_special_condition",
-            pokemon_name=main_pokemon.name.capitalize(),
+            pokemon_name=main_pokemon.display_name,
             condition=battle_status.replace('_', ' ').title()
         )
 

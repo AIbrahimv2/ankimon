@@ -19,15 +19,25 @@ class Reviewer_Manager:
         self.life_bar_injected = False
         self.seconds = 0
         self.myseconds = 0
-        self.hud_hidden = False 
-        self.hud_data = None    
+        # === PERFORMANCE FIXES ===
+        self._ownership_cache = {} # {pokemon_id: bool}
+        self._last_state = None # To avoid redundant HUD updates
+        self._listener_registered = False # To register keylistener only once
 
         # Register the functions for the hooks
         gui_hooks.reviewer_will_end.append(self.reviewer_reset_life_bar_inject)
+        # register hook: remove if exists to avoid duplicates, then append
+        try:
+            gui_hooks.reviewer_did_answer_card.remove(self.update_life_bar)
+        except (ValueError, AttributeError):
+            pass
         gui_hooks.reviewer_did_answer_card.append(self.update_life_bar)
 
     def reviewer_reset_life_bar_inject(self):
+        """Clear state when the battle/review session ends"""
         self.life_bar_injected = False
+        self._ownership_cache.clear()
+        self._last_state = None
 
     def get_boost_values_string(self, pokemon: PokemonObject, display_neutral_boost: bool=False) -> str:
         """Generates a formatted string representing the stat boost multipliers of a Pokémon."""
@@ -61,28 +71,123 @@ class Reviewer_Manager:
         return web_content
 
     def update_life_bar(self, reviewer, card, ease):
+        # GUARD: Block hook calls (ease != 0 or card != 0)
+        # Only allow direct calls from battle_loop (ease=0, card=0)
+        if isinstance(ease, int) and ease != 0:
+            return  # Hook from reviewer_did_answer_card
+        if card is not None and not isinstance(card, int):
+            return  # Hook received a Card object
+ 
         if int(self.settings.get("gui.show_mainpkmn_in_reviewer")) == 3:
             reviewer.web.eval("if(window.__ankimonHud) window.__ankimonHud.clear();")
             return
 
-        # Check if the enemy pokemon is in the user's collection
-        is_pokemon_owned = False
-        try:
-            db = mw.ankimon_db
-            cursor = db.execute(
-                "SELECT 1 FROM captured_pokemon WHERE pokedex_id = ? LIMIT 1",
-                (self.enemy_pokemon.id,),
-            )
-            is_pokemon_owned = cursor.fetchone() is not None
-        except Exception:
-            pass
+        # 1. Ownership cache (avoid repeated DB queries)
+        is_pokemon_owned = self._ownership_cache.get(self.enemy_pokemon.id)
+        if is_pokemon_owned is None:
+            is_pokemon_owned = False
+            try:
+                db = mw.ankimon_db
+                cursor = db.execute(
+                    "SELECT 1 FROM captured_pokemon WHERE pokedex_id = ? LIMIT 1",
+                    (self.enemy_pokemon.id,),
+                )
+                is_pokemon_owned = cursor.fetchone() is not None
+                self._ownership_cache[self.enemy_pokemon.id] = is_pokemon_owned
+            except Exception:
+                pass
+
+        # Register keydown listener (8) to toggle HUD visibility
+        # We call this every time because Anki reloads the webview on card switches, 
+        # but the JS itself has a guard (window.ankimonKeyListener) to avoid duplicates.
+        reviewer.web.eval("""
+            (function() {
+                if (window.ankimonKeyListener) return;
+                window.ankimonKeyListener = true;
+                let originalParent = null;
+                let hudHost = null;
+
+                document.addEventListener('keydown', function(event) {
+                    if (event.key === '8') {
+                        if (!hudHost) {
+                            hudHost = document.getElementById('ankimon-hud-host');
+                            if (hudHost) {
+                                originalParent = hudHost.parentNode;
+                            } else {
+                                console.error('Ankimon: ankimon-hud-host not found.');
+                                return;
+                            }
+                        }
+
+                        // First time: render if not yet rendered
+                        if (!window.__ankimonHudRendered && window.__ankimonHudData && window.__ankimonHud) {
+                            window.__ankimonHud.update(window.__ankimonHudData.html, window.__ankimonHudData.css);
+                            window.__ankimonHudRendered = true;
+                            originalParent = hudHost.parentNode;
+                            // Toggle visibility on first render
+                            window.__ankimonHudHidden = !window.__ankimonHudHidden;
+                            // If should be hidden, remove it from DOM
+                            if (window.__ankimonHudHidden && originalParent) {
+                                originalParent.removeChild(hudHost);
+                            }
+                        } else if (window.__ankimonHudRendered) {
+                            // Already rendered, toggle visibility
+                            window.__ankimonHudHidden = !window.__ankimonHudHidden;
+                            
+                            // If showing (unhiding), update with latest data
+                            if (!window.__ankimonHudHidden && window.__ankimonHudData && window.__ankimonHud) {
+                                window.__ankimonHud.update(window.__ankimonHudData.html, window.__ankimonHudData.css);
+                            }
+                            
+                            // Toggle DOM visibility
+                            if (hudHost.parentNode) {
+                                hudHost.parentNode.removeChild(hudHost);
+                            } else if (originalParent) {
+                                originalParent.appendChild(hudHost);
+                            }
+                        }
+                    }
+                });
+            })();
+        """)
+
+        # 2. State-based update check (avoid redundant eval() calls for HTML/CSS)
+        current_state = (
+            self.enemy_pokemon.id,
+            self.enemy_pokemon.hp,
+            self.enemy_pokemon.max_hp,
+            self.enemy_pokemon.battle_status,
+            self.main_pokemon.id,
+            self.main_pokemon.hp,
+            self.main_pokemon.max_hp,
+            self.main_pokemon.xp,
+            self.settings.get("gui.show_mainpkmn_in_reviewer"),
+            self.settings.get("gui.reviewer_image_gif"),
+            self.settings.get("misc.language"),
+        )
+        if self._last_state == current_state and card is not None:
+            return # No changes, skip update
+        self._last_state = current_state
 
         image_format = "gif" if self.settings.get('gui.reviewer_image_gif') else "png"
-        mime_type = f"image/{image_format}"
+        
+        # Get addon package for URLs
+        try:
+            addon_package = mw.addonManager.addonFromModule(__name__)
+        except Exception:
+            addon_package = "1908235722"
 
-        pokemon_image_file = self.enemy_pokemon.get_sprite_path("front", image_format)
+        # 3. Use URLs instead of Base64 for images (Huge performance gain)
+        def get_sprite_url(pkmn, side):
+            abs_path = pkmn.get_sprite_path(side, image_format)
+            from ..resources import addon_dir
+            # Convert absolute path to /_addons/ relative URL
+            rel_path = os.path.relpath(abs_path, addon_dir).replace("\\", "/")
+            return f"/_addons/{addon_package}/{rel_path}"
 
-        main_pkmn_imagefile_path = None
+        enemy_sprite_url = get_sprite_url(self.enemy_pokemon, "front")
+
+        main_pkmn_sprite_url = None
         side = "back" # Default side
         if int(self.settings.get('gui.show_mainpkmn_in_reviewer')) > 0:
             if image_format == "gif":
@@ -92,20 +197,17 @@ class Reviewer_Manager:
                     side = "back"
             else: # png
                 side = "back"
-            main_pkmn_imagefile_path = self.main_pokemon.get_sprite_path(side, image_format)
+            main_pkmn_sprite_url = get_sprite_url(self.main_pokemon, side)
 
         if int(self.settings.get('gui.show_mainpkmn_in_reviewer')) > 0:
             pokemon_hp_percent = int((self.enemy_pokemon.hp / self.enemy_pokemon.max_hp) * 50) if self.enemy_pokemon.max_hp > 0 else 0
             mainpkmn_hp_percent = int((self.main_pokemon.hp / self.main_pokemon.max_hp) * 50) if self.main_pokemon.max_hp > 0 else 0
-            image_base64_mainpkmn = get_image_as_base64(main_pkmn_imagefile_path)
         else:
             pokemon_hp_percent = int((self.enemy_pokemon.hp / self.enemy_pokemon.max_hp) * 100) if self.enemy_pokemon.max_hp > 0 else 0
             mainpkmn_hp_percent = 0 # Not used in this mode
 
         enemy_hp_true_percent = (self.enemy_pokemon.hp / self.enemy_pokemon.max_hp) * 100 if self.enemy_pokemon.max_hp > 0 else 0
         main_hp_true_percent = (self.main_pokemon.hp / self.main_pokemon.max_hp) * 100 if self.main_pokemon.max_hp > 0 else 0
-
-        image_base64 = get_image_as_base64(pokemon_image_file)
 
         # Build hud_html
         hud_html = '<div id="ankimon-hud">'
@@ -115,24 +217,16 @@ class Reviewer_Manager:
             hud_html += '<div id="xp-bar" class="Ankimon"></div>'
             hud_html += '<div id="xp_text" class="Ankimon">XP</div>'
 
-        enemy_lang_name = (get_pokemon_diff_lang_name(int(self.enemy_pokemon.id), int(self.settings.get('misc.language'))).capitalize())
+        # Use the smart display_name property which handles translations, regional forms, megas, and gmax
+        enemy_lang_name = self.enemy_pokemon.display_name
         if self.enemy_pokemon.shiny is True:
             enemy_lang_name += " ⭐ "
-        name_display_text = f"{enemy_lang_name} LvL: {self.enemy_pokemon.level}"
+        # Format: [#ID] Name (Gen X) LvL: Y
+        pokedex_id = getattr(self.enemy_pokemon, 'pokedex_id', self.enemy_pokemon.id)
+        generation = getattr(self.enemy_pokemon, 'generation', 1)
+        name_display_text = f"[#{pokedex_id}] {enemy_lang_name} (Gen {generation}) LvL: {self.enemy_pokemon.level}"
         name_display_text += self.get_boost_values_string(self.enemy_pokemon, display_neutral_boost=False)
         hud_html += f'<div id="name-display" class="Ankimon">{name_display_text}</div>'
-
-        try:
-            addon_package = mw.addonManager.addonFromModule(__name__)
-        except Exception:
-            addon_package = None
-
-        if not addon_package:
-            # Try fallback addon folder names
-            for name in ["1908235722", "Ankimon"]:
-                if os.path.exists(os.path.join(mw.addonManager.addonsFolder(), name)):
-                    addon_package = name
-                    break
 
         if self.enemy_pokemon.hp > 0:
             hud_html += create_status_html(f"{self.enemy_pokemon.battle_status}", self.settings, is_pokemon_owned, addon_package)
@@ -141,9 +235,8 @@ class Reviewer_Manager:
 
         hud_html += f'<div id="hp-display" class="Ankimon">HP: {int(self.enemy_pokemon.hp)}/{int(self.enemy_pokemon.max_hp)}</div>'
 
-
         enemy_poke_animation_style = f"animation: ankimon-shake-normal {self.seconds}s ease;"
-        hud_html += f'<div id="PokeImage" class="Ankimon"><img src="data:{mime_type};base64,{image_base64}" alt="PokeImage" style="{enemy_poke_animation_style}"></div>'
+        hud_html += f'<div id="PokeImage" class="Ankimon"><img src="{enemy_sprite_url}" alt="PokeImage" style="{enemy_poke_animation_style}"></div>'
 
         if int(self.settings.get('gui.show_mainpkmn_in_reviewer')) > 0:
 
@@ -158,15 +251,16 @@ class Reviewer_Manager:
                 my_poke_html_attributes = f'style="{animation_style}"'
 
             hud_html += (f'<div id="MyPokeImage" class="Ankimon">'
-                         f'<img src="data:{mime_type};base64,{image_base64_mainpkmn}" alt="MyPokeImage" {my_poke_html_attributes}>'
+                         f'<img src="{main_pkmn_sprite_url}" alt="MyPokeImage" {my_poke_html_attributes}>'
                          f'</div>')
 
-            main_lang_name = (get_pokemon_diff_lang_name(int(self.main_pokemon.id), int(self.settings.get('misc.language'))).capitalize())
-            if str(main_lang_name) == 'No translation in this language':
-                main_lang_name = 'RESTART ANKI NOW' 
+            main_lang_name = self.main_pokemon.display_name
             if self.main_pokemon.shiny:
                 main_lang_name += " ⭐ "
-            main_name_display_text = f"{main_lang_name} LvL: {self.main_pokemon.level}"
+            # Format: [#ID] Name (Gen X) LvL: Y
+            main_pokedex_id = getattr(self.main_pokemon, 'pokedex_id', self.main_pokemon.id)
+            main_generation = getattr(self.main_pokemon, 'generation', 1)
+            main_name_display_text = f"[#{main_pokedex_id}] {main_lang_name} (Gen {main_generation}) LvL: {self.main_pokemon.level}"
             main_name_display_text += self.get_boost_values_string(self.main_pokemon, display_neutral_boost=False)
             hud_html += f'<div id="myname-display" class="Ankimon">{main_name_display_text}</div>'
             hud_html += f'<div id="myhp-display" class="Ankimon">HP: {int(self.main_pokemon.hp)}/{int(self.main_pokemon.max_hp)}</div>'
@@ -258,55 +352,4 @@ class Reviewer_Manager:
         }})({json.dumps(hud_html)}, {json.dumps(hud_css)}, {str(hud_hidden_on_startup).lower()});
         """
         reviewer.web.eval(js_code)
-
-        # Add keydown listener to toggle HUD visibility
-        reviewer.web.eval("""
-            (function() {
-                if (window.ankimonKeyListener) return;
-                window.ankimonKeyListener = true;
-                let originalParent = null;
-                let hudHost = null;
-
-                document.addEventListener('keydown', function(event) {
-                    if (event.key === '8') {
-                        if (!hudHost) {
-                            hudHost = document.getElementById('ankimon-hud-host');
-                            if (hudHost) {
-                                originalParent = hudHost.parentNode;
-                            } else {
-                                console.error('Ankimon: ankimon-hud-host not found.');
-                                return;
-                            }
-                        }
-
-                        // First time: render if not yet rendered
-                        if (!window.__ankimonHudRendered && window.__ankimonHudData && window.__ankimonHud) {
-                            window.__ankimonHud.update(window.__ankimonHudData.html, window.__ankimonHudData.css);
-                            window.__ankimonHudRendered = true;
-                            originalParent = hudHost.parentNode;
-                            // Toggle visibility on first render
-                            window.__ankimonHudHidden = !window.__ankimonHudHidden;
-                            // If should be hidden, remove it from DOM
-                            if (window.__ankimonHudHidden && originalParent) {
-                                originalParent.removeChild(hudHost);
-                            }
-                        } else if (window.__ankimonHudRendered) {
-                            // Already rendered, toggle visibility
-                            window.__ankimonHudHidden = !window.__ankimonHudHidden;
-                            
-                            // If showing (unhiding), update with latest data
-                            if (!window.__ankimonHudHidden && window.__ankimonHudData && window.__ankimonHud) {
-                                window.__ankimonHud.update(window.__ankimonHudData.html, window.__ankimonHudData.css);
-                            }
-                            
-                            // Toggle DOM visibility
-                            if (hudHost.parentNode) {
-                                hudHost.parentNode.removeChild(hudHost);
-                            } else if (originalParent) {
-                                originalParent.appendChild(hudHost);
-                            }
-                        }
-                    }
-                });
-            })();
-        """)
+

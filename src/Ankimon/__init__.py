@@ -35,9 +35,9 @@ from .singletons import (
     achievement_bag,
     shop_manager,
     ankimon_tracker_window,
-    pokedex_window,
     eff_chart,
     gen_id_chart,
+    nature_chart,
     license,
     credits,
     evo_window,
@@ -108,7 +108,16 @@ check_and_show_changelog(online_connectivity, ssh, no_more_news)
 # --- Battle loop ---
 from .battle_loop import on_review_card, init_battle_state
 init_battle_state(collected_pokemon_ids)
-gui_hooks.reviewer_did_answer_card.append(on_review_card)
+
+def _ankimon_review_proxy(*args, **kwargs):
+    """Persistent proxy that always calls the current battle loop."""
+    from .battle_loop import on_review_card
+    return on_review_card(*args, **kwargs)
+
+# Register the proxy only once on mw to prevent duplicates across reloads
+if not hasattr(mw, "_ankimon_review_proxy"):
+    mw._ankimon_review_proxy = _ankimon_review_proxy
+    gui_hooks.reviewer_did_answer_card.append(mw._ankimon_review_proxy)
 
 # --- Menu ---
 create_menu_actions(
@@ -123,6 +132,7 @@ create_menu_actions(
     flex_pokemon_collection,
     eff_chart,
     gen_id_chart,
+    nature_chart,
     credits,
     license,
     open_help_window,
@@ -134,7 +144,6 @@ create_menu_actions(
     logger,
     settings_window,
     shop_manager,
-    pokedex_window,
     settings_obj.get("controls.key_for_opening_closing_ankimon"),
     join_discord_url,
     open_leaderboard_url,
@@ -169,6 +178,7 @@ setup_reviewer_ui(
     settings_obj.get("controls.catch_key"),
     settings_obj.get("controls.defeat_key"),
     settings_obj.get("controls.pokemon_buttons"),
+    settings_obj.get("controls.team_cycle_key", "9"),
 )
 
 from .discord_integration import setup_discord_hooks

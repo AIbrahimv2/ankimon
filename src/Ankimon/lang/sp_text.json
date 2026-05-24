@@ -453,5 +453,17 @@
   "futuresight_hits": "¡El ataque previsto golpea a {side}!",
   "futuresight_fails": "¡Premonición falló!",
   "wish_started": "¡{pokemon_name} pidió un deseo! Pronto curará {heal_amount} PS.",
-  "pc_box_label": "Caja {current}/{total}"
+  "pc_box_label": "Caja {current}/{total}",
+  "cp_label": "PC",
+  "bp_label": "PC",
+  "combat_power": "Poder de combate",
+  "battle_power": "Poder de combate",
+  "pokemon_about_to_evolve_friendship": "¡{main_pokemon_name} está listo para evolucionar a {evo_pokemon_name}!",
+  "friendship_label": "Amistad",
+  "friendship_tooltip": "Mide el vínculo entre tú y tu Pokémon.",
+  "bff_tooltip": "💖 Mejor Amigo (Amistad Máxima)",
+  "evolve_now_button": "✨ ¡Evolucionar a {evo_name} ahora! ✨",
+  "badge_ready": "✨ ¡Listo para evolucionar!",
+  "badge_wait_day": "☀️ Listo para evolucionar durante el día",
+  "badge_wait_night": "🌙 Listo para evolucionar durante la noche"
 }

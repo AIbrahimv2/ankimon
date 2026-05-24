@@ -454,5 +454,17 @@
   "futuresight_fails": "Visão do Futuro falhou!",
   "weather_raindance_still": "Ainda está chovendo!",
   "wish_started": "{pokemon_name} fez um desejo! Ele irá curar {heal_amount} HP em breve.",
-  "pc_box_label": "Box {current}/{total}"
+  "pc_box_label": "Box {current}/{total}",
+  "cp_label": "PC",
+  "bp_label": "PB",
+  "combat_power": "Poder de combate",
+  "battle_power": "Poder de batalha",
+  "pokemon_about_to_evolve_friendship": "{main_pokemon_name} está pronto para evoluir para {evo_pokemon_name}!",
+  "friendship_label": "Amizade",
+  "friendship_tooltip": "Mede o vínculo entre você e seu Pokémon.",
+  "bff_tooltip": "💖 Melhor Amigo (Amizade Máxima)",
+  "evolve_now_button": "✨ Evoluir para {evo_name} agora! ✨",
+  "badge_ready": "✨ Pronto para evoluir!",
+  "badge_wait_day": "☀️ Pronto para evoluir durante o dia",
+  "badge_wait_night": "🌙 Pronto para evoluir à noite"
 }

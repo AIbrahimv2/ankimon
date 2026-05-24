@@ -7,7 +7,7 @@ from aqt.qt import QDialog, qconnect
 from aqt.utils import showWarning, showInfo, tooltip
 from PyQt6.QtCore import Qt
 
-from .resources import icon_path, addon_dir, eff_chart_html_path, table_gen_id_html_path, mypokemon_path
+from .resources import icon_path, addon_dir, eff_chart_html_path, table_gen_id_html_path, nature_chart_html_path, mypokemon_path
 from .texts import terms_text, pokedex_html_template
 from .utils import read_local_file, read_github_file, compare_files, write_local_file, read_html_file
 from .pyobj.error_handler import show_warning_with_traceback
@@ -254,16 +254,33 @@ class TableWidget(QWidget):
 
     def initUI(self):
         self.setWindowTitle("Pokémon Type Effectiveness Table")
+        self.setGeometry(100, 100, 800, 600)
 
         # Create a label and set HTML content
         label = QLabel()
-        html_content = read_html_file(f"{eff_chart_html_path}")  # Replace with the path to your HTML file
-        label.setText(html_content)  # 'html_table' contains the HTML table string
+        html_content = read_html_file(f"{eff_chart_html_path}")
+        label.setText(html_content)
         label.setWordWrap(True)
+        label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        label.setStyleSheet("background-color: rgb(44,44,44); padding: 10px;")
 
-        # Layout
+        # Create a scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("background-color: rgb(44,44,44); border: none;")
+
+        # Container widget for the label
+        container = QWidget()
+        container_layout = QVBoxLayout()
+        container_layout.addWidget(label)
+        container.setLayout(container_layout)
+        
+        scroll_area.setWidget(container)
+
+        # Main layout
         layout = QVBoxLayout()
-        layout.addWidget(label)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(scroll_area)
         self.setLayout(layout)
 
     def show_eff_chart(self):
@@ -276,68 +293,78 @@ class IDTableWidget(QWidget):
 
     def initUI(self):
         self.setWindowTitle("Pokémon - Generations and ID")
+        self.setGeometry(100, 100, 800, 600)
+
         # Create a label and set HTML content
         label = QLabel()
-        html_content = read_html_file(f"{table_gen_id_html_path}")  # Replace with the path to your HTML file
-        label.setText(html_content)  # 'html_table' contains the HTML table string
+        html_content = read_html_file(f"{table_gen_id_html_path}")
+        label.setText(html_content)
         label.setWordWrap(True)
-        label.setStyleSheet("background-color: rgb(44,44,44);")
-        # Layout
+        label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        label.setStyleSheet("background-color: rgb(44,44,44); padding: 10px;")
+
+        # Create a scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("background-color: rgb(44,44,44); border: none;")
+
+        # Container widget for the label
+        container = QWidget()
+        container_layout = QVBoxLayout()
+        container_layout.addWidget(label)
+        container.setLayout(container_layout)
+        
+        scroll_area.setWidget(container)
+
+        # Main layout
         layout = QVBoxLayout()
-        layout.addWidget(label)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(scroll_area)
         self.setLayout(layout)
 
     def show_gen_chart(self):
         self.show()
 
-class Pokedex_Widget(QWidget):
+class NatureTableWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.read_poke_coll()
         self.initUI()
 
-    def read_poke_coll(self):
-        db = mw.ankimon_db
-        self.available_pokedex_ids = db.get_all_pokemon_ids()
-
     def initUI(self):
-        self.setWindowTitle("Pokédex")
-
+        self.setWindowTitle("Pokémon Nature Chart")
+        self.setGeometry(100, 100, 650, 500)
+        
         # Create a label and set HTML content
         label = QLabel()
-        # Use the already fetched set of existing ids
-        # (self.available_pokedex_ids is fetched in read_poke_coll)
-
-        # Now we generate the HTML rows for each Pokémon in the range 1-898, graying out those not in the JSON file
-        table_rows = [self.generate_table_row(i, i not in self.available_pokedex_ids) for i in range(1, 899)]
-
-        # Combine the HTML template with the generated rows
-        html_content = pokedex_html_template.replace('<!-- Table Rows Will Go Here -->', ''.join(table_rows))
-
-        #html_content = self.read_html_file(f"{pokedex_html_path}")  # Replace with the path to your HTML file
-        label.setText(html_content)  # 'html_table' contains the HTML table string
+        html_content = read_html_file(f"{nature_chart_html_path}")
+        label.setText(html_content)
         label.setWordWrap(True)
+        label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        label.setStyleSheet("background-color: rgb(44,44,44); padding: 10px;")
 
-        # Layout
+        # Create a scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("background-color: rgb(44,44,44); border: none;")
+
+        # Container widget for the label
+        container = QWidget()
+        container_layout = QVBoxLayout()
+        container_layout.addWidget(label)
+        container.setLayout(container_layout)
+        
+        scroll_area.setWidget(container)
+
+        # Main layout
         layout = QVBoxLayout()
-        layout.addWidget(label)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(scroll_area)
         self.setLayout(layout)
 
-    # Helper function to generate table rows
-    def generate_table_row(self, pokedex_number, is_gray):
-        name = f"Pokemon #{pokedex_number}" # Placeholder, actual name should be fetched from a database or API
-        image_class = "pokemon-gray" if is_gray else ""
-        return f'''
-        <tr>
-            <td>{pokedex_number}</td>
-            <td>{name}</td>
-            <td><img src="{pokedex_number}.png" alt="{name}" class="pokemon-image {image_class}" /></td>
-        </tr>
-        '''
-
-    def show_pokedex(self):
-        self.read_poke_coll()
+    def show_nature_chart(self):
         self.show()
+
+# Pokedex_Widget removed
 
 class CheckFiles(QDialog):
     def __init__(self):
