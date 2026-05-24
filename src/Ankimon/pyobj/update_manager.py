@@ -58,6 +58,17 @@ def _fetch_gitignore_patterns() -> list[str]:
 
 
 def _should_preserve(rel_path: str, gitignore_patterns: list[str]) -> bool:
+    # Unconditionally preserve any user data inside the user_files/ directory
+    # (This covers ankimon.db, ankimonDEV.db, as well as .db-shm and .db-wal files, custom sprites, and backups)
+    # THIS IS A TEMPORARY FIX UNTIL BRRRR_EXPERIMENTAL IS MERGED INTO MAIN, THEN GITIGNORE WILL CONTAIN ALL IMPORTATNT FILES
+    if rel_path == "user_files" or rel_path.startswith("user_files/"):
+        return True
+
+    # Unconditionally preserve local metadata, guides and changelogs
+    always_preserve_roots = ["HelpInfos.html", "updateinfos.md", "meta.json"]
+    if rel_path in always_preserve_roots:
+        return True
+
     for pattern in gitignore_patterns:
         pattern = pattern.rstrip("/")
         if rel_path == pattern or rel_path.startswith(pattern + "/"):
@@ -67,7 +78,7 @@ def _should_preserve(rel_path: str, gitignore_patterns: list[str]) -> bool:
             if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(os.path.basename(rel_path), pattern):
                 return True
 
-    always_preserve = ["user_files/sprites/", "user_files/ankimon.db"]
+    always_preserve = ["user_files/sprites/", "user_files/ankimon.db", "user_files/ankimonDEV.db", "user_files/update_state.json"]
     for p in always_preserve:
         p = p.rstrip("/")
         if rel_path == p or rel_path.startswith(p + "/"):
@@ -101,6 +112,93 @@ def fetch_open_prs() -> list[dict]:
     if not data:
         return []
     return [{"number": pr["number"], "title": pr["title"], "head_ref": pr["head"]["ref"], "head_sha": pr["head"]["sha"]} for pr in data]
+
+
+def fetch_branch_sha(branch: str) -> Optional[str]:
+    data = _api_get(f"branches/{branch}")
+    if data and "commit" in data:
+        return data["commit"].get("sha")
+    return None
+
+
+def fetch_commit_date(sha: str) -> Optional[str]:
+    if not sha or len(sha) < 7 or not all(c in "0123456789abcdefABCDEF" for c in sha):
+        return None
+    data = _api_get(f"commits/{sha}")
+    if data and isinstance(data, dict) and "commit" in data:
+        committer = data["commit"].get("committer") or {}
+        author = data["commit"].get("author") or {}
+        return committer.get("date") or author.get("date")
+    return None
+
+
+def fetch_branch_commits(branch: str, local_sha: Optional[str] = None) -> list[dict]:
+    try:
+        if local_sha and not local_sha.startswith("old_mocked") and len(local_sha) >= 7 and all(c in "0123456789abcdefABCDEF" for c in local_sha):
+            # Try to use the compare API
+            url = f"compare/{local_sha}...{branch}"
+            data = _api_get(url)
+            if data and "commits" in data:
+                commits = data["commits"]
+                return [{"sha": c["sha"][:7], "message": c["commit"]["message"].splitlines()[0]} for c in reversed(commits)]
+        
+        # Fallback: get the last 5 commits of the branch
+        data = _api_get(f"commits?sha={branch}&per_page=5")
+        if data and isinstance(data, list):
+            return [{"sha": c["sha"][:7], "message": c["commit"]["message"].splitlines()[0]} for c in data]
+    except Exception:
+        pass
+    return []
+
+
+def get_update_state_path() -> Path:
+    return addon_dir / "user_files" / "update_state.json"
+
+
+def save_update_state(source_type: str, source_name: str, commit_sha: str, skip_until: Optional[float] = None):
+    try:
+        import time
+        path = get_update_state_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        state = {
+            "source_type": source_type,
+            "source_name": source_name,
+            "commit_sha": commit_sha,
+            "installed_at": time.time()
+        }
+        if skip_until is not None:
+            state["skip_until"] = skip_until
+        elif path.exists():
+            try:
+                old_state = json.loads(path.read_text(encoding="utf-8"))
+                if "skip_until" in old_state:
+                    state["skip_until"] = old_state["skip_until"]
+            except Exception:
+                pass
+        path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    except Exception as e:
+        print(f"Ankimon Updater: Failed to save update state: {e}")
+
+
+def set_update_skip_until(skip_until: float):
+    try:
+        state = read_update_state() or {}
+        state["skip_until"] = skip_until
+        path = get_update_state_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    except Exception as e:
+        print(f"Ankimon Updater: Failed to set skip_until: {e}")
+
+
+def read_update_state() -> Optional[dict]:
+    try:
+        path = get_update_state_path()
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return None
 
 
 def _download_zip_to_temp(url: str, progress_cb=None) -> Optional[str]:
@@ -267,7 +365,7 @@ def _download_and_extract_submodule(sha: str, dest_dir: Path, status_cb=None):
                 pass
 
 
-def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
+def apply_update(zip_path: str, source_type: str = None, source_name: str = None, commit_sha: str = None, status_cb=None) -> tuple[bool, str]:
     def log(msg):
         if status_cb:
             status_cb(msg)
@@ -348,9 +446,15 @@ def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
                     continue
                 dest = addon_dir / rel_path
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                with zf.open(zip_name) as source, dest.open("wb") as target:
-                    shutil.copyfileobj(source, target)
-                installed += 1
+                try:
+                    with zf.open(zip_name) as source, dest.open("wb") as target:
+                        shutil.copyfileobj(source, target)
+                    installed += 1
+                except PermissionError as pe:
+                    if dest.exists():
+                        log(f"Warning: Skipping locked file {rel_path} (already exists)")
+                    else:
+                        raise pe
 
             # --- Download and install matching poke_engine submodule version ---
             ref = _extract_ref_from_prefix(src_prefix)
@@ -358,6 +462,10 @@ def apply_update(zip_path: str, status_cb=None) -> tuple[bool, str]:
             sub_sha = _fetch_submodule_sha(ref) or DEFAULT_SUBMODULE_SHA
             
             _download_and_extract_submodule(sub_sha, addon_dir / "poke_engine", status_cb)
+
+            # --- Save update state if provided ---
+            if source_type and source_name:
+                save_update_state(source_type, source_name, commit_sha or "")
 
             cleanup()
             log(f"Update complete. Installed {installed} files.")

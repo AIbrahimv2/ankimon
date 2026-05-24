@@ -225,7 +225,7 @@ def create_menu_actions(
         dialog = UpdateDialog(parent=mw)
         dialog.exec()
 
-    update_action = QAction(mw.translator.translate("ankimon_update_button"), mw)
+    update_action = QAction("Check for Updates", mw)
     update_action.setMenuRole(QAction.MenuRole.NoRole)
     update_action.triggered.connect(_open_update_dialog)
     help_menu.addAction(update_action)

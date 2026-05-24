@@ -61,3 +61,64 @@ def open_help_window(online_connectivity):
         show_warning_with_traceback(
             parent=mw, exception=e, message="Error in opening Help Guide:"
         )
+
+
+def check_branch_update(online_connectivity: bool, ssh: bool):
+    from .singletons import logger
+    logger.log("info", f"check_branch_update triggered: online_connectivity={online_connectivity}, ssh={ssh}")
+    if not ssh:
+        logger.log("info", "check_branch_update exited early: ssh is False")
+        return
+
+    from .pyobj.update_manager import read_update_state
+
+    state = read_update_state()
+    logger.log("info", f"check_branch_update: read_update_state={state}")
+    if not state:
+        logger.log("info", "check_branch_update exited early: state is None")
+        return
+
+    import time
+    skip_until = state.get("skip_until")
+    logger.log("info", f"check_branch_update: skip_until={skip_until}, current_time={time.time()}")
+    if skip_until and time.time() < skip_until:
+        logger.log("info", "check_branch_update exited early: skip_until active")
+        return
+
+    source_type = state.get("source_type")
+    source_name = state.get("source_name")
+    local_sha = state.get("commit_sha")
+    logger.log("info", f"check_branch_update: source_type={source_type}, source_name={source_name}, local_sha={local_sha}")
+
+    if source_type != "branch" or source_name != "BRRRR_Experimental":
+        logger.log("info", "check_branch_update exited early: source_type/name mismatch")
+        return
+
+    def bg(_col):
+        try:
+            from .pyobj.update_manager import fetch_branch_sha, fetch_branch_commits
+            remote_sha = fetch_branch_sha("BRRRR_Experimental")
+            commits = []
+            if remote_sha and local_sha != remote_sha:
+                commits = fetch_branch_commits("BRRRR_Experimental", local_sha)
+            return remote_sha, commits
+        except Exception as e:
+            return e
+
+    def done(result):
+        if isinstance(result, Exception) or not result:
+            return
+
+        remote_sha, commits = result
+        if not remote_sha:
+            return
+
+        if local_sha != remote_sha:
+            from .pyobj.update_dialog import show_branch_update_prompt
+            show_branch_update_prompt("BRRRR_Experimental", remote_sha, commits)
+
+    QueryOp(
+        parent=mw,
+        op=bg,
+        success=done,
+    ).without_collection().run_in_background()

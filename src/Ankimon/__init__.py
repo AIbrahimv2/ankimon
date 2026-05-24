@@ -102,8 +102,9 @@ online_connectivity = test_online_connectivity()
 no_more_news = settings_obj.get("misc.YouShallNotPass_Ankimon_News")
 ssh = settings_obj.get("misc.ssh")
 
-from .changelog import check_and_show_changelog, open_help_window
+from .changelog import check_and_show_changelog, open_help_window, check_branch_update
 check_and_show_changelog(online_connectivity, ssh, no_more_news)
+check_branch_update(online_connectivity, ssh)
 
 # --- Battle loop ---
 from .battle_loop import on_review_card, init_battle_state

@@ -16,6 +16,8 @@ from aqt.qt import (
     QFrame,
     QSizePolicy,
     QSpacerItem,
+    QTextBrowser,
+    QCheckBox,
 )
 from aqt.theme import theme_manager
 
@@ -28,8 +30,11 @@ from .update_manager import (
     _download_zip_to_temp,
     _download_branch_zip,
     _download_pr_zip,
+    read_update_state,
+    fetch_branch_sha,
+    fetch_commit_date,
 )
-from ..resources import addon_ver
+from ..resources import addon_ver, IS_EXPERIMENTAL_BUILD
 
 
 class UpdateDialog(QDialog):
@@ -43,6 +48,7 @@ class UpdateDialog(QDialog):
         self._tags = []
         self._branches = []
         self._prs = []
+        self.dev_data_loaded = False
 
         self._apply_theme()
 
@@ -57,8 +63,10 @@ class UpdateDialog(QDialog):
         body.setContentsMargins(20, 16, 20, 16)
 
         self.tabs = QTabWidget()
+        self.tabs.addTab(self._build_brrr_tab(), "  BRRRR_Experimental Branch  ")
         self.tabs.addTab(self._build_releases_tab(), "  Releases  ")
         self.tabs.addTab(self._build_dev_tab(), "  Developer  ")
+        self.tabs.currentChanged.connect(self._on_tab_changed)
         body.addWidget(self.tabs)
 
         self.progress_bar = QProgressBar()
@@ -210,11 +218,201 @@ class UpdateDialog(QDialog):
         title.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {c['text']}; background: transparent; border: none;")
         frame_layout.addWidget(title)
 
-        ver = QLabel(f"Installed: {addon_ver}")
+        state = read_update_state()
+        ver_text = f"Installed: {addon_ver}"
+        if state:
+            source_type = state.get("source_type")
+            source_name = state.get("source_name")
+            commit_sha = state.get("commit_sha", "")
+            sha_short = f" ({commit_sha[:7]})" if commit_sha else ""
+            if source_type == "branch":
+                ver_text = f"Installed: {addon_ver} (Branch: {source_name}{sha_short})"
+            elif source_type == "pr":
+                ver_text = f"Installed: {addon_ver} (PR #{source_name}{sha_short})"
+            elif source_type == "tag":
+                ver_text = f"Installed: {addon_ver} (Tag: {source_name})"
+            elif source_type == "release":
+                ver_text = f"Installed: {addon_ver} (Release: {source_name})"
+        else:
+            if IS_EXPERIMENTAL_BUILD:
+                ver_text = f"Installed: {addon_ver} (Experimental Build)"
+
+        ver = QLabel(ver_text)
         ver.setStyleSheet(f"font-size: 12px; color: {c['muted']}; background: transparent; border: none;")
         frame_layout.addWidget(ver)
 
         return frame
+
+    def _build_brrr_tab(self):
+        c = self._colors
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(12)
+        layout.setContentsMargins(10, 14, 10, 10)
+
+        # Info & Details Group
+        details_group = QGroupBox("Active Branch: BRRRR_Experimental")
+        details_layout = QVBoxLayout(details_group)
+        details_layout.setSpacing(6)
+
+        self.brrr_installed_commit_label = QLabel("Installed Commit: Loading...")
+        self.brrr_installed_commit_label.setStyleSheet("font-size: 12px; font-weight: normal;")
+        details_layout.addWidget(self.brrr_installed_commit_label)
+
+        self.brrr_commit_date_label = QLabel("Commit Date: Loading...")
+        self.brrr_commit_date_label.setStyleSheet("font-size: 12px; font-weight: normal;")
+        details_layout.addWidget(self.brrr_commit_date_label)
+
+        self.brrr_last_update_label = QLabel("Last Update Installed: Loading...")
+        self.brrr_last_update_label.setStyleSheet("font-size: 12px; font-weight: normal;")
+        details_layout.addWidget(self.brrr_last_update_label)
+
+        self.brrr_status_label = QLabel("Status: Checking branch...")
+        self.brrr_status_label.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {c['muted']};")
+        details_layout.addWidget(self.brrr_status_label)
+
+        layout.addWidget(details_group)
+
+        # Commits Feed
+        commits_group = QGroupBox("Recent Branch Updates")
+        commits_layout = QVBoxLayout(commits_group)
+        commits_layout.setSpacing(6)
+
+        self.brrr_commits_box = QTextBrowser()
+        self.brrr_commits_box.setReadOnly(True)
+        self.brrr_commits_box.setOpenExternalLinks(True)
+        self.brrr_commits_box.setMinimumHeight(110)
+        self.brrr_commits_box.setStyleSheet(f"""
+            QTextBrowser {{
+                background-color: {c["bg"]};
+                border: 1px solid {c["group_border"]};
+                border-radius: 6px;
+                padding: 6px;
+                font-size: 11px;
+                color: {c["text"]};
+            }}
+        """)
+        self.brrr_commits_box.setHtml("<font color='gray'>Checking for changes...</font>")
+        commits_layout.addWidget(self.brrr_commits_box)
+
+        layout.addWidget(commits_group)
+
+        # Snooze and Controls Bar
+        ctrl_layout = QHBoxLayout()
+        self.brrr_snooze_checkbox = QCheckBox("Snooze notifications for 1 week")
+        self.brrr_snooze_checkbox.setStyleSheet(f"color: {c['text']}; font-size: 12px;")
+        self.brrr_snooze_checkbox.stateChanged.connect(self._on_brrr_snooze_changed)
+        ctrl_layout.addWidget(self.brrr_snooze_checkbox)
+        ctrl_layout.addStretch()
+
+        self.brrr_update_btn = QPushButton("Update Experimental Branch")
+        self.brrr_update_btn.setMinimumHeight(38)
+        self.brrr_update_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {c["btn_primary"]};
+                color: white;
+                font-weight: bold;
+                font-size: 12px;
+                border: none;
+                border-radius: 6px;
+                min-width: 180px;
+            }}
+            QPushButton:hover {{ background-color: {c["btn_primary_hover"]}; }}
+            QPushButton:disabled {{ background-color: {c["btn_bg"]}; color: {c["muted"]}; }}
+        """)
+        self.brrr_update_btn.setEnabled(False)
+        self.brrr_update_btn.clicked.connect(self._on_brrr_update_clicked)
+        ctrl_layout.addWidget(self.brrr_update_btn)
+
+        layout.addLayout(ctrl_layout)
+        return widget
+
+    def _populate_brrr_ui(self, state, remote_sha, local_commit_date, commits):
+        c = self._colors
+        import time
+        import html
+        
+        # 1. Local Commit SHA
+        local_sha = state.get("commit_sha", "unknown")
+        local_sha_short = local_sha[:7] if len(local_sha) >= 7 else local_sha
+        self.brrr_installed_commit_label.setText(f"Installed Commit:  <b>{local_sha_short}</b>")
+        
+        # 2. Commit Date
+        if local_commit_date:
+            date_clean = local_commit_date.replace("T", " ").replace("Z", "")
+            self.brrr_commit_date_label.setText(f"Commit Date:  <b>{date_clean} UTC</b>")
+        else:
+            self.brrr_commit_date_label.setText("Commit Date:  <b>Unknown (first update will fetch this)</b>")
+            
+        # 3. Last Updated On
+        installed_at = state.get("installed_at")
+        if not installed_at:
+            try:
+                from .update_manager import get_update_state_path
+                state_path = get_update_state_path()
+                if state_path.exists():
+                    installed_at = state_path.stat().st_mtime
+            except Exception:
+                pass
+                
+        if installed_at:
+            date_formatted = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(installed_at))
+            self.brrr_last_update_label.setText(f"Last Update Installed:  <b>{date_formatted}</b>")
+        else:
+            self.brrr_last_update_label.setText("Last Update Installed:  <b>Never (Perform update to record)</b>")
+            
+        # 4. Snooze Checkbox
+        skip_until = state.get("skip_until", 0)
+        self.brrr_snooze_checkbox.blockSignals(True)
+        self.brrr_snooze_checkbox.setChecked(skip_until > time.time())
+        self.brrr_snooze_checkbox.blockSignals(False)
+        
+        # 5. Status & Update Button
+        if not remote_sha:
+            self.brrr_status_label.setText("Status:  Could not check connection.")
+            self.brrr_status_label.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {c['error']};")
+            self.brrr_update_btn.setEnabled(False)
+        elif local_sha != remote_sha:
+            self.brrr_status_label.setText(f"Status:  New Update Available! (Latest: {remote_sha[:7]})")
+            self.brrr_status_label.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {c['warning']};")
+            self.brrr_update_btn.setEnabled(True)
+            self.brrr_update_btn.setText("Update Branch Now")
+        else:
+            self.brrr_status_label.setText("Status:  Up to date!")
+            self.brrr_status_label.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {c['success']};")
+            self.brrr_update_btn.setEnabled(False)
+            self.brrr_update_btn.setText("Already Up to Date")
+            
+        # 6. Commits Feed
+        if commits:
+            accent_color = c["accent"]
+            html_content = "<b>What's New on Branch:</b><br><ul style='margin-top: 4px; margin-bottom: 4px; padding-left: 20px;'>"
+            for commit in commits:
+                sha = commit.get("sha", "")
+                msg = commit.get("message", "")
+                msg_escaped = html.escape(msg)
+                html_content += f"<li style='margin-bottom: 4px;'><code><font color='{accent_color}'>{sha}</font></code> - {msg_escaped}</li>"
+            html_content += "</ul>"
+            self.brrr_commits_box.setHtml(html_content)
+        else:
+            self.brrr_commits_box.setHtml("<font color='gray'>No new commit messages fetched.</font>")
+
+    def _on_brrr_snooze_changed(self, _state):
+        import time
+        from .update_manager import set_update_skip_until
+        if self.brrr_snooze_checkbox.isChecked():
+            one_week_later = time.time() + 604800
+            set_update_skip_until(one_week_later)
+        else:
+            set_update_skip_until(0)
+
+    def _on_brrr_update_clicked(self):
+        self._run_update(
+            lambda progress_cb: _download_branch_zip("BRRRR_Experimental", progress_cb),
+            "latest BRRRR_Experimental",
+            source_type="branch",
+            source_name="BRRRR_Experimental"
+        )
 
     def _build_releases_tab(self):
         c = self._colors
@@ -300,6 +498,7 @@ class UpdateDialog(QDialog):
         group_layout.addWidget(source_label)
 
         self.source_combo = QComboBox()
+        self.source_combo.addItem("Latest BRRRR_Experimental Branch", "branch_brrr")
         self.source_combo.addItem("Latest Main Branch", "main")
         self.source_combo.addItem("Pull Request", "pr")
         self.source_combo.addItem("Branch", "branch")
@@ -343,7 +542,7 @@ class UpdateDialog(QDialog):
 
     def _on_source_changed(self, index):
         source = self.source_combo.currentData()
-        show = source != "main"
+        show = source not in ("branch_brrr", "main")
         self.target_label.setVisible(show)
         self.target_combo.setVisible(show)
         if show:
@@ -361,8 +560,12 @@ class UpdateDialog(QDialog):
         elif source == "branch":
             self.target_label.setText("Branch:")
             if self._branches:
-                for b in self._branches:
+                default_idx = 0
+                for idx, b in enumerate(self._branches):
                     self.target_combo.addItem(b["name"], b)
+                    if b["name"] == "BRRRR_Experimental":
+                        default_idx = idx
+                self.target_combo.setCurrentIndex(default_idx)
             else:
                 self.target_combo.addItem("No branches found")
         elif source == "tag":
@@ -374,12 +577,73 @@ class UpdateDialog(QDialog):
                 self.target_combo.addItem("No tags found")
 
     def _load_data(self):
+        self.status_label.setText("Checking for updates...")
         def bg(_col):
-            return (fetch_releases(), fetch_tags(), fetch_branches(), fetch_open_prs())
+            from .update_manager import fetch_branch_sha, fetch_commit_date, fetch_branch_commits
+            # 1. Fetch releases
+            releases = []
+            try:
+                releases = fetch_releases()
+            except Exception:
+                pass
+            
+            # 2. Get local state
+            state = read_update_state() or {}
+            local_sha = state.get("commit_sha")
+            
+            # 3. Fetch remote BRRR branch details
+            remote_sha = None
+            try:
+                remote_sha = fetch_branch_sha("BRRRR_Experimental")
+            except Exception:
+                pass
+                
+            local_commit_date = None
+            if local_sha:
+                try:
+                    local_commit_date = fetch_commit_date(local_sha)
+                except Exception:
+                    pass
+                
+            # 4. Fetch last 5 commits on BRRR branch
+            commits = []
+            try:
+                commits = fetch_branch_commits("BRRRR_Experimental", local_sha)
+            except Exception:
+                pass
+            
+            return releases, state, remote_sha, local_commit_date, commits
 
         def on_done(result):
-            self._releases, self._tags, self._branches, self._prs = result
+            self._releases, state, remote_sha, local_commit_date, commits = result
+            self._populate_brrr_ui(state, remote_sha, local_commit_date, commits)
             self._populate_ui()
+            self.status_label.setText("")
+
+        QueryOp(parent=self, op=bg, success=on_done).without_collection().run_in_background()
+
+    def _on_tab_changed(self, index):
+        if index == 2 and not self.dev_data_loaded:
+            self._load_dev_data()
+
+    def _load_dev_data(self):
+        self._set_busy(True)
+        self.status_label.setText("Loading developer options...")
+        
+        def bg(_col):
+            return (fetch_tags(), fetch_branches(), fetch_open_prs())
+
+        def on_done(result):
+            self._set_busy(False)
+            self._tags, self._branches, self._prs = result
+            self.dev_data_loaded = True
+            
+            # Repopulate targets in the Developer tab UI if needed
+            source = self.source_combo.currentData()
+            if source and source not in ("branch_brrr", "main"):
+                self._populate_target(source)
+                
+            self.status_label.setText("")
 
         QueryOp(parent=self, op=bg, success=on_done).without_collection().run_in_background()
 
@@ -408,7 +672,7 @@ class UpdateDialog(QDialog):
             self.release_combo.addItem("No releases found")
 
         source = self.source_combo.currentData()
-        if source and source != "main":
+        if source and source not in ("branch_brrr", "main"):
             self._populate_target(source)
 
     # --- Actions ---
@@ -427,7 +691,7 @@ class UpdateDialog(QDialog):
             percent = int((current / total) * 100)
             mw.taskman.run_on_main(lambda: self.progress_bar.setValue(percent))
 
-    def _run_update(self, download_fn, label: str):
+    def _run_update(self, download_fn, label: str, source_type: str = None, source_name: str = None, commit_sha: str = None):
         confirm = QMessageBox.question(
             self, "Confirm Update",
             f"Update Ankimon to {label}?\n\nYour Pokemon data, settings, and sprites will be preserved.",
@@ -440,6 +704,10 @@ class UpdateDialog(QDialog):
         self.status_label.setText(f"Downloading {label}...")
 
         def bg(_col):
+            nonlocal commit_sha
+            if source_type == "branch" and not commit_sha:
+                commit_sha = fetch_branch_sha(source_name)
+
             zip_path = download_fn(progress_cb=self._on_progress)
             if not zip_path:
                 return False, "Download failed. Check your internet connection.", []
@@ -448,7 +716,7 @@ class UpdateDialog(QDialog):
                 messages.append(m)
                 mw.taskman.run_on_main(lambda: self.status_label.setText(m))
 
-            success, msg = apply_update(zip_path, status_cb=status_update)
+            success, msg = apply_update(zip_path, source_type, source_name, commit_sha, status_cb=status_update)
             return success, msg, messages
 
         def on_done(result):
@@ -467,26 +735,345 @@ class UpdateDialog(QDialog):
         if not self._releases:
             return
         r = self._releases[0]
-        self._run_update(lambda progress_cb: _download_zip_to_temp(r["zipball_url"], progress_cb), f"latest release ({r['name']})")
+        self._run_update(
+            lambda progress_cb: _download_zip_to_temp(r["zipball_url"], progress_cb),
+            f"latest release ({r['name']})",
+            source_type="release",
+            source_name=r["name"],
+            commit_sha=r["name"]
+        )
 
     def _on_release_update(self):
         data = self.release_combo.currentData()
         if data:
-            self._run_update(lambda progress_cb: _download_zip_to_temp(data["zipball_url"], progress_cb), f"release {data['name']}")
+            self._run_update(
+                lambda progress_cb: _download_zip_to_temp(data["zipball_url"], progress_cb),
+                f"release {data['name']}",
+                source_type="release",
+                source_name=data["name"],
+                commit_sha=data["name"]
+            )
 
     def _on_dev_install(self):
         source = self.source_combo.currentData()
-        if source == "main":
-            self._run_update(lambda progress_cb: _download_branch_zip("main", progress_cb), "latest main")
+        if source == "branch_brrr":
+            self._run_update(
+                lambda progress_cb: _download_branch_zip("BRRRR_Experimental", progress_cb),
+                "latest BRRRR_Experimental",
+                source_type="branch",
+                source_name="BRRRR_Experimental"
+            )
+        elif source == "main":
+            self._run_update(
+                lambda progress_cb: _download_branch_zip("main", progress_cb),
+                "latest main",
+                source_type="branch",
+                source_name="main"
+            )
         elif source == "pr":
             data = self.target_combo.currentData()
             if data:
-                self._run_update(lambda progress_cb: _download_pr_zip(data["head_sha"], progress_cb), f"PR #{data['number']} ({data['title']})")
+                self._run_update(
+                    lambda progress_cb: _download_pr_zip(data["head_sha"], progress_cb),
+                    f"PR #{data['number']} ({data['title']})",
+                    source_type="pr",
+                    source_name=str(data["number"]),
+                    commit_sha=data["head_sha"]
+                )
         elif source == "branch":
             data = self.target_combo.currentData()
             if data:
-                self._run_update(lambda progress_cb: _download_branch_zip(data["name"], progress_cb), f"branch {data['name']}")
+                self._run_update(
+                    lambda progress_cb: _download_branch_zip(data["name"], progress_cb),
+                    f"branch {data['name']}",
+                    source_type="branch",
+                    source_name=data["name"]
+                )
         elif source == "tag":
             data = self.target_combo.currentData()
             if data:
-                self._run_update(lambda progress_cb: _download_zip_to_temp(data["zipball_url"], progress_cb), f"tag {data['name']}")
+                self._run_update(
+                    lambda progress_cb: _download_zip_to_temp(data["zipball_url"], progress_cb),
+                    f"tag {data['name']}",
+                    source_type="tag",
+                    source_name=data["name"],
+                    commit_sha=data["name"]
+                )
+
+
+class BranchUpdatePromptDialog(QDialog):
+    def __init__(self, branch_name: str, remote_sha: str, commits: list[dict] = None, parent=None):
+        super().__init__(parent or mw)
+        self.setWindowTitle("Ankimon Update Available")
+        self.setMinimumWidth(460)
+        if commits:
+            self.resize(520, 420)
+        else:
+            self.resize(480, 240)
+
+        is_dark = theme_manager.night_mode
+        bg = "#2b2b2b" if is_dark else "#ffffff"
+        text = "#e0e0e0" if is_dark else "#212121"
+        muted = "#888888" if is_dark else "#757575"
+        border = "#444444" if is_dark else "#e0e0e0"
+        btn_bg = "#3d3d3d" if is_dark else "#eeeeee"
+        btn_hover = "#505050" if is_dark else "#e0e0e0"
+        btn_primary = "#1976d2"
+        
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {bg};
+                color: {text};
+            }}
+            QLabel {{
+                color: {text};
+                font-size: 13px;
+            }}
+            QPushButton {{
+                padding: 8px 16px;
+                border: 1px solid {border};
+                border-radius: 6px;
+                background-color: {btn_bg};
+                color: {text};
+                font-size: 13px;
+                min-width: 100px;
+            }}
+            QPushButton:hover {{
+                background-color: {btn_hover};
+            }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(16)
+
+        title = QLabel(f"<h3>Update Available for {branch_name}</h3>")
+        layout.addWidget(title)
+
+        desc = QLabel(
+            f"A new update is available for your local <b>{branch_name}</b> branch.<br>"
+            f"Latest Commit: <code>{remote_sha[:7]}</code>"
+        )
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+
+        if commits:
+            commits_box = QTextBrowser()
+            commits_box.setReadOnly(True)
+            commits_box.setOpenExternalLinks(True)
+            
+            box_bg = "#333333" if is_dark else "#fafafa"
+            box_border = "#444444" if is_dark else "#e0e0e0"
+            accent_color = "#4fc3f7" if is_dark else "#1976d2"
+            
+            commits_box.setStyleSheet(f"""
+                QTextBrowser {{
+                    background-color: {box_bg};
+                    border: 1px solid {box_border};
+                    border-radius: 6px;
+                    padding: 8px;
+                    font-size: 12px;
+                    color: {text};
+                }}
+            """)
+            
+            import html
+            html_content = "<b>What's New:</b><br><ul style='margin-top: 4px; margin-bottom: 4px; padding-left: 20px;'>"
+            for c in commits:
+                sha = c.get("sha", "")
+                msg = c.get("message", "")
+                msg_escaped = html.escape(msg)
+                html_content += f"<li style='margin-bottom: 4px;'><code><font color='{accent_color}'>{sha}</font></code> - {msg_escaped}</li>"
+            html_content += "</ul>"
+            
+            commits_box.setHtml(html_content)
+            layout.addWidget(commits_box)
+
+        prompt_label = QLabel(
+            "Would you like to install the latest changes now?<br>"
+            "Your Pokemon database, team, and settings will be preserved."
+        )
+        prompt_label.setWordWrap(True)
+        layout.addWidget(prompt_label)
+
+        self.skip_checkbox = QCheckBox("Don't notify me for 1 week")
+        self.skip_checkbox.setStyleSheet(f"color: {text}; font-size: 12px; margin-top: 4px;")
+        layout.addWidget(self.skip_checkbox)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+
+        self.btn_later = QPushButton("Later")
+        self.btn_later.clicked.connect(self.reject)
+        btn_layout.addWidget(self.btn_later)
+
+        self.btn_update = QPushButton("Update Now")
+        self.btn_update.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {btn_primary};
+                color: white;
+                font-weight: bold;
+                border: none;
+            }}
+            QPushButton:hover {{
+                background-color: #1565c0;
+            }}
+        """)
+        self.btn_update.clicked.connect(self.accept)
+        btn_layout.addWidget(self.btn_update)
+
+        layout.addLayout(btn_layout)
+
+    def reject(self):
+        if self.skip_checkbox.isChecked():
+            import time
+            from .update_manager import set_update_skip_until
+            one_week_later = time.time() + 604800
+            set_update_skip_until(one_week_later)
+
+        QMessageBox.information(
+            self,
+            "Update Later",
+            "No problem! You can always check for updates and install them later by going to Ankimon => Help => Check for Updates."
+        )
+        super().reject()
+
+
+class BranchUpdateProgressDialog(QDialog):
+    def __init__(self, branch_name: str, remote_sha: str, parent=None):
+        super().__init__(parent or mw)
+        self.setWindowTitle("Updating Ankimon")
+        self.setMinimumWidth(440)
+        self.resize(480, 200)
+        
+        self.branch_name = branch_name
+        self.remote_sha = remote_sha
+
+        is_dark = theme_manager.night_mode
+        bg = "#2b2b2b" if is_dark else "#ffffff"
+        text = "#e0e0e0" if is_dark else "#212121"
+        muted = "#888888" if is_dark else "#757575"
+        border = "#444444" if is_dark else "#e0e0e0"
+        btn_bg = "#3d3d3d" if is_dark else "#eeeeee"
+        btn_hover = "#505050" if is_dark else "#e0e0e0"
+        accent = "#4fc3f7" if is_dark else "#1976d2"
+
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {bg};
+                color: {text};
+            }}
+            QLabel {{
+                color: {text};
+                font-size: 13px;
+            }}
+            QProgressBar {{
+                border: none;
+                background-color: {border};
+                border-radius: 4px;
+                text-align: center;
+                height: 16px;
+                color: {text};
+            }}
+            QProgressBar::chunk {{
+                background-color: {accent};
+                border-radius: 4px;
+            }}
+            QPushButton {{
+                padding: 8px 16px;
+                border: 1px solid {border};
+                border-radius: 6px;
+                background-color: {btn_bg};
+                color: {text};
+                font-size: 13px;
+                min-width: 100px;
+            }}
+            QPushButton:hover {{
+                background-color: {btn_hover};
+            }}
+            QPushButton:disabled {{
+                color: {muted};
+                background-color: {btn_bg};
+            }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(16)
+
+        self.status_label = QLabel(f"Preparing to update {branch_name}...")
+        self.status_label.setWordWrap(True)
+        layout.addWidget(self.status_label)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        layout.addWidget(self.progress_bar)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+
+        self.btn_close = QPushButton("Close")
+        self.btn_close.setEnabled(False)
+        self.btn_close.clicked.connect(self.accept)
+        btn_layout.addWidget(self.btn_close)
+
+        layout.addLayout(btn_layout)
+        self.update_started = False
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self.update_started:
+            self.update_started = True
+            self.start_update()
+
+    def start_update(self):
+        from .update_manager import _download_branch_zip, apply_update
+
+        def bg(_col):
+            zip_path = _download_branch_zip(self.branch_name, progress_cb=self.on_progress)
+            if not zip_path:
+                return False, "Download failed. Check your internet connection."
+
+            def status_update(msg):
+                mw.taskman.run_on_main(lambda: self.status_label.setText(msg))
+
+            success, msg = apply_update(
+                zip_path,
+                source_type="branch",
+                source_name=self.branch_name,
+                commit_sha=self.remote_sha,
+                status_cb=status_update
+            )
+            return success, msg
+
+        def on_done(result):
+            success, msg = result
+            self.btn_close.setEnabled(True)
+            if success:
+                self.btn_close.setText("Restart Anki")
+                self.status_label.setText("Update applied successfully! Please restart Anki.")
+                self.progress_bar.setValue(100)
+                QMessageBox.information(self, "Update Complete", f"{msg}\n\nPlease restart Anki for changes to take effect.")
+            else:
+                self.status_label.setText(f"Update failed: {msg}")
+                self.progress_bar.setValue(0)
+                QMessageBox.warning(self, "Update Failed", msg)
+
+        QueryOp(
+            parent=self,
+            op=bg,
+            success=on_done
+        ).without_collection().run_in_background()
+
+    def on_progress(self, current: int, total: int):
+        if total > 0:
+            percent = int((current / total) * 100)
+            mw.taskman.run_on_main(lambda: self.progress_bar.setValue(percent))
+
+
+def show_branch_update_prompt(branch_name: str, remote_sha: str, commits: list[dict] = None):
+    dialog = BranchUpdatePromptDialog(branch_name, remote_sha, commits, mw)
+    if dialog.exec() == QDialog.DialogCode.Accepted:
+        progress_dialog = BranchUpdateProgressDialog(branch_name, remote_sha, mw)
+        progress_dialog.exec()

@@ -93,7 +93,7 @@ The trade system has been modernized with protocol versioning and enhanced data 
 
 ### Hidden Developer Mode Trigger
 
-Developer features are now dynamically enabled at runtime without modifying code. To activate developer mode, name your Anki Profile or Trainer in the settings to include either the `dev_` prefix or `_dev` suffix (case-insensitive, e.g., `dev_user` or `user_dev`).
+Developer features are now dynamically enabled at runtime without modifying code. To activate developer mode, name your Anki Profile or Trainer in the settings to include a certain string (Ask BRRRRR if you wanna know haha).
 
 ### Account & Database Switcher (Hidden Dev Feature)
 
@@ -127,18 +127,40 @@ A dedicated menu button for hot-reloading code. This eliminates the need to rest
 
 ---
 
-## 7. Summary of Key Files Changed
+## 7. Automatic Update Notifications & Snooze System
 
-| File                                           | Primary Change                                               |
-| ---------------------------------------------- | ------------------------------------------------------------ |
-| `src/Ankimon/ankidex/`                         | **New** web-based Pokedex system.                            |
-| `src/Ankimon/pyobj/pc_box.py`                  | Complete overhaul of the PC interface and caching.           |
-| `src/Ankimon/pyobj/pokemon_trade.py`           | **New** Trade V2 logic, versioning, and legacy support.      |
-| `src/Ankimon/reloader.py`                      | **New** hot-reload logic.                                    |
-| `src/Ankimon/functions/encounter_functions.py` | Prerequisite chains, level-gating, and region-boost logic.   |
-| `src/Ankimon/singletons.py`                    | Account switching and lazy-loading support.                  |
-| `src/Ankimon/pyobj/settings.py`                | Region selection, reward balancing, and auto-catch settings. |
+A modern startup check and installation system designed specifically to keep users on the experimental branch up-to-date with remote changes.
+
+- **Startup Delta Checks**: Queries the GitHub API in a silent background thread at startup to compare local and remote commits on the `BRRRR_Experimental` branch.
+- **Sandbox & Offline Resiliency**: Bypasses fragile synchronous network connectivity pre-checks, ensuring branch update checks run completely asynchronously in the background. This prevents startup blocking and ensures prompts trigger even in restricted packaged sandboxes like `AnkiTEST`.
+- **Unconditional User Data Protection**: The installer unconditionally protects all files under `user_files/` (such as SQLite `.db`, `.db-shm`, `.db-wal` databases, local backups, and custom downloaded sprites) and critical root files (`HelpInfos.html`, `updateinfos.md`, `meta.json`). This guarantees updates never corrupt or delete user progress.
+- **Premium 3-Tab Update Dialog Interface**: The manual "Check for Updates" menu option has been redesigned into a highly responsive, multi-tabbed dashboard:
+  - **Tab 1: BRRRR_Experimental Branch** (Automatically opened by default): Displays the active branch name, currently installed commit SHA, author/committer date (fetched dynamically via GitHub API), the local last-update installation timestamp, real-time sync status, a weekly snooze checkbox, and a scrollable `QTextBrowser` commit feed of what's new. Includes a primary update button for one-click asynchronous branch updates.
+  - **Tab 2: Releases**: Provides a fast dropdown list and direct release installer for public experimental releases.
+  - **Tab 3: Developer**: Allows power users to lazy-load and install directly from other branches, tags, or specific open Pull Requests asynchronously.
+- **Safe Installation Logging**: Fixed state persistence to record the actual current time in `installed_at` upon successful update, instead of keeping the old cached file modification date.
+- **Commit Logs Feed**: Displays commit messages and titles inside a scrollable `QTextBrowser` styled dynamically for both Anki light and dark night modes.
+- **Weekly Snooze Option**: A checkbox allows users to snooze update checks and prompts for exactly 1 week, saving the snooze timestamp cleanly in `update_state.json`.
+- **Locked-Files Bypass Safety**: Gracefully bypasses Windows permission locks on static assets (such as loaded `.ttf` fonts like `Early GameBoy.ttf`) by displaying a non-fatal warning and successfully installing code updates.
+- **Simplified Menu Interface**: Action renamed to **Check for Updates** under `Ankimon => Help` for standard UX naming.
 
 ---
 
-_Analysis completed based on repository state as of May 21, 2026, incorporating developer-provided feature documentation._
+## 8. Summary of Key Files Changed
+
+| File                                           | Primary Change                                                |
+| ---------------------------------------------- | ------------------------------------------------------------- |
+| `src/Ankimon/ankidex/`                         | **New** web-based Pokedex system.                             |
+| `src/Ankimon/pyobj/pc_box.py`                  | Complete overhaul of the PC interface and caching.            |
+| `src/Ankimon/pyobj/pokemon_trade.py`           | **New** Trade V2 logic, versioning, and legacy support.       |
+| `src/Ankimon/reloader.py`                      | **New** hot-reload logic.                                     |
+| `src/Ankimon/functions/encounter_functions.py` | Prerequisite chains, level-gating, and region-boost logic.    |
+| `src/Ankimon/singletons.py`                    | Account switching and lazy-loading support.                   |
+| `src/Ankimon/pyobj/settings.py`                | Region selection, reward balancing, and auto-catch settings.  |
+| `src/Ankimon/pyobj/update_manager.py`          | **New** updater state, locked-file safety, and commit fetch.  |
+| `src/Ankimon/pyobj/update_dialog.py`           | **New** update available modal, snooze box, and progress bar. |
+| `src/Ankimon/changelog.py`                     | **New** background startup update check query logic.          |
+
+---
+
+_Analysis completed based on repository state as of May 24, 2026, incorporating developer-provided feature documentation._
