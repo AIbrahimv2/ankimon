@@ -190,12 +190,12 @@ def modify_percentages(total_reviews, daily_average, trainer_level):
     #MODIFIED FOR TESTING: Fixed percentages, review restrictions.
     """percentages = {
                 "Baby": 0,
-                "Normal": 10,
+                "Normal": 1,
                 "Starter": 0,
                 "Legendary": 0,
                 "Mythical": 0,
-                "Ultra": 0,
-                "Mega": 90,
+                "Ultra": 99,
+                "Mega": 0,
                 "Gmax": 0,
             }"""
 
@@ -723,6 +723,7 @@ def new_pokemon(
         PokemonObject: The updated `pokemon` object representing the newly generated wild Pokémon ready for battle.
     """
     ankimon_tracker.faint_processed = False
+    ankimon_tracker.caught = 0
     (
         name,
         pkmn_id,
@@ -1181,7 +1182,7 @@ def catch_pokemon(
             logger.log_and_showinfo(
                 "info", translator.translate("already_caught_pokemon")
             )  # Display a message when the Pokémon is caught
-            return
+        return
 
     # If we arrive here, this means that ankimon_tracker_obj.caught == 1
     if not nickname:

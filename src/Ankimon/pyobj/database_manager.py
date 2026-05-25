@@ -349,9 +349,27 @@ class AnkimonDB:
         return results
 
     def get_all_pokemon_ids(self) -> set:
-        """Returns a set of all captured pokemon's pokedex IDs using the virtual index."""
+        """Returns a set of all captured pokemon's pokedex IDs using the virtual index, history, and explicit caught tracking."""
+        # 1. Currently owned
         cursor = self.execute("SELECT pokedex_id FROM captured_pokemon WHERE pokedex_id IS NOT NULL")
-        return {row[0] for row in cursor.fetchall()}
+        caught_ids = {int(row[0]) for row in cursor.fetchall() if row[0] is not None}
+        
+        # 2. Released (history)
+        try:
+            cursor = self.execute("SELECT DISTINCT json_extract(data, '$.id') FROM pokemon_history")
+            for row in cursor.fetchall():
+                if row[0] is not None:
+                    caught_ids.add(int(row[0]))
+        except Exception:
+            pass
+
+        # 3. Explicitly recorded caught IDs (from evolutions, etc.)
+        try:
+            caught_ids.update(self.get_caught_ids())
+        except Exception:
+            pass
+
+        return caught_ids
 
     # --- Main Pokemon Operations ---
 

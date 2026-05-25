@@ -337,8 +337,10 @@ def swap_ankimon_account():
         
         # Sync collected IDs to current account
         from .reviewer_ui import set_collected_ids
+        from .battle_loop import init_battle_state
         new_ids = mw.ankimon_db.get_all_pokemon_ids()
         set_collected_ids(new_ids)
+        init_battle_state(new_ids)
 
         # Clear encounter percentages cache (uses new trainer level/stats)
         clear_encounter_cache()
