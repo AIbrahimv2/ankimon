@@ -16,30 +16,13 @@ from aqt import mw
 
 from .pyobj.ankimon_tracker import AnkimonTracker
 from .pyobj.settings import Settings
-from .pyobj.settings_window import SettingsWindow
 from .pyobj.pokemon_obj import PokemonObject
 from .pyobj.InfoLogger import ShowInfoLogger
 from .pyobj.trainer_card import TrainerCard
 from .pyobj.translator import Translator
-from .pyobj.test_window import TestWindow
-from .pyobj.achievement_window import AchievementWindow
-from .pyobj.ankimon_tracker_window import AnkimonTrackerWindow
 from .pyobj.ankimon_shop import PokemonShopManager
-from .ankidex.ankidex_obj import Ankidex
 from .pyobj.reviewer_obj import Reviewer_Manager
-from .pyobj.evolution_window import EvoWindow
-from .pyobj.starter_window import StarterWindow
-from .pyobj.item_window import ItemWindow
-from .pyobj.pc_box import PokemonPC
 from .pyobj.database_manager import get_db
-from .gui_entities import (
-    License,
-    Credits,
-    TableWidget,
-    IDTableWidget,
-    NatureTableWidget,
-    Version_Dialog,
-)
 from .functions.update_main_pokemon import update_main_pokemon
 from .functions.badges_functions import populate_achievements_from_badges
 from .resources import addon_dir
@@ -60,14 +43,21 @@ mw.ankimon_db = ankimon_db
 settings_obj = getattr(mw, "settings_obj", None) or Settings()
 mw.settings_obj = settings_obj
 
-# Pass the correct attributes to SettingsWindow
-settings_window = getattr(mw, "settings_ankimon", None) or SettingsWindow(
-    config=settings_obj.config,
-    set_config_callback=settings_obj.set,
-    save_config_callback=settings_obj.save_config,
-    load_config_callback=settings_obj.load_config,
-)
-mw.settings_ankimon = settings_window
+settings_window = None
+def get_settings_window():
+    global settings_window
+    if not is_alive(settings_window):
+        settings_window = getattr(mw, "settings_ankimon", None)
+        if not is_alive(settings_window):
+            from .pyobj.settings_window import SettingsWindow
+            settings_window = SettingsWindow(
+                config=settings_obj.config,
+                set_config_callback=settings_obj.set,
+                save_config_callback=settings_obj.save_config,
+                load_config_callback=settings_obj.load_config,
+            )
+            mw.settings_ankimon = settings_window
+    return settings_window
 
 # Init Translator
 translator = getattr(mw, "translator", None) or Translator(language=int(settings_obj.get("misc.language")))
@@ -105,9 +95,17 @@ if trainer_card is None:
     )
     mw.trainer_card = trainer_card
 
-# Starter Window
-starter_window = getattr(mw, "starter_window", None) or StarterWindow(logger, settings_obj)
-mw.starter_window = starter_window
+# --- LAZY WINDOWS & DIALOGS ---
+starter_window = None
+def get_starter_window():
+    global starter_window
+    if not is_alive(starter_window):
+        starter_window = getattr(mw, "starter_window", None)
+        if not is_alive(starter_window):
+            from .pyobj.starter_window import StarterWindow
+            starter_window = StarterWindow(logger, settings_obj)
+            mw.starter_window = starter_window
+    return starter_window
 
 # Ankimon Tracker
 ankimon_tracker_obj = getattr(mw, "ankimon_tracker_obj", None)
@@ -118,14 +116,20 @@ if ankimon_tracker_obj is None:
     ankimon_tracker_obj.set_enemy_pokemon(enemy_pokemon)
 
 # Test Window
-test_window = getattr(mw, "test_window", None)
-if test_window is None:
-    test_window = TestWindow(
-        main_pokemon=main_pokemon, enemy_pokemon=enemy_pokemon,
-        settings_obj=settings_obj, ankimon_tracker_obj=ankimon_tracker_obj,
-        translator=translator, parent=mw, logger=logger,
-    )
-    mw.test_window = test_window
+test_window = None
+def get_test_window():
+    global test_window
+    if not is_alive(test_window):
+        test_window = getattr(mw, "test_window", None)
+        if not is_alive(test_window):
+            from .pyobj.test_window import TestWindow
+            test_window = TestWindow(
+                main_pokemon=main_pokemon, enemy_pokemon=enemy_pokemon,
+                settings_obj=settings_obj, ankimon_tracker_obj=ankimon_tracker_obj,
+                translator=translator, parent=mw, logger=logger,
+            )
+            mw.test_window = test_window
+    return test_window
 
 # Shop Manager
 shop_manager = getattr(mw, "shop_manager", None) or PokemonShopManager(
@@ -142,70 +146,167 @@ reviewer_obj = getattr(mw, "reviewer_obj", None) or Reviewer_Manager(
 mw.reviewer_obj = reviewer_obj
 
 # Achievements
-achievements = populate_achievements_from_badges({str(i): False for i in range(1, 69)})
-
-# Windows & Bags
-# Achievements
 achievements = getattr(mw, "achievements_dict", None)
 if achievements is None:
     achievements = populate_achievements_from_badges({str(i): False for i in range(1, 69)})
     mw.achievements_dict = achievements
 
 # Windows & Bags
-achievement_bag = getattr(mw, "achievement_bag", None) or AchievementWindow()
-mw.achievement_bag = achievement_bag
+achievement_bag = None
+def get_achievement_bag():
+    global achievement_bag
+    if not is_alive(achievement_bag):
+        achievement_bag = getattr(mw, "achievement_bag", None)
+        if not is_alive(achievement_bag):
+            from .pyobj.achievement_window import AchievementWindow
+            achievement_bag = AchievementWindow()
+            mw.achievement_bag = achievement_bag
+    return achievement_bag
 
-ankimon_tracker_window = getattr(mw, "ankimon_tracker_window", None) or AnkimonTrackerWindow(tracker=ankimon_tracker_obj)
-mw.ankimon_tracker_window = ankimon_tracker_window
+ankimon_tracker_window = None
+def get_ankimon_tracker_window():
+    global ankimon_tracker_window
+    if not is_alive(ankimon_tracker_window):
+        ankimon_tracker_window = getattr(mw, "ankimon_tracker_window", None)
+        if not is_alive(ankimon_tracker_window):
+            from .pyobj.ankimon_tracker_window import AnkimonTrackerWindow
+            ankimon_tracker_window = AnkimonTrackerWindow(tracker=ankimon_tracker_obj)
+            mw.ankimon_tracker_window = ankimon_tracker_window
+    return ankimon_tracker_window
 
 # Ankidex
 ankidex_window = getattr(mw, "ankidex_window", None)
 def get_ankidex_window():
     global ankidex_window
     if not is_alive(ankidex_window):
+        from .ankidex.ankidex_obj import Ankidex
         ankidex_window = Ankidex(addon_dir, ankimon_tracker=ankimon_tracker_obj)
         mw.ankidex_window = ankidex_window
     return ankidex_window
 
-# Initialize initially
-get_ankidex_window()
+evo_window = None
+def get_evo_window():
+    global evo_window
+    if not is_alive(evo_window):
+        evo_window = getattr(mw, "evo_window", None)
+        if not is_alive(evo_window):
+            from .pyobj.evolution_window import EvoWindow
+            evo_window = EvoWindow(
+                logger, settings_obj, main_pokemon, translator, reviewer_obj, get_test_window(), achievements,
+            )
+            mw.evo_window = evo_window
+    return evo_window
 
-evo_window = getattr(mw, "evo_window", None) or EvoWindow(
-    logger, settings_obj, main_pokemon, translator, reviewer_obj, test_window, achievements,
-)
-mw.evo_window = evo_window
-
-item_window = getattr(mw, "item_window", None) or ItemWindow(
-    logger=logger, settings_obj=settings_obj, main_pokemon=main_pokemon,
-    enemy_pokemon=enemy_pokemon, achievements=achievements,
-    starter_window=starter_window,
-    evo_window=evo_window,
-)
-mw.item_window = item_window
+item_window = None
+def get_item_window():
+    global item_window
+    if not is_alive(item_window):
+        item_window = getattr(mw, "item_window", None)
+        if not is_alive(item_window):
+            from .pyobj.item_window import ItemWindow
+            item_window = ItemWindow(
+                logger=logger, settings_obj=settings_obj, main_pokemon=main_pokemon,
+                enemy_pokemon=enemy_pokemon, achievements=achievements,
+                starter_window=get_starter_window(),
+                evo_window=get_evo_window(),
+            )
+            mw.item_window = item_window
+    return item_window
 
 # Pokemon PC
 pokemon_pc = getattr(mw, "pokemon_pc", None)
 def get_pokemon_pc():
     global pokemon_pc
     if not is_alive(pokemon_pc):
-        pokemon_pc = PokemonPC(
-            logger=logger, translator=translator, reviewer_obj=reviewer_obj,
-            test_window=test_window, settings=settings_obj, main_pokemon=main_pokemon,
-            achievements=achievements,
-        )
-        mw.pokemon_pc = pokemon_pc
+        pokemon_pc = getattr(mw, "pokemon_pc", None)
+        if not is_alive(pokemon_pc):
+            from .pyobj.pc_box import PokemonPC
+            pokemon_pc = PokemonPC(
+                logger=logger, translator=translator, reviewer_obj=reviewer_obj,
+                test_window=get_test_window(), settings=settings_obj, main_pokemon=main_pokemon,
+                achievements=achievements,
+            )
+            mw.pokemon_pc = pokemon_pc
     return pokemon_pc
 
-# Initialize initially
-get_pokemon_pc()
-
 # UI Utilities
-eff_chart = TableWidget()
-gen_id_chart = IDTableWidget()
-nature_chart = NatureTableWidget()
-license = License()
-credits = Credits()
-version_dialog = Version_Dialog()
+eff_chart = None
+def get_eff_chart():
+    global eff_chart
+    if not is_alive(eff_chart):
+        from .gui_entities import TableWidget
+        eff_chart = TableWidget()
+    return eff_chart
+
+gen_id_chart = None
+def get_gen_id_chart():
+    global gen_id_chart
+    if not is_alive(gen_id_chart):
+        from .gui_entities import IDTableWidget
+        gen_id_chart = IDTableWidget()
+    return gen_id_chart
+
+nature_chart = None
+def get_nature_chart():
+    global nature_chart
+    if not is_alive(nature_chart):
+        from .gui_entities import NatureTableWidget
+        nature_chart = NatureTableWidget()
+    return nature_chart
+
+license = None
+def get_license():
+    global license
+    if not is_alive(license):
+        from .gui_entities import License
+        license = License()
+    return license
+
+credits = None
+def get_credits():
+    global credits
+    if not is_alive(credits):
+        from .gui_entities import Credits
+        credits = Credits()
+    return credits
+
+version_dialog = None
+def get_version_dialog():
+    global version_dialog
+    if not is_alive(version_dialog):
+        from .gui_entities import Version_Dialog
+        version_dialog = Version_Dialog()
+    return version_dialog
+
+
+def __getattr__(name):
+    if name == "settings_window":
+        return get_settings_window()
+    elif name == "starter_window":
+        return get_starter_window()
+    elif name == "test_window":
+        return get_test_window()
+    elif name == "achievement_bag":
+        return get_achievement_bag()
+    elif name == "ankimon_tracker_window":
+        return get_ankimon_tracker_window()
+    elif name == "evo_window":
+        return get_evo_window()
+    elif name == "item_window":
+        return get_item_window()
+    elif name == "eff_chart":
+        return get_eff_chart()
+    elif name == "gen_id_chart":
+        return get_gen_id_chart()
+    elif name == "nature_chart":
+        return get_nature_chart()
+    elif name == "license":
+        return get_license()
+    elif name == "credits":
+        return get_credits()
+    elif name == "version_dialog":
+        return get_version_dialog()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def swap_ankimon_account():
@@ -243,7 +344,7 @@ def swap_ankimon_account():
         clear_encounter_cache()
 
         # Generate a fresh encounter for the new account
-        new_pokemon(mw.enemy_pokemon, mw.test_window, mw.ankimon_tracker_obj, mw.reviewer_obj)
+        new_pokemon(mw.enemy_pokemon, getattr(mw, "test_window", None), mw.ankimon_tracker_obj, mw.reviewer_obj)
 
         # Refresh windows if they are open
         if hasattr(mw, "pokemon_pc") and is_alive(mw.pokemon_pc):

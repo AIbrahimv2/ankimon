@@ -86,7 +86,20 @@ def create_menu_actions(
     pokemon_pc: PokemonPC,
     backup_manager: BackupManager,
 ):
-    from .singletons import get_ankidex_window, get_pokemon_pc
+    from .singletons import (
+        get_ankidex_window,
+        get_pokemon_pc,
+        get_test_window,
+        get_item_window,
+        get_eff_chart,
+        get_gen_id_chart,
+        get_nature_chart,
+        get_credits,
+        get_license,
+        get_version_dialog,
+        get_settings_window,
+        get_ankimon_tracker_window,
+    )
     actions = []
 
     if database_complete:
@@ -101,12 +114,12 @@ def create_menu_actions(
         ankimon_window_action.setMenuRole(QAction.MenuRole.NoRole)
         game_menu.addAction(ankimon_window_action)
         ankimon_window_action.setShortcut(QKeySequence(f"{ankimon_key}"))
-        qconnect(ankimon_window_action.triggered, test_window.open_dynamic_window)
+        qconnect(ankimon_window_action.triggered, lambda: get_test_window().open_dynamic_window())
 
         # Itembag
         itembag_action = QAction(mw.translator.translate("itembag_button"), mw)
         itembag_action.setMenuRole(QAction.MenuRole.NoRole)
-        itembag_action.triggered.connect(item_window.show_window)
+        itembag_action.triggered.connect(lambda: get_item_window().show_window())
         collection_menu.addAction(itembag_action)
 
         # Achievements
@@ -162,19 +175,19 @@ def create_menu_actions(
     # Effectiveness chart
     eff_chart_action = QAction(mw.translator.translate("eff_chart_button"), mw)
     eff_chart_action.setMenuRole(QAction.MenuRole.NoRole)
-    eff_chart_action.triggered.connect(eff_chart.show_eff_chart)
+    eff_chart_action.triggered.connect(lambda: get_eff_chart().show_eff_chart())
     help_menu.addAction(eff_chart_action)
 
     # Generations and Pokémon chart
     gen_and_poke_chart_action = QAction(mw.translator.translate("gen_chart_button"), mw)
     gen_and_poke_chart_action.setMenuRole(QAction.MenuRole.NoRole)
-    gen_and_poke_chart_action.triggered.connect(gen_id_chart.show_gen_chart)
+    gen_and_poke_chart_action.triggered.connect(lambda: get_gen_id_chart().show_gen_chart())
     help_menu.addAction(gen_and_poke_chart_action)
 
     # Nature chart
     nature_chart_action = QAction(mw.translator.translate("nature_chart_button"), mw)
     nature_chart_action.setMenuRole(QAction.MenuRole.NoRole)
-    nature_chart_action.triggered.connect(nature_chart.show_nature_chart)
+    nature_chart_action.triggered.connect(lambda: get_nature_chart().show_nature_chart())
     help_menu.addAction(nature_chart_action)
 
     # Join Discord
@@ -192,19 +205,19 @@ def create_menu_actions(
     # Credits
     credits_action = QAction(mw.translator.translate("ankimon_credits_button"), mw)
     credits_action.setMenuRole(QAction.MenuRole.NoRole)
-    credits_action.triggered.connect(credits.show_window)
+    credits_action.triggered.connect(lambda: get_credits().show_window())
     help_menu.addAction(credits_action)
 
     # About and License
     about_and_license_action = QAction(mw.translator.translate("ankimon_about_and_license_button"), mw)
     about_and_license_action.setMenuRole(QAction.MenuRole.NoRole)
-    about_and_license_action.triggered.connect(license.show_window)
+    about_and_license_action.triggered.connect(lambda: get_license().show_window())
     help_menu.addAction(about_and_license_action)
 
     # Help Guide
     help_action = QAction(mw.translator.translate("open_help_guide_button"), mw)
     help_action.setMenuRole(QAction.MenuRole.NoRole)
-    help_action.triggered.connect(lambda: open_help_window(online_connectivity))
+    help_action.triggered.connect(lambda: open_help_window(getattr(mw, "online_connectivity", False)))
     help_menu.addAction(help_action)
 
     # Report Bug
@@ -233,12 +246,12 @@ def create_menu_actions(
     # Version
     version_action = QAction(mw.translator.translate("ankimon_version_button"), mw)
     version_action.setMenuRole(QAction.MenuRole.NoRole)
-    version_action.triggered.connect(version_dialog.open)
+    version_action.triggered.connect(lambda: get_version_dialog().open())
     help_menu.addAction(version_action)
 
     config_action = QAction(mw.translator.translate("ankimon_settings_button"), mw)
     config_action.setMenuRole(QAction.MenuRole.NoRole)
-    config_action.triggered.connect(settings_window.show_window)
+    config_action.triggered.connect(lambda: get_settings_window().show_window())
 
     # Show the Settings window
     mw.pokemenu.addAction(config_action)
@@ -269,7 +282,7 @@ def create_menu_actions(
     if debug is True:
         tracker_window_action = QAction(mw.translator.translate("ankimon_tracker_button"), mw)
         tracker_window_action.setMenuRole(QAction.MenuRole.NoRole)
-        tracker_window_action.triggered.connect(ankimon_tracker_window.toggle_window)
+        tracker_window_action.triggered.connect(lambda: get_ankimon_tracker_window().toggle_window())
         tracker_window_action.setShortcut(QKeySequence("Ctrl+Shift+K"))
         # Show the Settings window
         debug_menu.addAction(tracker_window_action)

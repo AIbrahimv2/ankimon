@@ -1,73 +1,224 @@
+"""
+Integrity test for the Ankimon add-on.
+
+Strategy
+--------
+We import each submodule individually and assert none raises ImportError /
+AttributeError at module level.
+
+We deliberately do NOT import Ankimon.__init__ because it is Anki's entry
+point and runs irreducible side effects at import time (database init,
+startup sequence, Qt widget construction, etc.).  Those side effects interact
+badly with the MagicMock stubs used here, previously causing 10+ GB of RAM
+usage as MagicMock iterators generated unbounded object trees.
+
+We also deliberately do NOT use pkgutil.walk_packages() for the same reason:
+iterating a MagicMock __path__ generates objects indefinitely.
+"""
+
 import os
 import sys
 import importlib
-import pkgutil
 import traceback
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-# Import aqt modules BEFORE QApplication is instantiated by pytest-qt.
-try:
-    import aqt
-    import aqt.qt
-except ImportError:
-    pass
+# ---------------------------------------------------------------------------
+# 1. Stub out external runtime deps not available outside the Anki runtime
+# ---------------------------------------------------------------------------
 
-import sys
-from unittest.mock import MagicMock
 try:
     import anki
     import anki.buildinfo
 except ImportError:
-    class MockAnkiPackage(MagicMock):
+    class _MockAnkiPkg(MagicMock):
         __path__ = []
 
-    _anki_mock = MockAnkiPackage()
-    sys.modules['anki'] = _anki_mock
-    sys.modules['anki.hooks'] = MagicMock()
-    sys.modules['anki.utils'] = MagicMock()
-    _buildinfo_mock = MagicMock()
-    _buildinfo_mock.version = "0.0.0-test"
-    sys.modules['anki.buildinfo'] = _buildinfo_mock
+    _anki_mock = _MockAnkiPkg()
+    sys.modules["anki"] = _anki_mock
+    sys.modules["anki.hooks"] = MagicMock()
+    sys.modules["anki.utils"] = MagicMock()
+    _buildinfo = MagicMock()
+    _buildinfo.version = "0.0.0-test"
+    sys.modules["anki.buildinfo"] = _buildinfo
 
 try:
     import aqt.operations
 except ImportError:
-    # Need an empty path for the top-level package mock so submodules work
-    class MockAqtPackage(MagicMock):
+    class _MockAqtPkg(MagicMock):
         __path__ = []
 
-    sys.modules['aqt'] = MockAqtPackage()
-    sys.modules['aqt.operations'] = MagicMock()
-    sys.modules['aqt.qt'] = MagicMock()
-    sys.modules['aqt.utils'] = MagicMock()
-    sys.modules['aqt.reviewer'] = MagicMock()
-    sys.modules['aqt.gui_hooks'] = MagicMock()
-    sys.modules['aqt.webview'] = MagicMock()
-    sys.modules['aqt.theme'] = MagicMock()
-    sys.modules['aqt.sound'] = MagicMock()
-    sys.modules['aqt.main'] = MagicMock()
+    sys.modules["aqt"] = _MockAqtPkg()
+    sys.modules["aqt.operations"] = MagicMock()
+    sys.modules["aqt.qt"] = MagicMock()
+    sys.modules["aqt.utils"] = MagicMock()
+    sys.modules["aqt.reviewer"] = MagicMock()
+    sys.modules["aqt.gui_hooks"] = MagicMock()
+    sys.modules["aqt.webview"] = MagicMock()
+    sys.modules["aqt.theme"] = MagicMock()
+    sys.modules["aqt.sound"] = MagicMock()
+    sys.modules["aqt.main"] = MagicMock()
 
-# Add the 'src' directory to the Python path to allow for absolute imports of Ankimon
-ANKIMON_SRC_PARENT_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "src")
-)
-if ANKIMON_SRC_PARENT_DIR not in sys.path:
-    sys.path.insert(0, ANKIMON_SRC_PARENT_DIR)
+# ---------------------------------------------------------------------------
+# 2. Put src/ on sys.path so "import Ankimon.xxx" resolves correctly
+# ---------------------------------------------------------------------------
 
+_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+if _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
 
-def test_ankimon_initialization(qapp):
+# ---------------------------------------------------------------------------
+# 3. Modules to pre-stub before any import runs
+#
+#    These perform blocking I/O or event-loop operations at import time and
+#    must never actually execute in a headless test environment.
+# ---------------------------------------------------------------------------
+
+PRE_STUB_MODULES = {
+    # ---- must stay stubbed (heavy side-effects or C extensions at import) ---
+    "Ankimon.singletons",                          # full Qt + DB init at module level
+    "Ankimon.pyobj.download_sprites",              # spawns download threads
+    "Ankimon.pyobj.backup_files",                  # touches the filesystem
+    "Ankimon.pyobj.migration_dialog",              # shows blocking Qt dialogs
+    "Ankimon.functions.rate_addon_functions",      # reads rate_this.json on import
+    "Ankimon.functions.ankimon_hooks_to_poke_engine",  # C extension bridge
+    "Ankimon.pyobj.tip_of_the_day",               # from aqt.qt import * at class level
+}
+
+# ---------------------------------------------------------------------------
+# 4. Explicit module list — every importable .py in the package.
+#
+#    NEVER switch back to pkgutil.walk_packages(): see module docstring.
+#    When you add a new .py file to the package, add it here too.
+# ---------------------------------------------------------------------------
+
+# Modules we explicitly skip (stubbed above or require full runtime).
+# Listed separately so it is easy to see what we are omitting and why.
+SKIP_MODULES = PRE_STUB_MODULES | {
+    "Ankimon",  # __init__.py — entry point; runs irreducible side effects
+    "Ankimon.poke_engine.tests",
+    "Ankimon.poke_engine.setup",
+}
+
+MODULES_TO_CHECK = [
+    # top-level helpers & hooks
+    "Ankimon.battle_loop",
+    "Ankimon.business",
+    "Ankimon.card_hooks",
+    "Ankimon.changelog",
+    "Ankimon.const",
+    "Ankimon.discord_integration",
+    "Ankimon.gui_entities",
+    "Ankimon.hook_registry",
+    "Ankimon.hooks",
+    "Ankimon.menu_buttons",
+    "Ankimon.move_names",
+    "Ankimon.profile_hooks",
+    "Ankimon.reloader",
+    "Ankimon.resources",
+    "Ankimon.reviewer_ui",
+    "Ankimon.startup",
+    "Ankimon.texts",
+    "Ankimon.utils",
+    # functions/
+    "Ankimon.functions",
+    "Ankimon.functions.badges_functions",
+    "Ankimon.functions.battle_functions",
+    "Ankimon.functions.battle_text_functions",
+    "Ankimon.functions.create_css_for_reviewer",
+    "Ankimon.functions.create_gui_functions",
+    "Ankimon.functions.discord_function",
+    "Ankimon.functions.drawing_utils",
+    "Ankimon.functions.encounter_data",
+    "Ankimon.functions.encounter_functions",
+    "Ankimon.functions.friendship_evolution",
+    "Ankimon.functions.gui_functions",
+    "Ankimon.functions.learnset_retrieval",
+    "Ankimon.functions.migration",
+    "Ankimon.functions.pokedex_functions",
+    "Ankimon.functions.pokemon_functions",
+    "Ankimon.functions.pokemon_showdown_functions",
+    "Ankimon.functions.reviewer_iframe",
+    "Ankimon.functions.sprite_functions",
+    "Ankimon.functions.starters",
+    "Ankimon.functions.trainer_functions",
+    "Ankimon.functions.update_main_pokemon",
+    "Ankimon.functions.url_functions",
+    # pyobj/
+    "Ankimon.pyobj",
+    "Ankimon.pyobj.InfoLogger",
+    "Ankimon.pyobj.achievement_window",
+    "Ankimon.pyobj.achievements_dialog",
+    "Ankimon.pyobj.ankimon_leaderboard",
+    "Ankimon.pyobj.ankimon_shop",
+    "Ankimon.pyobj.ankimon_sync",
+    "Ankimon.pyobj.ankimon_tracker",
+    "Ankimon.pyobj.ankimon_tracker_window",
+    "Ankimon.pyobj.attack_dialog",
+    "Ankimon.pyobj.backup_manager",
+    "Ankimon.pyobj.collection_dialog",
+    "Ankimon.pyobj.database_manager",
+    "Ankimon.pyobj.error_handler",
+    "Ankimon.pyobj.evolution_window",
+    "Ankimon.pyobj.help_window",
+    "Ankimon.pyobj.item_window",
+    "Ankimon.pyobj.move_picker",
+    "Ankimon.pyobj.pc_box",
+    "Ankimon.pyobj.pokemon_obj",
+    "Ankimon.pyobj.pokemon_trade",
+    "Ankimon.pyobj.reviewer_obj",
+    "Ankimon.pyobj.settings",
+    "Ankimon.pyobj.settings_window",
+    "Ankimon.pyobj.starter_window",
+    "Ankimon.pyobj.test_window",
+    "Ankimon.pyobj.trainer_card",
+    "Ankimon.pyobj.trainer_card_window",
+    "Ankimon.pyobj.translator",
+    "Ankimon.pyobj.update_dialog",
+    "Ankimon.pyobj.update_manager",
+    # gui_classes/
+    "Ankimon.gui_classes",
+    "Ankimon.gui_classes.backup_manager_dialog",
+    "Ankimon.gui_classes.check_files",
+    "Ankimon.gui_classes.choose_trainer_sprite_graphical",
+    "Ankimon.gui_classes.overview_team",
+    "Ankimon.gui_classes.pokemon_details",
+    "Ankimon.gui_classes.pokemon_team_window",
+    # classes/
+    "Ankimon.classes.choose_move_dialog",
+    # ankidex/
+    "Ankimon.ankidex.ankidex_obj",
+]
+
+# ---------------------------------------------------------------------------
+# 5. Known-benign error patterns
+#    These are tracked issues, not regressions. Real import bugs must NOT
+#    match any of these patterns.
+# ---------------------------------------------------------------------------
+
+KNOWN_BENIGN_PATTERNS = [
+    # overview_team.init_hooks — tracked as a separate fix
+    "module 'Ankimon.gui_classes.overview_team' has no attribute 'init_hooks'",
+    # trainer_card_window reference cleanup in progress
+    "No module named 'Ankimon.pyobj.trainer_card_window'",
+]
+
+# ---------------------------------------------------------------------------
+# 6. The test
+# ---------------------------------------------------------------------------
+
+def test_ankimon_submodule_integrity(qapp):
     """
-    Dynamically loads the Ankimon add-on to catch real AttributeError or ImportError
-    that happen at module level, such as failing to register GUI hooks properly.
-    `qapp` is a pytest-qt fixture that provides a QApplication instance, allowing
-    real PyQt6 widgets to be instantiated without crashing.
+    Imports every Ankimon submodule and asserts none raises an ImportError or
+    AttributeError.  Uses the pytest-qt `qapp` fixture so that Qt widget
+    construction in module bodies does not crash.
+
+    Does NOT import Ankimon.__init__ (see module docstring).
     """
     import aqt
     from PyQt6.QtWidgets import QMainWindow
 
-    # Instead of a MagicMock which Qt rejects for parent classes, use a real QWidget
-    # as the mock main window.
+    # Use a real QMainWindow subclass — Qt rejects MagicMock as a parent
     class MockMainWindow(QMainWindow):
         def __init__(self):
             super().__init__()
@@ -83,81 +234,43 @@ def test_ankimon_initialization(qapp):
             pass
 
     aqt.mw = MockMainWindow()
-
-    # Mocking QThreadPool and query execution because we don't want background threads to actually run in the test
     aqt.mw.taskman = MagicMock()
     aqt.mw.logger = MagicMock()
     aqt.mw.ankimon_db = MagicMock()
+    # Ensure getattr(mw, "x", None) returns None for lazy-init guards
+    # (MagicMock attributes are truthy, so we explicitly set common ones)
+    aqt.mw.main_pokemon = None
+    aqt.mw.enemy_pokemon = None
+    aqt.mw.trainer_card = None
+    aqt.mw.ankimon_tracker_obj = None
+    aqt.mw.shop_manager = None
+    aqt.mw.reviewer_obj = None
+    aqt.mw.achievements_dict = None
+    aqt.mw.settings_obj = None
+    aqt.mw.translator = None
 
-    # Track errors
+    # Install pre-stubs so that imports of heavy modules are intercepted
+    for mod_name in PRE_STUB_MODULES:
+        if mod_name not in sys.modules:
+            sys.modules[mod_name] = MagicMock()
+
     errors = []
 
-    try:
-        import builtins
-        original_import = builtins.__import__
+    for mod_name in MODULES_TO_CHECK:
+        if mod_name in SKIP_MODULES or any(
+            mod_name.startswith(skip + ".") for skip in SKIP_MODULES
+        ):
+            continue
 
-        def custom_import(name, globals=None, locals=None, fromlist=(), level=0):
-            try:
-                return original_import(name, globals, locals, fromlist, level)
-            except ImportError as e:
-                if 'Ankimon' in str(e):
-                    raise
-                if 'qt' in name.lower() or 'aqt' in name.lower() or 'anki' in name.lower() or name == 'markdown':
-                    return MagicMock()
-                raise
-
-        builtins.__import__ = custom_import
-        # Import the main __init__ to simulate Anki loading the add-on
-        import Ankimon
-        builtins.__import__ = original_import
-    except Exception as e:
-        error_msg = f"Failed to load Ankimon/__init__.py:\n{traceback.format_exc()}"
-        errors.append(error_msg)
-
-    # Walk packages and catch remaining errors
-    package = sys.modules.get("Ankimon")
-    if package and hasattr(package, "__path__"):
-        prefix = package.__name__ + "."
-
-        ignore_modules = [
-            "pypresence",
-            "Ankimon.poke_engine.data.scripts",
-            "Ankimon.poke_engine.data.mods",
-            "Ankimon.poke_engine.tests",
-            "Ankimon.poke_engine.setup",
-            "Ankimon.pyobj.tip_of_the_day",
-            "Ankimon.singletons",
-            "Ankimon.functions.ankimon_hooks_to_poke_engine",
-        ]
-
-        for importer, modname, ispkg in pkgutil.walk_packages(package.__path__, prefix):
-            if any(ignored in modname for ignored in ignore_modules):
-                continue
-
-            try:
-                importlib.import_module(modname)
-            except Exception as e:
-                error_msg = f"Failed to dynamically import module {modname}:\n{traceback.format_exc()}"
-                errors.append(error_msg)
-
-    # Filter out known issues that are not real bugs:
-    # - singletons.py requires a full Anki runtime with real Qt widgets
-    # - overview_team init_hooks is a known pending fix
-    # - trainer_card_window was removed/renamed
-    known_patterns = [
-        "module 'Ankimon.gui_classes.overview_team' has no attribute 'init_hooks'",
-        "No module named 'Ankimon.pyobj.trainer_card_window'",
-        "Ankimon.singletons",
-        "singletons.py",
-        "StopIteration",
-    ]
-    errors = [
-        e for e in errors
-        if not any(pattern in e for pattern in known_patterns)
-    ]
+        try:
+            importlib.import_module(mod_name)
+        except Exception:
+            tb = traceback.format_exc()
+            if not any(pat in tb for pat in KNOWN_BENIGN_PATTERNS):
+                errors.append(f"[{mod_name}]\n{tb}")
 
     if errors:
-        error_text = "\n".join(errors)
         pytest.fail(
-            f"Integrity check failed with {len(errors)} error(s):\n{error_text}"
+            f"Integrity check failed with {len(errors)} error(s):\n\n"
+            + "\n" + ("-" * 60) + "\n".join(errors)
         )

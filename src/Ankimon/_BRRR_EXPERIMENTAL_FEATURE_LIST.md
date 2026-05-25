@@ -18,6 +18,13 @@ The most significant architectural improvement in this branch is the transition 
 - **Results Caching**: The PC Box caches the results of the last filtered query. Navigating between boxes (paging) or selecting different Pokémon no longer triggers a new SQLite query unless the filter state changes.
 - **Filter State Tracking**: Balances performance with data accuracy by intelligently invalidating the cache only when necessary.
 
+### Asynchronous & Thread-Safe Startup Sequence (Zero-Lag Boot)
+
+- **QueryOp Thread Offloading**: Offloaded all disk and CPU-intensive boot tasks (generating/validating database backups, verifying folder structures for sprites and assets, querying item statistics, and generating the first wild enemy Pokémon) to an asynchronous background thread using Anki's `QueryOp` to completely eliminate startup freeze/lag.
+- **Responsive UI Deferral**: Deferred Ankimon menu creation, profileLoaded database hooks, and singletons wiring until the background loading thread successfully completes.
+- **Robust Client Guards**: Placed thread guards on reviewer shortcuts, battle loops, and custom reviewer bottom bar layout to revert gracefully to safe fallbacks or native bars while loading.
+- **Thread-Safe DB Connection**: Configured SQLite connections with `check_same_thread=False` to securely permit read and write operations across background and main thread boundaries.
+
 ---
 
 ## 2. Major UI/UX Overhaul
@@ -160,6 +167,8 @@ A modern startup check and installation system designed specifically to keep use
 | `src/Ankimon/pyobj/update_manager.py`          | **New** updater state, locked-file safety, and commit fetch.  |
 | `src/Ankimon/pyobj/update_dialog.py`           | **New** update available modal, snooze box, and progress bar. |
 | `src/Ankimon/changelog.py`                     | **New** background startup update check query logic.          |
+| `src/Ankimon/startup.py`                      | **New** split of boot sequence into asynchronous QueryOp background checks and main-thread UI callbacks. |
+| `src/Ankimon/__init__.py`                     | **New** asynchronous and thread-safe startup registration and deferred client-side hooks wiring. |
 
 ---
 

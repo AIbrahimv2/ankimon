@@ -7,8 +7,8 @@ from .singletons import (
     enemy_pokemon,
     main_pokemon,
     ankimon_tracker_obj,
-    test_window,
-    evo_window,
+    get_test_window,
+    get_evo_window,
     logger,
     achievements,
     trainer_card,
@@ -77,7 +77,6 @@ def cycle_team_pokemon():
     global _team_cycle_index, _team_cycle_pokemon_ids
     
     try:
-        from aqt.utils import tooltip
         from .functions.update_main_pokemon import save_main_pokemon
         
         team_ids = get_team_pokemon_list()
@@ -145,6 +144,9 @@ def set_collected_ids(ids):
 
 
 def catch_shortcut_function():
+    if not getattr(mw, "ankimon_startup_finished", False):
+        tooltip("Ankimon is still loading, please wait...")
+        return
     if enemy_pokemon.hp < 1:
         catch_pokemon(
             enemy_pokemon,
@@ -154,17 +156,20 @@ def catch_shortcut_function():
             _collected_pokemon_ids,
             achievements,
         )
-        new_pokemon(enemy_pokemon, test_window, ankimon_tracker_obj, reviewer_obj)
+        new_pokemon(enemy_pokemon, get_test_window(), ankimon_tracker_obj, reviewer_obj)
     else:
         tooltip("You only catch a pokemon once it's fainted!")
 
 
 def defeat_shortcut_function():
+    if not getattr(mw, "ankimon_startup_finished", False):
+        tooltip("Ankimon is still loading, please wait...")
+        return
     if enemy_pokemon.hp < 1:
         kill_pokemon(
-            main_pokemon, enemy_pokemon, evo_window, logger, achievements, trainer_card
+            main_pokemon, enemy_pokemon, get_evo_window(), logger, achievements, trainer_card
         )
-        new_pokemon(enemy_pokemon, test_window, ankimon_tracker_obj, reviewer_obj)
+        new_pokemon(enemy_pokemon, get_test_window(), ankimon_tracker_obj, reviewer_obj)
     else:
         tooltip("Wild pokemon has to be fainted to defeat it!")
 
@@ -209,14 +214,19 @@ def setup_reviewer_ui(catch_shortcut: str, defeat_shortcut: str, reviewer_button
         def _linkHandler_wrap(self, url, _old):
             if url == "catch":
                 catch_shortcut_function()
+                return True
             elif url == "defeat":
                 defeat_shortcut_function()
+                return True
             elif url == "team_cycle":
                 team_cycle_shortcut_function()
+                return True
             else:
                 return _old(self, url)
 
         def _bottomHTML_wrap(self, _old):
+            if not getattr(mw, "ankimon_startup_finished", False):
+                return _old(self)
             return _bottomHTML_template % dict(
                 edit=tr.studying_edit(),
                 editkey=tr.actions_shortcut_key(val="E"),
@@ -241,10 +251,13 @@ def setup_reviewer_ui(catch_shortcut: str, defeat_shortcut: str, reviewer_button
 
 def team_cycle_shortcut_function():
     """Callback for team cycle hotkey"""
+    if not getattr(mw, "ankimon_startup_finished", False):
+        tooltip("Ankimon is still loading, please wait...")
+        return
     cycle_team_pokemon()
 
 def test_encounter_shortcut_function():
     """Testing hotkey: trigger a new pokemon encounter immediately"""
     if is_dev_mode():
-        new_pokemon(enemy_pokemon, test_window, ankimon_tracker_obj, reviewer_obj)
+        new_pokemon(enemy_pokemon, get_test_window(), ankimon_tracker_obj, reviewer_obj)
         tooltip("New encounter triggered (Test Hotkey 0)")

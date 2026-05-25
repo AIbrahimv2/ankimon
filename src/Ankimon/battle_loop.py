@@ -71,6 +71,9 @@ def _get_cards_per_round() -> int:
 
 
 def on_review_card(*args):
+    if not getattr(mw, "ankimon_startup_finished", False):
+        return
+
     global _state
     s = _state
 

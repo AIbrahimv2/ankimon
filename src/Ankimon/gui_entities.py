@@ -101,21 +101,24 @@ class Version_Dialog(QDialog):
         self.text_browser.setOpenExternalLinks(True)  # Enable clickable links
         self.text_browser.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.text_browser.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.local_file_path = addon_dir / "updateinfos.md"
-        self.local_content = read_local_file(self.local_file_path)
-        self.html_content = markdown.markdown(self.local_content)
-        self.text_browser.setHtml(self.html_content)
         layout.addWidget(self.text_browser)
         self.setWindowIcon(QIcon(str(icon_path)))
         self.setLayout(layout)
+        self.loaded = False
 
     def open(self):
+        if not self.loaded:
+            self.local_file_path = addon_dir / "updateinfos.md"
+            self.local_content = read_local_file(self.local_file_path) or ""
+            self.html_content = markdown.markdown(self.local_content)
+            self.text_browser.setHtml(self.html_content)
+            self.loaded = True
         self.exec()
 
 class License(QWidget):
     def __init__(self):
         super().__init__()
-        self.initUI()
+        self.initialized = False
 
     def initUI(self):
         self.setWindowTitle("AnkiMon License")
@@ -151,17 +154,22 @@ class License(QWidget):
         window_layout = QVBoxLayout()
         window_layout.addWidget(scroll_area)
         self.setLayout(window_layout)
+        self.initialized = True
+
     def read_html_file(self, file_path):
         """Reads an HTML file and returns its content as a string."""
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
+
     def show_window(self):
+        if not self.initialized:
+            self.initUI()
         self.show()
 
 class Credits(QWidget):
     def __init__(self):
         super().__init__()
-        self.initUI()
+        self.initialized = False
 
     def initUI(self):
         self.setWindowTitle("AnkiMon License")
@@ -197,11 +205,16 @@ class Credits(QWidget):
         window_layout = QVBoxLayout()
         window_layout.addWidget(scroll_area)
         self.setLayout(window_layout)
+        self.initialized = True
+
     def read_html_file(self, file_path):
         """Reads an HTML file and returns its content as a string."""
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
+
     def show_window(self):
+        if not self.initialized:
+            self.initUI()
         self.show()
 
 class HelpWindow(QDialog):
@@ -250,7 +263,7 @@ class HelpWindow(QDialog):
 class TableWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.initUI()
+        self.initialized = False
 
     def initUI(self):
         self.setWindowTitle("Pokémon Type Effectiveness Table")
@@ -282,14 +295,17 @@ class TableWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(scroll_area)
         self.setLayout(layout)
+        self.initialized = True
 
     def show_eff_chart(self):
+        if not self.initialized:
+            self.initUI()
         self.show()
 
 class IDTableWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.initUI()
+        self.initialized = False
 
     def initUI(self):
         self.setWindowTitle("Pokémon - Generations and ID")
@@ -321,14 +337,17 @@ class IDTableWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(scroll_area)
         self.setLayout(layout)
+        self.initialized = True
 
     def show_gen_chart(self):
+        if not self.initialized:
+            self.initUI()
         self.show()
 
 class NatureTableWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.initUI()
+        self.initialized = False
 
     def initUI(self):
         self.setWindowTitle("Pokémon Nature Chart")
@@ -360,8 +379,11 @@ class NatureTableWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(scroll_area)
         self.setLayout(layout)
+        self.initialized = True
 
     def show_nature_chart(self):
+        if not self.initialized:
+            self.initUI()
         self.show()
 
 # Pokedex_Widget removed

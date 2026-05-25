@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     
 from ..texts import rate_addon_text_label, thankyou_message_text, dont_show_this_button_text
 from ..utils import give_item
-from ..singletons import logger, test_window
+from ..singletons import logger
 
 from aqt import mw
 
@@ -65,7 +65,8 @@ def rate_this_addon():
         # Save to DB
         mw.ankimon_db.set_user_data("rate_this", True)
         
-        test_window.rate_display_item("potion")
+        from ..singletons import get_test_window
+        get_test_window().rate_display_item("potion")
         # add item to item list
         give_item("potion")
             
