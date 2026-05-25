@@ -126,7 +126,7 @@ A dedicated menu button for hot-reloading code. This eliminates the need to rest
 
 - **Generational Fallback**: A progressive move lookup system (Gen 9 → Gen 1) to handle incomplete data, specifically for newer additions like Ultra Beasts.
 - **Sprite Fallbacks**: Improved naming logic and back-sprite fallbacks for special forms to prevent "MissingNo" errors.
-- **Reward Balancing**: Configurable cash reward amounts and payout intervals.
+- **Reward Balancing**: Configurable cash reward amounts and payout intervals. Unlike the `main` branch which pays a single flat 200¥ daily reward upon hitting the daily average, the experimental branch grants cash dynamically and continuously (defaulting to 100¥ every 10 reviews).
 
 ### Massive Data Update
 
