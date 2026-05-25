@@ -207,6 +207,15 @@ class AnkimonDB:
                 (individual_id, obfuscated_data)
             )
         conn.commit()
+
+        # Mark as caught in pokedex_caught
+        pokedex_id = pokemon_data.get("id")
+        if pokedex_id:
+            try:
+                self.mark_as_caught(int(pokedex_id))
+            except Exception as e:
+                self._log("warning", f"Failed to mark pokemon as caught: {e}")
+
         return True
 
     def get_pokemon(self, individual_id: str) -> Optional[Dict[str, Any]]:
@@ -373,6 +382,15 @@ class AnkimonDB:
                 (individual_id, obfuscated_data)
             )
         conn.commit()
+
+        # Mark as caught in pokedex_caught
+        pokedex_id = pokemon_data.get("id")
+        if pokedex_id:
+            try:
+                self.mark_as_caught(int(pokedex_id))
+            except Exception as e:
+                self._log("warning", f"Failed to mark main pokemon as caught: {e}")
+
         return True
 
     def get_main_pokemon(self) -> Optional[Dict[str, Any]]:
@@ -694,6 +712,21 @@ class AnkimonDB:
     def get_seen_ids(self) -> set:
         """Retrieves the set of seen Pokémon IDs."""
         data = self.get_user_data("pokedex_seen", [])
+        if isinstance(data, list):
+            return set(data)
+        return set()
+
+    def mark_as_caught(self, pokedex_id: int):
+        """Marks a Pokémon ID as caught in the user_data."""
+        caught_ids = self.get_caught_ids()
+        if pokedex_id not in caught_ids:
+            caught_ids.add(pokedex_id)
+            self.set_user_data("pokedex_caught", list(caught_ids))
+        self.mark_as_seen(pokedex_id)
+
+    def get_caught_ids(self) -> set:
+        """Retrieves the set of caught Pokémon IDs."""
+        data = self.get_user_data("pokedex_caught", [])
         if isinstance(data, list):
             return set(data)
         return set()

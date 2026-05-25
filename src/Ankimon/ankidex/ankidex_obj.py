@@ -62,6 +62,13 @@ class Ankidex(QDialog):
         for row in cursor.fetchall():
             if row[0]: caught_ids.add(int(row[0]))
 
+        # Explicitly recorded caught Pokémon (e.g. from evolutions or prior captures)
+        if hasattr(db, 'get_caught_ids'):
+            try:
+                caught_ids.update(db.get_caught_ids())
+            except Exception:
+                pass
+
         # 2. Seen Status (Encountered but not caught)
         seen_ids = set()
         if hasattr(db, 'get_seen_ids'):

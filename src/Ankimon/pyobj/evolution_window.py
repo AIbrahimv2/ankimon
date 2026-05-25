@@ -308,6 +308,13 @@ class EvoWindow(QWidget):
                 self.logger.log("info", f"Evolution already completed for {pokemon.get('name')}.")
                 return
 
+            # Explicitly mark the pre-evolved state as caught before changing the ID
+            if hasattr(db, 'mark_as_caught'):
+                try:
+                    db.mark_as_caught(int(prevo_id))
+                except Exception as e:
+                    self.logger.log("warning", f"Failed to mark prevo as caught: {e}")
+
             pokemon["name"] = evo_name.capitalize()
             pokemon["id"] = evo_id
             pokemon["type"] = search_pokedex(evo_name.lower(), "types")
