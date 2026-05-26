@@ -471,7 +471,10 @@ class ItemWindow(QWidget):
                 fossil_pokemon_name = search_pokedex_by_id(fossil_id)
                 if self.Evolve_Fossil(name, fossil_id, fossil_pokemon_name):
                     return {"ok": True, "message": f"Revived {fossil_pokemon_name}."}
-                return {"ok": False, "message": f"Failed to revive {fossil_pokemon_name}."}
+                return {
+                    "ok": False,
+                    "message": f"Failed to revive {fossil_pokemon_name}.",
+                }
             if name in self.pokeball_chances:
                 self.Handle_Pokeball(name)
                 return {"ok": True, "message": f"Threw {name}."}
@@ -565,7 +568,9 @@ class ItemWindow(QWidget):
         individual_id, prevo_id = selected
         self.Check_Evo_Item(individual_id, prevo_id, item_name)
 
-    def Evolve_Fossil(self, item_name: str, fossil_id: int, fossil_poke_name: str) -> bool:
+    def Evolve_Fossil(
+        self, item_name: str, fossil_id: int, fossil_poke_name: str
+    ) -> bool:
         """Revive a fossil into its corresponding Pokémon. Returns True on
         success, False if another item action is already running or revival
         threw. Existing PyQt button callers ignore the return value."""
