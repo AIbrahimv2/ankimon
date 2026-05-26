@@ -118,6 +118,15 @@ A dedicated menu button for hot-reloading code. This eliminates the need to rest
 
 - **Hotkey '9'**: Instantly swap between the top 3 team members during battle while clearing buffs/debuffs.
 
+### Encounter Rate Simulator (Hidden Dev Feature)
+
+A premium, interactive web-based dashboard integrated directly into Ankimon's help menu under Developer Mode to let developers model and visualize wild Pokémon spawn weights.
+- **Dynamic Variable Sliders**: Allows real-time adjustments of all six simulation variables (Trainer Level, Dex Completion, Session Reviews Done, Daily Review Goal, Average Team CP, and Main Pokémon Level).
+- **Circular Progress Gauge**: Integrates a responsive SVG progress dial illustrating the resulting calculated Encounter Potential ($EP$) Mastery Index live.
+- **Interactive Exponential Rarity Curves**: Draws dynamic mathematical rarity lines on a `<canvas>` that automatically scale Y-axis visibility to zoom in on rare encounters, showing locks and active EP markers.
+- **Side-by-Side Matrix Table**: Compares current live overhaul vs legacy rates against simulated overhaul vs legacy rates under the active slider variables.
+- **Pity & Dry Spell Simulator**: Allows testing independent quadratic bad-luck protection during dry review spells (from 0 to 1000 reviews without spawn). Incorporates a custom-styled, crash-proof dropdown and active marker curve matching the selected tier's color theme.
+
 ---
 
 ## 6. Architectural & Data Improvements
@@ -174,6 +183,8 @@ A major mathematical and architectural redesign of the wild spawn economy to cur
 
 | File                                           | Primary Change                                                |
 | ---------------------------------------------- | ------------------------------------------------------------- |
+| `src/Ankimon/encounter_simulator/`             | **New** interactive wild Pokémon spawn rate and pity calculator dashboard. |
+| `src/Ankimon/pyobj/encounter_simulator_dialog.py` | **New** developer-mode QDialog WebEngine host and dynamic save patches. |
 | `src/Ankimon/ankidex/`                         | **New** web-based Pokedex system.                             |
 | `src/Ankimon/pyobj/pc_box.py`                  | Complete overhaul of the PC interface and caching.            |
 | `src/Ankimon/pyobj/pokemon_trade.py`           | **New** Trade V2 logic, versioning, and legacy support.       |
