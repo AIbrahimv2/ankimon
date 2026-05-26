@@ -534,32 +534,47 @@ class AnkimonItemsWeb(QDialog):
             group = {
                 "label": group_def["label"],
                 "settings": self._serialize_settings_list(
-                    group_def.get("settings", []), key_by_friendly,
-                    name_map, desc_map, config,
+                    group_def.get("settings", []),
+                    key_by_friendly,
+                    name_map,
+                    desc_map,
+                    config,
                 ),
                 "subgroups": [],
             }
             for sub in group_def.get("subgroups", []):
-                group["subgroups"].append({
-                    "label": sub["label"],
-                    "settings": self._serialize_settings_list(
-                        sub.get("settings", []), key_by_friendly,
-                        name_map, desc_map, config,
-                    ),
-                })
+                group["subgroups"].append(
+                    {
+                        "label": sub["label"],
+                        "settings": self._serialize_settings_list(
+                            sub.get("settings", []),
+                            key_by_friendly,
+                            name_map,
+                            desc_map,
+                            config,
+                        ),
+                    }
+                )
             groups.append(group)
         return {"groups": groups}
 
-    def _serialize_settings_list(self, friendly_names, key_by_friendly,
-                                  name_map, desc_map, config):
+    def _serialize_settings_list(
+        self, friendly_names, key_by_friendly, name_map, desc_map, config
+    ):
         out = []
         for friendly in friendly_names:
             key = key_by_friendly.get(friendly)
             if not key or key not in config:
                 continue
-            out.append(self._serialize_setting(
-                key, friendly, name_map, desc_map, config.get(key),
-            ))
+            out.append(
+                self._serialize_setting(
+                    key,
+                    friendly,
+                    name_map,
+                    desc_map,
+                    config.get(key),
+                )
+            )
         return out
 
     @staticmethod
@@ -588,6 +603,7 @@ class AnkimonItemsWeb(QDialog):
 
     def _load_lang_json(self, filename):
         import json as _json
+
         cache_attr = f"_lang_{filename.replace('.', '_')}_cache"
         cached = getattr(self, cache_attr, None)
         if cached is not None:
@@ -667,6 +683,7 @@ class AnkimonItemsWeb(QDialog):
     def _refresh_reviewer_hotkeys(config):
         try:
             from ..reviewer_ui import setup_reviewer_ui
+
             setup_reviewer_ui(
                 config.get("controls.catch_key", "6"),
                 config.get("controls.defeat_key", "5"),

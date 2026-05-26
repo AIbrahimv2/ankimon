@@ -304,7 +304,7 @@ def create_menu_actions(
     # still calls into it directly, but is no longer launched from the menu.
     config_action = QAction(mw.translator.translate("ankimon_settings_button"), mw)
     config_action.setMenuRole(QAction.MenuRole.NoRole)
-    config_action.triggered.connect(lambda: _open_shell_at('settings'))
+    config_action.triggered.connect(lambda: _open_shell_at("settings"))
 
     # Show the Settings window
     mw.pokemenu.addAction(config_action)

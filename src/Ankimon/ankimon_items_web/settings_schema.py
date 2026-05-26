@@ -124,16 +124,16 @@ GROUPS = [
 
 # Active region dropdown options — preserved verbatim from the legacy window.
 ACTIVE_REGION_OPTIONS = [
-    {"value": None,     "label": "No Region"},
-    {"value": "kanto",  "label": "Kanto (Gen 1)"},
-    {"value": "johto",  "label": "Johto (Gen 2)"},
-    {"value": "hoenn",  "label": "Hoenn (Gen 3)"},
+    {"value": None, "label": "No Region"},
+    {"value": "kanto", "label": "Kanto (Gen 1)"},
+    {"value": "johto", "label": "Johto (Gen 2)"},
+    {"value": "hoenn", "label": "Hoenn (Gen 3)"},
     {"value": "sinnoh", "label": "Sinnoh (Gen 4)"},
-    {"value": "unova",  "label": "Unova (Gen 5)"},
-    {"value": "kalos",  "label": "Kalos (Gen 6)"},
-    {"value": "alola",  "label": "Alola (Gen 7)"},
-    {"value": "galar",  "label": "Galar (Gen 8)"},
-    {"value": "hisui",  "label": "Hisui (Gen 8)"},
+    {"value": "unova", "label": "Unova (Gen 5)"},
+    {"value": "kalos", "label": "Kalos (Gen 6)"},
+    {"value": "alola", "label": "Alola (Gen 7)"},
+    {"value": "galar", "label": "Galar (Gen 8)"},
+    {"value": "hisui", "label": "Hisui (Gen 8)"},
     {"value": "paldea", "label": "Paldea (Gen 9)"},
 ]
 
