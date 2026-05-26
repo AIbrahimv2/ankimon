@@ -158,6 +158,7 @@ MODULES_TO_CHECK = [
     "Ankimon.pyobj.backup_manager",
     "Ankimon.pyobj.collection_dialog",
     "Ankimon.pyobj.database_manager",
+    "Ankimon.pyobj.encounter_simulator_dialog",
     "Ankimon.pyobj.error_handler",
     "Ankimon.pyobj.evolution_window",
     "Ankimon.pyobj.help_window",
