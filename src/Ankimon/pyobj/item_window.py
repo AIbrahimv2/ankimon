@@ -392,6 +392,42 @@ class ItemWindow(QWidget):
 
         return item_frame_widget
 
+    def dispatch_use(self, item_name: str, item_type: Optional[str] = None) -> dict:
+        """Invoke the right use-action for an item without requiring the bag UI
+        to be visible. Returns {ok, message} for callers that want to surface
+        a result (e.g. the web Items window's toast).
+
+        The branching mirrors ItemLabel above; keep them in sync if rules change.
+        """
+        name = (item_name or "").lower()
+        if item_type == "TM":
+            return {"ok": False, "message": "TMs are taught from the move-learning flow, not used directly."}
+        try:
+            if name in self.hp_heal_items:
+                if not self.main_pokemon:
+                    return {"ok": False, "message": "No active Pokémon to heal."}
+                hp_heal = self.hp_heal_items[name]
+                self.Check_Heal_Item(self.main_pokemon.name, hp_heal, name, self.achievements)
+                return {"ok": True, "message": f"Healed {self.main_pokemon.name} with {name}."}
+            if name in self.fossil_pokemon:
+                fossil_id = self.fossil_pokemon[name]
+                from ..functions.pokedex_functions import search_pokedex_by_id
+                fossil_pokemon_name = search_pokedex_by_id(fossil_id)
+                self.Evolve_Fossil(name, fossil_id, fossil_pokemon_name)
+                return {"ok": True, "message": f"Revived {fossil_pokemon_name}."}
+            if name in self.pokeball_chances:
+                self.Handle_Pokeball(name)
+                return {"ok": True, "message": f"Threw {name}."}
+            if name in self.evolution_items:
+                self._prompt_and_check_evo_item(name)
+                return {"ok": True, "message": ""}
+            if name in GiveItemWindow.NOT_YET_IMPLEMENTED_ITEMS or name.endswith("-berry") or name.endswith("-gem"):
+                return {"ok": False, "message": "This item isn't usable yet."}
+            self._prompt_and_give_held_item(name)
+            return {"ok": True, "message": ""}
+        except Exception as e:
+            return {"ok": False, "message": f"Use failed: {e}"}
+
     def PokemonList(self, comboBox):
         try:
             db = mw.ankimon_db

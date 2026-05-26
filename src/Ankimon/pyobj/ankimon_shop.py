@@ -468,6 +468,12 @@ class PokemonShopManager:
         return random.sample(tm_pool, self.number_of_daily_items)
 
     def get_tm_pool(self) -> list[str]:
+        # Cached: pokemon_tm_learnset.json is immutable at runtime, and this
+        # is on the hot path of the Items window's data fetch.
+        cached = getattr(self, "_tm_pool_cache", None)
+        if cached is not None:
+            return cached
+
         with open(pokemon_tm_learnset_path, "r") as f:
             pokemon_tm_learnset = json.load(f)
 
@@ -489,6 +495,7 @@ class PokemonShopManager:
         # Ensure deterministic order
         all_tms.sort(key=lambda tm: tm["name"])
 
+        self._tm_pool_cache = all_tms
         return all_tms
 
     def buy_item(self, item, item_type: Union[str, None] = None):

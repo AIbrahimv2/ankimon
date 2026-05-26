@@ -99,6 +99,7 @@ def create_menu_actions(
         get_version_dialog,
         get_settings_window,
         get_ankimon_tracker_window,
+        get_items_window,
     )
     actions = []
 
@@ -116,10 +117,18 @@ def create_menu_actions(
         ankimon_window_action.setShortcut(QKeySequence(f"{ankimon_key}"))
         qconnect(ankimon_window_action.triggered, lambda: get_test_window().open_dynamic_window())
 
-        # Itembag
+        # Itembag — unified shell window, items screen.
+        def _open_shell_at(screen):
+            w = get_items_window()
+            if w.current_screen != screen:
+                w.load_screen(screen)
+            w.show()
+            w.raise_()
+            w.activateWindow()
+
         itembag_action = QAction(mw.translator.translate("itembag_button"), mw)
         itembag_action.setMenuRole(QAction.MenuRole.NoRole)
-        itembag_action.triggered.connect(lambda: get_item_window().show_window())
+        itembag_action.triggered.connect(lambda: _open_shell_at('items'))
         collection_menu.addAction(itembag_action)
 
         # Achievements
@@ -160,10 +169,10 @@ def create_menu_actions(
         qconnect(flex_pokecoll_action.triggered, lambda: flex_pokemon_collection())
         export_menu.addAction(flex_pokecoll_action)
 
-        from .singletons import get_ankidex_window
+        # Ankidex — same shell window, ankidex screen pre-loaded.
         ankidex_action = QAction("Ankidex", mw)
         ankidex_action.setMenuRole(QAction.MenuRole.NoRole)
-        qconnect(ankidex_action.triggered, lambda: get_ankidex_window().show())
+        qconnect(ankidex_action.triggered, lambda: _open_shell_at('ankidex'))
         collection_menu.addAction(ankidex_action)
 
     # Backup Manager
@@ -267,6 +276,7 @@ def create_menu_actions(
     from .reloader import restart_ankimon
     restart_action = QAction("Restart Ankimon", mw)
     restart_action.setMenuRole(QAction.MenuRole.NoRole)
+    restart_action.setShortcut(QKeySequence("Ctrl+Shift+R"))
     restart_action.triggered.connect(restart_ankimon)
     mw.pokemenu.addAction(restart_action)
 
@@ -302,10 +312,10 @@ def create_menu_actions(
     ankimon_trainer_card_action.triggered.connect(lambda: TrainerCardGUI(trainer_card, settings_obj, parent=mw))
     profile_menu.addAction(ankimon_trainer_card_action)
 
-    # Add AnkimonShop Action to toggle the shop
+    # Mart entry — opens the same unified Items window as the Item Bag entry.
     shop_manager_action = QAction(mw.translator.translate("item_shop_button"), mw)
     shop_manager_action.setMenuRole(QAction.MenuRole.NoRole)
-    shop_manager_action.triggered.connect(shop_manager.toggle_window)
+    shop_manager_action.triggered.connect(lambda: get_items_window().show())
     game_menu.addAction(shop_manager_action)
 
     # Choose Trainer Sprite Action

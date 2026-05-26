@@ -184,6 +184,21 @@ def get_ankidex_window():
         mw.ankidex_window = ankidex_window
     return ankidex_window
 
+# Unified Ankimon shell window (Items + Ankidex in one web view)
+items_web_window = getattr(mw, "items_web_window", None)
+def get_items_window():
+    global items_web_window
+    if not is_alive(items_web_window):
+        from .ankimon_items_web.shop_obj import AnkimonItemsWeb
+        items_web_window = AnkimonItemsWeb(
+            addon_dir,
+            shop_manager=shop_manager,
+            item_window=get_item_window(),
+            ankimon_tracker=ankimon_tracker_obj,
+        )
+        mw.items_web_window = items_web_window
+    return items_web_window
+
 evo_window = None
 def get_evo_window():
     global evo_window
