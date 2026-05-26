@@ -3,7 +3,7 @@
 // Tries to connect to the shell's QWebChannel. If a bridge is available we
 // flip body.shell-mode (which makes the dropdown affordances visible per
 // nav-switcher.css), wire the trigger click, and route menu clicks through
-// window.nav.openItems() / openAnkidex(). Standalone (no bridge) is a no-op.
+// window.nav.openItems() / openAnkidex() / openSettings(). Standalone (no bridge) is a no-op.
 
 (function () {
     'use strict';
@@ -47,6 +47,7 @@
                 if (item.classList.contains('active')) return;
                 if (screen === 'items' && nav.openItems) nav.openItems();
                 else if (screen === 'ankidex' && nav.openAnkidex) nav.openAnkidex();
+                else if (screen === 'settings' && nav.openSettings) nav.openSettings();
             });
         });
     }

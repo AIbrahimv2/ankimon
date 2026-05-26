@@ -31,6 +31,7 @@
     };
 
     let bridge = null;
+    let nav = null;
 
     function initChannel(callback) {
         if (typeof qt === 'undefined' || !qt.webChannelTransport) {
@@ -40,7 +41,9 @@
         }
         new QWebChannel(qt.webChannelTransport, function (channel) {
             bridge = channel.objects.bridge;
+            nav = channel.objects && channel.objects.nav;
             window.bridge = bridge;
+            window.nav = nav;
             callback(bridge);
         });
     }
@@ -760,8 +763,10 @@
                 const screen = item.dataset.screen;
                 closeMenu();
                 if (screen === 'items') return;
-                if (!bridge) return;
-                if (screen === 'ankidex' && bridge.openAnkidex) bridge.openAnkidex();
+                const router = (window.nav) || bridge;
+                if (!router) return;
+                if (screen === 'ankidex' && router.openAnkidex) router.openAnkidex();
+                else if (screen === 'settings' && router.openSettings) router.openSettings();
             });
         });
     }

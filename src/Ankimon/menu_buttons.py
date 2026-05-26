@@ -299,9 +299,12 @@ def create_menu_actions(
     version_action.triggered.connect(lambda: get_version_dialog().open())
     help_menu.addAction(version_action)
 
+    # Settings — opens the unified shell at the Settings screen. The legacy
+    # SettingsWindow singleton stays available as a service for anything that
+    # still calls into it directly, but is no longer launched from the menu.
     config_action = QAction(mw.translator.translate("ankimon_settings_button"), mw)
     config_action.setMenuRole(QAction.MenuRole.NoRole)
-    config_action.triggered.connect(lambda: get_settings_window().show_window())
+    config_action.triggered.connect(lambda: _open_shell_at('settings'))
 
     # Show the Settings window
     mw.pokemenu.addAction(config_action)

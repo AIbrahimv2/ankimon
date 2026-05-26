@@ -24,10 +24,11 @@ from ..functions.pokedex_functions import find_details_move
 
 SCREEN_ITEMS = "items"
 SCREEN_ANKIDEX = "ankidex"
+SCREEN_SETTINGS = "settings"
 
 
 class NavBridge(QObject):
-    """Cross-screen navigation — exposed in both Items and Ankidex pages."""
+    """Cross-screen navigation — exposed in all shell pages."""
 
     def __init__(self, window):
         super().__init__()
@@ -40,6 +41,26 @@ class NavBridge(QObject):
     @pyqtSlot()
     def openAnkidex(self):
         self._w.load_screen(SCREEN_ANKIDEX)
+
+    @pyqtSlot()
+    def openSettings(self):
+        self._w.load_screen(SCREEN_SETTINGS)
+
+
+class SettingsBridge(QObject):
+    """Settings-screen actions — only meaningful when Settings is loaded."""
+
+    def __init__(self, window):
+        super().__init__()
+        self._w = window
+
+    @pyqtSlot(result="QVariant")
+    def getSettings(self):
+        return self._w.get_settings_data()
+
+    @pyqtSlot("QVariant", result="QVariant")
+    def saveSettings(self, payload):
+        return self._w.handle_save_settings(payload)
 
 
 class ItemsBridge(QObject):
@@ -118,8 +139,10 @@ class AnkimonItemsWeb(QDialog):
         self.channel = QWebChannel(self.webview)
         self.bridge = ItemsBridge(self)
         self.nav = NavBridge(self)
+        self.settings_bridge = SettingsBridge(self)
         self.channel.registerObject("bridge", self.bridge)
         self.channel.registerObject("nav", self.nav)
+        self.channel.registerObject("settings", self.settings_bridge)
         self.webview.page().setWebChannel(self.channel)
 
         self.webview.loadFinished.connect(self._on_load_finished)
@@ -140,6 +163,9 @@ class AnkimonItemsWeb(QDialog):
             elif screen == SCREEN_ANKIDEX:
                 path = self.addon_dir / "ankidex" / "ankidex.html"
                 title = "Ankimon — Ankidex"
+            elif screen == SCREEN_SETTINGS:
+                path = self.addon_dir / "ankimon_items_web" / "settings.html"
+                title = "Ankimon — Settings"
             else:
                 return
             self.setWindowTitle(title)
@@ -165,6 +191,9 @@ class AnkimonItemsWeb(QDialog):
         elif self.current_screen == SCREEN_ANKIDEX:
             data = self._get_ankidex_data()
             js = f"if (window.initializeAnkidex) window.initializeAnkidex({json.dumps(data)});"
+        elif self.current_screen == SCREEN_SETTINGS:
+            data = self.get_settings_data()
+            js = f"if (window.initializeSettings) window.initializeSettings({json.dumps(data)});"
         else:
             return
         self.webview.page().runJavaScript(js)
@@ -479,3 +508,171 @@ class AnkimonItemsWeb(QDialog):
             if entry["name"] == item_name:
                 return entry
         return None
+
+    # ------------------------------------------------------------------
+    # Settings screen
+    # ------------------------------------------------------------------
+    def get_settings_data(self):
+        """Build the schema + current values payload for the Settings screen."""
+        from . import settings_schema
+
+        settings_obj = self.shop_manager.settings_obj
+        # Refresh config from disk so external edits are picked up.
+        try:
+            config = settings_obj.load_config()
+        except Exception:
+            config = settings_obj.config
+
+        name_map = self._load_lang_json("setting_name.json")
+        desc_map = self._load_lang_json("setting_description.json")
+        # Reverse the friendly_name → key map so we can resolve friendly names
+        # from the schema back to their config keys.
+        key_by_friendly = {v: k for k, v in name_map.items()}
+
+        groups = []
+        for group_def in settings_schema.GROUPS:
+            group = {
+                "label": group_def["label"],
+                "settings": self._serialize_settings_list(
+                    group_def.get("settings", []), key_by_friendly,
+                    name_map, desc_map, config,
+                ),
+                "subgroups": [],
+            }
+            for sub in group_def.get("subgroups", []):
+                group["subgroups"].append({
+                    "label": sub["label"],
+                    "settings": self._serialize_settings_list(
+                        sub.get("settings", []), key_by_friendly,
+                        name_map, desc_map, config,
+                    ),
+                })
+            groups.append(group)
+        return {"groups": groups}
+
+    def _serialize_settings_list(self, friendly_names, key_by_friendly,
+                                  name_map, desc_map, config):
+        out = []
+        for friendly in friendly_names:
+            key = key_by_friendly.get(friendly)
+            if not key or key not in config:
+                continue
+            out.append(self._serialize_setting(
+                key, friendly, name_map, desc_map, config.get(key),
+            ))
+        return out
+
+    @staticmethod
+    def _serialize_setting(key, friendly, name_map, desc_map, value):
+        from . import settings_schema
+
+        entry = {
+            "key": key,
+            "label": friendly,
+            "description": desc_map.get(key, ""),
+            "value": value,
+        }
+
+        if key == "misc.active_region":
+            entry["type"] = "select"
+            entry["options"] = settings_schema.ACTIVE_REGION_OPTIONS
+        elif isinstance(value, bool):
+            entry["type"] = "boolean"
+        elif isinstance(value, int):
+            entry["type"] = "int"
+        elif isinstance(value, float):
+            entry["type"] = "float"
+        else:
+            entry["type"] = "text"
+        return entry
+
+    def _load_lang_json(self, filename):
+        import json as _json
+        cache_attr = f"_lang_{filename.replace('.', '_')}_cache"
+        cached = getattr(self, cache_attr, None)
+        if cached is not None:
+            return cached
+        path = self.addon_dir / "lang" / filename
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = _json.load(f)
+        except (OSError, _json.JSONDecodeError):
+            data = {}
+        setattr(self, cache_attr, data)
+        return data
+
+    def handle_save_settings(self, payload):
+        """Apply the JS-side payload, run legacy bounds checks, persist."""
+        from . import settings_schema
+
+        if not isinstance(payload, dict):
+            return {"ok": False, "message": "Invalid payload."}
+
+        settings_obj = self.shop_manager.settings_obj
+        try:
+            config = settings_obj.load_config()
+        except Exception:
+            config = dict(settings_obj.config)
+
+        # Coerce incoming values back to the type of the existing config
+        # entry so e.g. an int field doesn't silently become a string.
+        for raw_key, raw_val in payload.items():
+            key = str(raw_key)
+            if key not in config:
+                continue
+            config[key] = self._coerce_incoming(config[key], raw_val)
+
+        config, adjustments = settings_schema.validate_and_clamp(config)
+
+        try:
+            for key, val in config.items():
+                settings_obj.set(key, val)
+            settings_obj.save_config()
+        except Exception as e:
+            return {"ok": False, "message": f"Save failed: {e}"}
+
+        self._refresh_reviewer_hotkeys(config)
+
+        if adjustments:
+            return {
+                "ok": True,
+                "message": "Saved (with adjustments).",
+                "adjustments": adjustments,
+            }
+        return {"ok": True, "message": "Settings saved."}
+
+    @staticmethod
+    def _coerce_incoming(existing, incoming):
+        """Match the new value's type to the existing config entry so a
+        text-input UI doesn't accidentally rewrite an int field as a str."""
+        if isinstance(existing, bool):
+            return bool(incoming)
+        if isinstance(existing, int) and not isinstance(existing, bool):
+            try:
+                # Allow strings that look like ints; fall through for ranges.
+                return int(incoming)
+            except (TypeError, ValueError):
+                return incoming
+        if isinstance(existing, float):
+            try:
+                return float(incoming)
+            except (TypeError, ValueError):
+                return incoming
+        if existing is None:
+            # active_region accepts None or a string region name
+            return incoming if incoming not in ("", None, "None") else None
+        return incoming if incoming is None else str(incoming)
+
+    @staticmethod
+    def _refresh_reviewer_hotkeys(config):
+        try:
+            from ..reviewer_ui import setup_reviewer_ui
+            setup_reviewer_ui(
+                config.get("controls.catch_key", "6"),
+                config.get("controls.defeat_key", "5"),
+                config.get("controls.pokemon_buttons", True),
+                config.get("controls.team_cycle_key", "9"),
+            )
+        except Exception:
+            # Best-effort — settings still saved even if the hook fails.
+            pass
