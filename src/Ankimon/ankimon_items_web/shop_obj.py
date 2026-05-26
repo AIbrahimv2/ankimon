@@ -532,8 +532,11 @@ class AnkimonItemsWeb(QDialog):
         groups = []
         for group_def in settings_schema.GROUPS:
             settings = self._serialize_settings_list(
-                group_def.get("settings", []), key_by_friendly,
-                name_map, desc_map, config,
+                group_def.get("settings", []),
+                key_by_friendly,
+                name_map,
+                desc_map,
+                config,
             )
             # Append a chip-group as one composite setting after the regular
             # settings — keeps it in the same scroll section.
@@ -565,11 +568,13 @@ class AnkimonItemsWeb(QDialog):
     def _serialize_chip_group(chip_def, config):
         chips = []
         for key, chip_label in chip_def["keys"]:
-            chips.append({
-                "key": key,
-                "label": chip_label,
-                "value": bool(config.get(key, False)),
-            })
+            chips.append(
+                {
+                    "key": key,
+                    "label": chip_label,
+                    "value": bool(config.get(key, False)),
+                }
+            )
         return {
             "key": "__chips__" + chip_def["label"].lower().replace(" ", "_"),
             "label": chip_def["label"],
