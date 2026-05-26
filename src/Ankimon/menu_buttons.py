@@ -270,11 +270,19 @@ def create_menu_actions(
     restart_action.triggered.connect(restart_ankimon)
     mw.pokemenu.addAction(restart_action)
 
+    # Encounter Rate Simulator
+    from .pyobj.encounter_simulator_dialog import EncounterSimulatorDialog
+    simulator_action = QAction("Encounter Rate Simulator", mw)
+    simulator_action.setMenuRole(QAction.MenuRole.NoRole)
+    simulator_action.triggered.connect(lambda: EncounterSimulatorDialog(addon_dir).show())
+    help_menu.addAction(simulator_action)
+
     # Hide/show developer actions dynamically
     def update_dev_actions_visibility():
         is_dev = is_dev_mode()
         switch_account_action.setVisible(is_dev)
         restart_action.setVisible(is_dev)
+        simulator_action.setVisible(is_dev)
 
     mw.pokemenu.aboutToShow.connect(update_dev_actions_visibility)
     update_dev_actions_visibility()

@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ankimon Encounter Rate Simulator</title>
+    <!-- We try to load Outfit font, fallback to standard sleek sans-serif -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient: radial-gradient(135deg, #0d0f19 0%, #151829 100%);
+            --panel-bg: rgba(255, 255, 255, 0.025);
+            --panel-border: rgba(255, 255, 255, 0.05);
+            --panel-border-hover: rgba(255, 255, 255, 0.1);
+            --text-primary: #f1f3f9;
+            --text-secondary: #8f9cae;
+            --accent-cyan: #00e5ff;
+            --accent-glow: rgba(0, 229, 255, 0.35);
+            
+            /* Tier Colors */
+            --color-normal: #8a93a5;
+            --color-baby: #ff7597;
+            --color-ultra: #00e5ff;
+            --color-gmax: #bd00ff;
+            --color-starter: #00ff88;
+            --color-mega: #ff0055;
+            --color-legendary: #ffaa00;
+            --color-mythical: #7b2cff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background: #0b0c16; /* Solid deep premium dark background to fix compositor flickering */
+            color: var(--text-primary);
+            font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            padding: 24px;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--panel-border);
+        }
+
+        .header-title h1 {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #ffffff 0%, var(--accent-cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-title p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .dev-badge {
+            background: rgba(0, 229, 255, 0.1);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            color: var(--accent-cyan);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.05);
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 24px;
+            flex-grow: 1;
+        }
+
+        /* Premium Solid Panel base (removes backdrop-filter to prevent hover flickering) */
+        .panel {
+            background: #111422;
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel:hover {
+            border-color: var(--panel-border-hover);
+        }
+
+        /* Left controls panel */
+        .controls-panel {
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+
+        .panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.2px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            padding-bottom: 12px;
+        }
+
+        .panel-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        /* Slider Controls */
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .slider-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .slider-value-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .slider-value {
+            font-weight: 600;
+            color: var(--accent-cyan);
+            background: rgba(0, 229, 255, 0.08);
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 12px;
+            min-width: 36px;
+            text-align: center;
+        }
+
+        .slider-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .slider-input {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.06);
+            outline: none;
+        }
+
+        .slider-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .slider-input::-webkit-slider-thumb:hover {
+            background: #ffffff;
+        }
+
+        /* Right Dashboard Columns */
+        .stats-area {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .upper-stats {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 24px;
+        }
+
+        /* EP Gauge Circular Styling */
+        .ep-gauge-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            min-height: 240px;
+        }
+
+        .gauge-svg-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+        }
+
+        .gauge-circle-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.025);
+            stroke-width: 10px;
+        }
+
+        .gauge-circle-fill {
+            fill: none;
+            stroke: url(#cyanGrad);
+            stroke-width: 10px;
+            stroke-linecap: round;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+            stroke-dasharray: 440;
+            stroke-dashoffset: 440;
+            transition: stroke-dashoffset 0.4s ease-out;
+        }
+
+        .gauge-center-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .gauge-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+
+        .gauge-unit {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        /* Exponential Graph Canvas */
+        .graph-container {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 200px;
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Matrix Table View */
+        .matrix-panel {
+            flex-grow: 1;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        td {
+            padding: 14px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+            vertical-align: middle;
+        }
+
+        tr:hover td {
+            background-color: rgba(255,255,255,0.01);
+        }
+
+        .tier-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .tier-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .lock-indicator {
+            color: #ff3b30;
+            font-size: 12px;
+            margin-left: 6px;
+            display: inline-flex;
+            align-items: center;
+            opacity: 0.8;
+        }
+
+        /* Specific neon glow elements */
+        .color-normal { color: var(--color-normal); }
+        .color-baby { color: var(--color-baby); }
+        .color-ultra { color: var(--color-ultra); }
+        .color-gmax { color: var(--color-gmax); }
+        .color-starter { color: var(--color-starter); }
+        .color-mega { color: var(--color-mega); }
+        .color-legendary { color: var(--color-legendary); }
+        .color-mythical { color: var(--color-mythical); }
+
+        .bg-normal { background: var(--color-normal); box-shadow: 0 0 6px var(--color-normal); }
+        .bg-baby { background: var(--color-baby); box-shadow: 0 0 6px var(--color-baby); }
+        .bg-ultra { background: var(--color-ultra); box-shadow: 0 0 6px var(--color-ultra); }
+        .bg-gmax { background: var(--color-gmax); box-shadow: 0 0 6px var(--color-gmax); }
+        .bg-starter { background: var(--color-starter); box-shadow: 0 0 6px var(--color-starter); }
+        .bg-mega { background: var(--color-mega); box-shadow: 0 0 6px var(--color-mega); }
+        .bg-legendary { background: var(--color-legendary); box-shadow: 0 0 6px var(--color-legendary); }
+        .bg-mythical { background: var(--color-mythical); box-shadow: 0 0 6px var(--color-mythical); }
+
+        .percentage-value {
+            font-family: monospace;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .live-value {
+            color: var(--text-primary);
+        }
+
+        .overhaul-value {
+            color: var(--accent-cyan);
+            font-weight: 700;
+        }
+
+        .legacy-value {
+            color: var(--text-secondary);
+        }
+
+        .legend-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .legend-color {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        .action-btn {
+            background: rgba(0, 229, 255, 0.08);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            color: var(--accent-cyan);
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.02);
+        }
+
+        .action-btn:hover {
+            background: rgba(0, 229, 255, 0.15);
+            border-color: rgba(0, 229, 255, 0.35);
+            color: #ffffff;
+        }
+
+        .action-btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Custom Dropdown Styling */
+        .custom-dropdown-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .custom-dropdown-trigger {
+            background: #151829;
+            border: 1px solid var(--panel-border);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .custom-dropdown-trigger:hover {
+            border-color: var(--panel-border-hover);
+            background: #1a1d32;
+        }
+
+        .custom-dropdown-options {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            width: 100%;
+            background: #151829;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            overflow: hidden;
+        }
+
+        .custom-dropdown-options.active {
+            display: block;
+        }
+
+        .dropdown-option {
+            padding: 11px 14px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-primary);
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .dropdown-option:hover {
+            background: rgba(0, 229, 255, 0.08);
+            color: var(--accent-cyan);
+        }
+
+        .dropdown-option.selected {
+            background: rgba(0, 229, 255, 0.15);
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-title">
+            <h1><span>⚡</span> Encounter Rate Simulator</h1>
+            <p>Ankimon Developer Tool for Modeling Wild Pokémon Spawn Weights</p>
+        </div>
+        <div class="badge-container" style="display: flex; gap: 8px;">
+            <div class="dev-badge" id="system-badge" style="border-color: rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.03); color: var(--text-secondary);">Active System: ...</div>
+            <div class="dev-badge" style="background: rgba(168, 85, 247, 0.1); border-color: rgba(168, 85, 247, 0.2); color: #a855f7;">Developer Mode</div>
+        </div>
+    </header>
+
+    <div class="dashboard">
+        <!-- Control Panel -->
+        <div class="panel controls-panel">
+            <div class="panel-title" style="flex-direction: column; align-items: stretch; gap: 12px; border: none; padding-bottom: 0;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span>🔧</span>
+                    <div>
+                        Simulation Variables
+                        <div class="panel-subtitle">Adjust sliding factors to recalculate weight distribution</div>
+                    </div>
+                </div>
+                <button id="btn-reset" class="action-btn">Reset to Live Save</button>
+            </div>
+
+            <!-- Trainer Level Slider -->
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="slider-label">Trainer Level (T<sub>norm</sub>)</span>
+                    <div class="slider-value-container">
+                        <span class="slider-value" id="val-trainer-level">1</span>
+                    </div>
+                </div>
+                <div class="slider-input-wrapper">
+                    <input type="range" class="slider-input" id="slide-trainer-level" min="1" max="100" value="1">
+                </div>
+            </div>
+
+            <!-- Dex Completion Slider -->
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="slider-label">Dex Completion (D<sub>norm</sub>)</span>
+                    <div class="slider-value-container">
+                        <span class="slider-value" id="val-dex-completion">0%</span>
+                    </div>
+                </div>
+                <div class="slider-input-wrapper">
+                    <input type="range" class="slider-input" id="slide-dex-completion" min="0" max="100" value="0">
+                </div>
+            </div>
+
+            <!-- Reviews Done Slider -->
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="slider-label">Session Reviews Done</span>
+                    <div class="slider-value-container">
+                        <span class="slider-value" id="val-reviews-done">0</span>
+                    </div>
+                </div>
+                <div class="slider-input-wrapper">
+                    <input type="range" class="slider-input" id="slide-reviews-done" min="0" max="300" value="0">
+                </div>
+            </div>
+
+            <!-- Daily Review Goal Slider -->
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="slider-label">Daily Review Goal</span>
+                    <div class="slider-value-container">
+                        <span class="slider-value" id="val-daily-goal">100</span>
+                    </div>
+                </div>
+                <div class="slider-input-wrapper">
+                    <input type="range" class="slider-input" id="slide-daily-goal" min="10" max="200" value="100">
+                </div>
+            </div>
+
+            <!-- Top 6 CP Slider -->
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="slider-label">Avg. CP of Top 6 (C<sub>norm</sub>)</span>
+                    <div class="slider-value-container">
+                        <span class="slider-value" id="val-avg-cp">10</span>
+                    </div>
+                </div>
+                <div class="slider-input-wrapper">
+                    <input type="range" class="slider-input" id="slide-avg-cp" min="10" max="4000" step="50" value="10">
+                </div>
+            </div>
+
+            <!-- Main Pokemon Level Slider -->
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="slider-label">Main Pokémon Level (Gating)</span>
+                    <div class="slider-value-container">
+                        <span class="slider-value" id="val-main-level">1</span>
+                    </div>
+                </div>
+                <div class="slider-input-wrapper">
+                    <input type="range" class="slider-input" id="slide-main-level" min="1" max="100" value="1">
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Stats Area -->
+        <div class="stats-area">
+            <!-- Upper Area (EP Circular Gauge & Exponential Graph) -->
+            <div class="upper-stats">
+                <!-- Circular EP Gauge -->
+                <div class="panel ep-gauge-container">
+                    <div class="panel-title" style="width: 100%; border: none; padding: 0;">Encounter Potential</div>
+                    <div class="gauge-svg-container">
+                        <svg width="160" height="160" viewBox="0 0 160 160">
+                            <defs>
+                                <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#ffffff" />
+                                    <stop offset="100%" stop-color="#00e5ff" />
+                                </linearGradient>
+                            </defs>
+                            <circle class="gauge-circle-bg" cx="80" cy="80" r="70" />
+                            <circle class="gauge-circle-fill" id="gauge-fill" cx="80" cy="80" r="70" />
+                        </svg>
+                        <div class="gauge-center-text">
+                            <div class="gauge-value" id="ep-value">0.0</div>
+                            <div class="gauge-unit">EP</div>
+                        </div>
+                    </div>
+                    <div class="panel-subtitle" style="text-align: center;">Mastery Index (0.0 - 100.0)</div>
+                </div>
+
+                <!-- Interactive Exponential Curve Graph -->
+                <div class="panel graph-container">
+                    <div class="panel-title" style="border: none; padding-bottom: 0;">
+                        <div>
+                            Exponential Rarity Curves
+                            <div class="panel-subtitle">Base Weight Gating as a Function of EP</div>
+                        </div>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="curves-graph"></canvas>
+                    </div>
+                    <div class="legend-container">
+                        <div class="legend-item"><span class="legend-color bg-normal"></span><span>Normal</span></div>
+                        <div class="legend-item"><span class="legend-color bg-baby"></span><span>Baby</span></div>
+                        <div class="legend-item"><span class="legend-color bg-ultra"></span><span>Ultra</span></div>
+                        <div class="legend-item"><span class="legend-color bg-gmax"></span><span>Gmax</span></div>
+                        <div class="legend-item"><span class="legend-color bg-starter"></span><span>Starter</span></div>
+                        <div class="legend-item"><span class="legend-color bg-mega"></span><span>Mega</span></div>
+                        <div class="legend-item"><span class="legend-color bg-legendary"></span><span>Legendary</span></div>
+                        <div class="legend-item"><span class="legend-color bg-mythical"></span><span>Mythical</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lower Area (Matrix Table View) -->
+            <div class="panel matrix-panel">
+                <div class="panel-title">
+                    <span>📊</span>
+                    <div>
+                        Rarity Weighting Matrix
+                        <div class="panel-subtitle">Comparison of active database vs simulated distributions</div>
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rarity Tier</th>
+                            <th style="text-align: right; color: #a5b4fc;">Live Overhaul</th>
+                            <th style="text-align: right; color: rgba(255,255,255,0.4);">Live Legacy</th>
+                            <th style="text-align: right; color: var(--accent-cyan);">Simulated Overhaul</th>
+                            <th style="text-align: right; color: rgba(255,255,255,0.6);">Simulated Legacy</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matrix-tbody">
+                        <!-- Tiers are injected dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pity and Dry Spell Simulator Panel -->
+    <div class="panel pity-panel" style="margin-top: 24px;">
+        <div class="panel-title" style="border: none; padding-bottom: 0;">
+            <span>🍀</span>
+            <div>
+                Pity & Dry Spell Simulator
+                <div class="panel-subtitle">Model quadratic pity multipliers and boosted encounter rates for dry review spells</div>
+            </div>
+        </div>
+        
+        <div class="pity-grid" style="display: grid; grid-template-columns: 360px 1fr; gap: 24px;">
+            <!-- Pity Inputs -->
+            <div class="pity-controls" style="display: flex; flex-direction: column; gap: 20px;">
+                <!-- Selected Tier Dropdown -->
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Select Pokémon Tier</span>
+                    </div>
+                <div class="custom-dropdown-container">
+                    <div id="pity-tier-trigger" class="custom-dropdown-trigger">
+                        <span id="selected-tier-label">Ultra</span>
+                        <span style="font-size: 10px; color: var(--text-secondary); transition: transform 0.2s; transform-origin: center;" id="dropdown-arrow">▼</span>
+                    </div>
+                    <div id="pity-tier-options" class="custom-dropdown-options">
+                        <div class="dropdown-option" data-value="Ultra">Ultra</div>
+                        <div class="dropdown-option" data-value="Gmax">Gmax</div>
+                        <div class="dropdown-option" data-value="Starter">Starter</div>
+                        <div class="dropdown-option" data-value="Mega">Mega</div>
+                        <div class="dropdown-option" data-value="Legendary">Legendary</div>
+                        <div class="dropdown-option" data-value="Mythical">Mythical</div>
+                    </div>
+                </div>
+                </div>
+
+                <!-- Dry Encounters Slider -->
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Dry Encounters (Reviews without Spawn)</span>
+                        <div class="slider-value-container">
+                            <span class="slider-value" id="val-pity-dry">0</span>
+                        </div>
+                    </div>
+                    <div class="slider-input-wrapper">
+                        <input type="range" class="slider-input" id="slide-pity-dry" min="0" max="1000" value="0">
+                    </div>
+                </div>
+
+                <!-- Param Info Board -->
+                <div class="info-board" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-secondary);">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Pity Threshold (T<sub>i</sub>):</span>
+                        <span id="info-pity-threshold" style="color: var(--text-primary); font-weight: 600;">100</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Pity Divisor:</span>
+                        <span id="info-pity-divisor" style="color: var(--text-primary); font-weight: 600;">50.0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
+                        <span>Multiplier Formula:</span>
+                        <span style="font-family: monospace; color: var(--accent-cyan);">1 + (Excess / 50)²</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pity Visualization & Stats -->
+            <div class="pity-viz-container" style="display: grid; grid-template-columns: 240px 1fr; gap: 24px;">
+                <!-- Pity Factor Display -->
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: rgba(0,0,0,0.1); border-radius: 12px; padding: 20px; text-align: center;">
+                    <div class="slider-label" style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Pity Multiplier</div>
+                    <div id="pity-multiplier-value" style="font-size: 36px; font-weight: 700; color: #00ff88; text-shadow: 0 0 10px rgba(0,255,136,0.2);">1.00x</div>
+                    <div class="info-board" style="width: 100%; border: none; padding: 0; background: transparent; display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Base Rate:</span>
+                            <span id="pity-base-rate" style="color: var(--text-primary); font-weight: 600;">0.00%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 6px;">
+                            <span>Boosted Rate:</span>
+                            <span id="pity-boosted-rate" style="color: #00ff88; font-weight: 700;">0.00%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pity Multiplier Chart -->
+                <div class="canvas-wrapper" style="position: relative; min-height: 180px;">
+                    <canvas id="pity-graph"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Qt WebChannel Integration -->
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script src="simulator.js"></script>
+</body>
+</html>

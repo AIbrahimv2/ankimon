@@ -153,7 +153,24 @@ A modern startup check and installation system designed specifically to keep use
 
 ---
 
-## 8. Summary of Key Files Changed
+## 8. Comprehensive Encounter Systems Overhaul (Inactive by Default)
+
+A major mathematical and architectural redesign of the wild spawn economy to curb rare spawn inflation and establish a robust, progression-driven economy.
+
+- **Developer Toggle (`USE_OVERHAUL_ENCOUNTER_SYSTEM = False`)**: The overhaul is fully backwards-compatible with the legacy progress-ratio system and kept inactive by default for baseline stability.
+- **Unified Mastery Index ($EP$):** Replaces basic progress ratios with a dynamic 100-point progression scale incorporating:
+  - **Trainer Level ($T_{norm}$ - 25%):** Normalized to a Trainer Level Cap (default: `50.0`).
+  - **Pokedex Completion ($D_{norm}$ - 25%):** True completion ratio with robust form-to-base ID resolution.
+  - **Session Progress ($S_{norm}$ - 25%):** Completed reviews relative to the daily average review goal.
+  - **Core Team Power ($C_{norm}$ - 25%):** Average CP of the top 6 active team members scaled to a Core Team CP Cap (default: `16000.0`).
+- **Exponential Rarity Scaling ("Soft Landing"):** Rarity weights scale exponentially with EP, limiting endgame rare spawns to a healthy **12.3% aggregate cap** (down from ~35% hyper-inflation in the legacy economy).
+- **Player Level-Lock Enforcement:** Enforces strict main Pokémon level thresholds for advanced tiers (Starters require Level 80+, Megas Level 60+, Legendaries Level 50+, and Ultra Beasts Level 30+).
+- **Independent Pity System (Decoupled Bad-Luck Protection):** Decoupled, persistent dry spell review trackers ($P_i$) are stored globally in SQLite `user_data`. Spawning a rare Pokémon resets its specific counter to `0` while incrementing others. Trackers apply quadratic scaling to shield players from prolonged dry spells.
+- **Developer Config Block:** Balancing coefficients, weights, caps, level thresholds, and pity boundaries are parameterized and centralized at the top of the overhaul section in `encounter_functions.py` for quick tuning.
+
+---
+
+## 9. Summary of Key Files Changed
 
 | File                                           | Primary Change                                                |
 | ---------------------------------------------- | ------------------------------------------------------------- |
@@ -161,7 +178,7 @@ A modern startup check and installation system designed specifically to keep use
 | `src/Ankimon/pyobj/pc_box.py`                  | Complete overhaul of the PC interface and caching.            |
 | `src/Ankimon/pyobj/pokemon_trade.py`           | **New** Trade V2 logic, versioning, and legacy support.       |
 | `src/Ankimon/reloader.py`                      | **New** hot-reload logic.                                     |
-| `src/Ankimon/functions/encounter_functions.py` | Prerequisite chains, level-gating, and region-boost logic.    |
+| `src/Ankimon/functions/encounter_functions.py` | Prerequisite chains, level-gating, region-boost, and new Encounter Overhaul. |
 | `src/Ankimon/singletons.py`                    | Account switching and lazy-loading support.                   |
 | `src/Ankimon/pyobj/settings.py`                | Region selection, reward balancing, and auto-catch settings.  |
 | `src/Ankimon/pyobj/update_manager.py`          | **New** updater state, locked-file safety, and commit fetch.  |
@@ -172,4 +189,4 @@ A modern startup check and installation system designed specifically to keep use
 
 ---
 
-_Analysis completed based on repository state as of May 24, 2026, incorporating developer-provided feature documentation._
+_Analysis completed based on repository state as of May 26, 2026, incorporating the encounter overhaul and simulation framework._
