@@ -471,8 +471,13 @@ class AnkimonItemsWeb(QDialog):
         from ..pyobj.ankimon_shop import DAILY_ITEMS_POOL
 
         random.seed()
-        new_items = random.sample(DAILY_ITEMS_POOL, sm.number_of_daily_items)
-        new_tms = random.sample(sm.get_tm_pool(), sm.number_of_daily_items)
+        # Clamp sample sizes — random.sample raises if asked for more entries
+        # than the pool contains, which would crash the bridge call.
+        tm_pool = sm.get_tm_pool()
+        num_items = min(sm.number_of_daily_items, len(DAILY_ITEMS_POOL))
+        num_tms = min(sm.number_of_daily_items, len(tm_pool))
+        new_items = random.sample(DAILY_ITEMS_POOL, num_items)
+        new_tms = random.sample(tm_pool, num_tms)
 
         try:
             mw.ankimon_db.set_user_data(
@@ -655,20 +660,31 @@ class AnkimonItemsWeb(QDialog):
         except Exception:
             config = dict(settings_obj.config)
 
+        # Snapshot what's on disk so we can skip writes for unchanged keys
+        # after clamping (avoids spurious observer notifications).
+        original_config = dict(config)
+
         # Coerce incoming values back to the type of the existing config
         # entry so e.g. an int field doesn't silently become a string.
-        for raw_key, raw_val in payload.items():
-            key = str(raw_key)
-            if key not in config:
-                continue
-            config[key] = self._coerce_incoming(config[key], raw_val)
+        try:
+            for raw_key, raw_val in payload.items():
+                key = str(raw_key)
+                if key not in config:
+                    continue
+                config[key] = self._coerce_incoming(config[key], raw_val)
+        except ValueError as e:
+            return {"ok": False, "message": f"Validation error: {e}"}
 
         config, adjustments = settings_schema.validate_and_clamp(config)
 
         try:
+            changed = False
             for key, val in config.items():
-                settings_obj.set(key, val)
-            settings_obj.save_config()
+                if original_config.get(key) != val:
+                    settings_obj.set(key, val)
+                    changed = True
+            if changed:
+                settings_obj.save_config()
         except Exception as e:
             return {"ok": False, "message": f"Save failed: {e}"}
 
@@ -685,20 +701,25 @@ class AnkimonItemsWeb(QDialog):
     @staticmethod
     def _coerce_incoming(existing, incoming):
         """Match the new value's type to the existing config entry so a
-        text-input UI doesn't accidentally rewrite an int field as a str."""
+        text-input UI doesn't accidentally rewrite an int field as a str.
+        Raises ValueError for non-coercible numeric input — caller surfaces
+        the failure rather than silently writing garbage to config."""
         if isinstance(existing, bool):
             return bool(incoming)
         if isinstance(existing, int) and not isinstance(existing, bool):
             try:
-                # Allow strings that look like ints; fall through for ranges.
                 return int(incoming)
             except (TypeError, ValueError):
-                return incoming
+                # Range strings (e.g. "1-3" for cards_per_round) pass through;
+                # validate_and_clamp's _coerce_cards_per_round normalizes them.
+                if isinstance(incoming, str) and "-" in incoming:
+                    return incoming
+                raise ValueError(f"Expected integer, got {incoming!r}")
         if isinstance(existing, float):
             try:
                 return float(incoming)
             except (TypeError, ValueError):
-                return incoming
+                raise ValueError(f"Expected float, got {incoming!r}")
         if existing is None:
             # active_region accepts None or a string region name
             return incoming if incoming not in ("", None, "None") else None
