@@ -485,6 +485,8 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 12px 24px 24px;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Generation Grouping */
@@ -1197,19 +1199,34 @@ body {
 }
 
 .empty-state {
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 100px 40px;
+    padding: 40px 20px;
     text-align: center;
     color: var(--text-muted);
+}
+
+.empty-state h2 {
+    margin: 0 0 16px;
+    line-height: 1.3;
+}
+
+.empty-state p {
+    margin: 0 0 32px;
+    line-height: 1.5;
+}
+
+.empty-state .btn {
+    margin: 0;
 }
 
 .empty-icon {
     width: 120px;
     height: 120px;
-    margin: 0 auto 24px;
+    margin: 0 0 28px;
     background: url('../user_files/sprites/items/poke-doll.png') no-repeat center;
     background-size: contain;
     filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3));
