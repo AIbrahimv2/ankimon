@@ -26,6 +26,7 @@ from .pyobj.trainer_card import TrainerCard
 from .pyobj.settings_window import SettingsWindow
 from .pyobj.test_window import TestWindow
 from .pyobj.ankimon_shop import PokemonShopManager
+
 # Removed old Pokedex import
 from .pyobj.achievement_window import AchievementWindow
 from .pyobj.ankimon_tracker_window import AnkimonTrackerWindow
@@ -45,14 +46,23 @@ debug = True
 
 # Initialize the menu
 mw.translator = Translator(language=int(mw.settings_obj.get("misc.language")))
-mw.pokemenu = QMenu('&' + mw.translator.translate("ankimon_button_title"), mw)
+mw.pokemenu = QMenu("&" + mw.translator.translate("ankimon_button_title"), mw)
 game_menu = mw.pokemenu.addMenu(mw.translator.translate("ankimon_game_button_title"))
-profile_menu = mw.pokemenu.addMenu(mw.translator.translate("ankimon_profile_button_title"))
-collection_menu = mw.pokemenu.addMenu(mw.translator.translate("ankimon_collection_button_title"))
-export_menu = mw.pokemenu.addMenu(mw.translator.translate("ankimon_export_button_title"))
+profile_menu = mw.pokemenu.addMenu(
+    mw.translator.translate("ankimon_profile_button_title")
+)
+collection_menu = mw.pokemenu.addMenu(
+    mw.translator.translate("ankimon_collection_button_title")
+)
+export_menu = mw.pokemenu.addMenu(
+    mw.translator.translate("ankimon_export_button_title")
+)
 help_menu = mw.pokemenu.addMenu(mw.translator.translate("ankimon_help_button_title"))
 if debug is True:
-    debug_menu = mw.pokemenu.addMenu(mw.translator.translate("ankimon_debug_button_title"))
+    debug_menu = mw.pokemenu.addMenu(
+        mw.translator.translate("ankimon_debug_button_title")
+    )
+
 
 def create_menu_actions(
     database_complete: bool,
@@ -100,6 +110,7 @@ def create_menu_actions(
         get_settings_window,
         get_ankimon_tracker_window,
     )
+
     actions = []
 
     if database_complete:
@@ -110,11 +121,16 @@ def create_menu_actions(
         qconnect(pokemon_pc_action.triggered, lambda: get_pokemon_pc().show())
 
         # Ankimon Window
-        ankimon_window_action = QAction(mw.translator.translate("open_ankimon_window_button"), mw)
+        ankimon_window_action = QAction(
+            mw.translator.translate("open_ankimon_window_button"), mw
+        )
         ankimon_window_action.setMenuRole(QAction.MenuRole.NoRole)
         game_menu.addAction(ankimon_window_action)
         ankimon_window_action.setShortcut(QKeySequence(f"{ankimon_key}"))
-        qconnect(ankimon_window_action.triggered, lambda: get_test_window().open_dynamic_window())
+        qconnect(
+            ankimon_window_action.triggered,
+            lambda: get_test_window().open_dynamic_window(),
+        )
 
         # Itembag
         itembag_action = QAction(mw.translator.translate("itembag_button"), mw)
@@ -125,42 +141,57 @@ def create_menu_actions(
         # Achievements
         def show_achievements_window():
             from .pyobj.achievements_dialog import AchievementsDialog
-            if not hasattr(mw, "_achievements_dialog") or mw._achievements_dialog is None:
+
+            if (
+                not hasattr(mw, "_achievements_dialog")
+                or mw._achievements_dialog is None
+            ):
                 mw._achievements_dialog = AchievementsDialog(addon_dir, trainer_card)
             mw._achievements_dialog.setWindowModality(Qt.WindowModality.NonModal)
             mw._achievements_dialog.show()
             mw._achievements_dialog.raise_()
             mw._achievements_dialog.activateWindow()
 
-        achievement_bag_action = QAction(mw.translator.translate("achievements_button"), mw)
+        achievement_bag_action = QAction(
+            mw.translator.translate("achievements_button"), mw
+        )
         achievement_bag_action.setMenuRole(QAction.MenuRole.NoRole)
         achievement_bag_action.triggered.connect(show_achievements_window)
         profile_menu.addAction(achievement_bag_action)
 
         # Showdown Teambuilder
-        pokemon_showdown_action = QAction(mw.translator.translate("open_showdown_teambuilder_button"), mw)
+        pokemon_showdown_action = QAction(
+            mw.translator.translate("open_showdown_teambuilder_button"), mw
+        )
         pokemon_showdown_action.setMenuRole(QAction.MenuRole.NoRole)
         qconnect(pokemon_showdown_action.triggered, lambda: open_team_builder())
         export_menu.addAction(pokemon_showdown_action)
 
         # Export to Showdown
-        export_main_to_showdown = QAction(mw.translator.translate("export_main_pokemon_button"), mw)
+        export_main_to_showdown = QAction(
+            mw.translator.translate("export_main_pokemon_button"), mw
+        )
         export_main_to_showdown.setMenuRole(QAction.MenuRole.NoRole)
         qconnect(export_main_to_showdown.triggered, lambda: export_to_pkmn_showdown())
         export_menu.addAction(export_main_to_showdown)
 
-        export_all_to_showdown = QAction(mw.translator.translate("export_all_pokemon_button"), mw)
+        export_all_to_showdown = QAction(
+            mw.translator.translate("export_all_pokemon_button"), mw
+        )
         export_all_to_showdown.setMenuRole(QAction.MenuRole.NoRole)
         qconnect(export_all_to_showdown.triggered, lambda: export_all_pkmn_showdown())
         export_menu.addAction(export_all_to_showdown)
 
         # Flexing Collection
-        flex_pokecoll_action = QAction(mw.translator.translate("export_all_pokemon_to_pokepaste_button"), mw)
+        flex_pokecoll_action = QAction(
+            mw.translator.translate("export_all_pokemon_to_pokepaste_button"), mw
+        )
         flex_pokecoll_action.setMenuRole(QAction.MenuRole.NoRole)
         qconnect(flex_pokecoll_action.triggered, lambda: flex_pokemon_collection())
         export_menu.addAction(flex_pokecoll_action)
 
         from .singletons import get_ankidex_window
+
         ankidex_action = QAction("Ankidex", mw)
         ankidex_action.setMenuRole(QAction.MenuRole.NoRole)
         qconnect(ankidex_action.triggered, lambda: get_ankidex_window().show())
@@ -169,7 +200,9 @@ def create_menu_actions(
     # Backup Manager
     backup_manager_action = QAction("Backup Manager", mw)
     backup_manager_action.setMenuRole(QAction.MenuRole.NoRole)
-    backup_manager_action.triggered.connect(lambda: BackupManagerDialog(backup_manager, mw).exec())
+    backup_manager_action.triggered.connect(
+        lambda: BackupManagerDialog(backup_manager, mw).exec()
+    )
     game_menu.addAction(backup_manager_action)
 
     # Effectiveness chart
@@ -181,13 +214,17 @@ def create_menu_actions(
     # Generations and Pokémon chart
     gen_and_poke_chart_action = QAction(mw.translator.translate("gen_chart_button"), mw)
     gen_and_poke_chart_action.setMenuRole(QAction.MenuRole.NoRole)
-    gen_and_poke_chart_action.triggered.connect(lambda: get_gen_id_chart().show_gen_chart())
+    gen_and_poke_chart_action.triggered.connect(
+        lambda: get_gen_id_chart().show_gen_chart()
+    )
     help_menu.addAction(gen_and_poke_chart_action)
 
     # Nature chart
     nature_chart_action = QAction(mw.translator.translate("nature_chart_button"), mw)
     nature_chart_action.setMenuRole(QAction.MenuRole.NoRole)
-    nature_chart_action.triggered.connect(lambda: get_nature_chart().show_nature_chart())
+    nature_chart_action.triggered.connect(
+        lambda: get_nature_chart().show_nature_chart()
+    )
     help_menu.addAction(nature_chart_action)
 
     # Join Discord
@@ -209,7 +246,9 @@ def create_menu_actions(
     help_menu.addAction(credits_action)
 
     # About and License
-    about_and_license_action = QAction(mw.translator.translate("ankimon_about_and_license_button"), mw)
+    about_and_license_action = QAction(
+        mw.translator.translate("ankimon_about_and_license_button"), mw
+    )
     about_and_license_action.setMenuRole(QAction.MenuRole.NoRole)
     about_and_license_action.triggered.connect(lambda: get_license().show_window())
     help_menu.addAction(about_and_license_action)
@@ -217,7 +256,9 @@ def create_menu_actions(
     # Help Guide
     help_action = QAction(mw.translator.translate("open_help_guide_button"), mw)
     help_action.setMenuRole(QAction.MenuRole.NoRole)
-    help_action.triggered.connect(lambda: open_help_window(getattr(mw, "online_connectivity", False)))
+    help_action.triggered.connect(
+        lambda: open_help_window(getattr(mw, "online_connectivity", False))
+    )
     help_menu.addAction(help_action)
 
     # Report Bug
@@ -235,6 +276,7 @@ def create_menu_actions(
     # Update Ankimon
     def _open_update_dialog():
         from .pyobj.update_dialog import UpdateDialog
+
         dialog = UpdateDialog(parent=mw)
         dialog.exec()
 
@@ -258,6 +300,7 @@ def create_menu_actions(
 
     # Switch Account Action
     from .singletons import swap_ankimon_account
+
     switch_account_action = QAction("Switch Account (DEV/Normal)", mw)
     switch_account_action.setMenuRole(QAction.MenuRole.NoRole)
     switch_account_action.triggered.connect(swap_ankimon_account)
@@ -265,6 +308,7 @@ def create_menu_actions(
 
     # Restart Ankimon Action
     from .reloader import restart_ankimon
+
     restart_action = QAction("Restart Ankimon", mw)
     restart_action.setMenuRole(QAction.MenuRole.NoRole)
     restart_action.setShortcut(QKeySequence("Ctrl+Shift+R"))
@@ -281,9 +325,13 @@ def create_menu_actions(
     update_dev_actions_visibility()
 
     if debug is True:
-        tracker_window_action = QAction(mw.translator.translate("ankimon_tracker_button"), mw)
+        tracker_window_action = QAction(
+            mw.translator.translate("ankimon_tracker_button"), mw
+        )
         tracker_window_action.setMenuRole(QAction.MenuRole.NoRole)
-        tracker_window_action.triggered.connect(lambda: get_ankimon_tracker_window().toggle_window())
+        tracker_window_action.triggered.connect(
+            lambda: get_ankimon_tracker_window().toggle_window()
+        )
         tracker_window_action.setShortcut(QKeySequence("Ctrl+Shift+K"))
         # Show the Settings window
         debug_menu.addAction(tracker_window_action)
@@ -296,11 +344,15 @@ def create_menu_actions(
     game_menu.addAction(ankimon_logger_action)
 
     # Set up a shortcut (Ctrl+L) to open the log window
-    ankimon_trainer_card_action = QAction(mw.translator.translate("trainer_card_button"), mw)
+    ankimon_trainer_card_action = QAction(
+        mw.translator.translate("trainer_card_button"), mw
+    )
     ankimon_trainer_card_action.setMenuRole(QAction.MenuRole.NoRole)
     ankimon_trainer_card_action.setShortcut(QKeySequence("Ctrl+Shift+Q"))
     # Create the TrainerCard GUI and show it inside Anki's main window
-    ankimon_trainer_card_action.triggered.connect(lambda: TrainerCardGUI(trainer_card, settings_obj, parent=mw))
+    ankimon_trainer_card_action.triggered.connect(
+        lambda: TrainerCardGUI(trainer_card, settings_obj, parent=mw)
+    )
     profile_menu.addAction(ankimon_trainer_card_action)
 
     # Add AnkimonShop Action to toggle the shop
@@ -310,27 +362,41 @@ def create_menu_actions(
     game_menu.addAction(shop_manager_action)
 
     # Choose Trainer Sprite Action
-    choose_trainer_sprite_action = QAction(mw.translator.translate("choose_trainer_sprite_button"), mw)
+    choose_trainer_sprite_action = QAction(
+        mw.translator.translate("choose_trainer_sprite_button"), mw
+    )
     choose_trainer_sprite_action.setMenuRole(QAction.MenuRole.NoRole)
-    choose_trainer_sprite_action.triggered.connect(lambda: TrainerSpriteGraphicalDialog(settings_obj=settings_obj).exec())
+    choose_trainer_sprite_action.triggered.connect(
+        lambda: TrainerSpriteGraphicalDialog(settings_obj=settings_obj).exec()
+    )
     game_menu.addAction(choose_trainer_sprite_action)
 
-    pokemon_team_action = QAction(mw.translator.translate("choose_pokemon_team_button"), mw)
+    pokemon_team_action = QAction(
+        mw.translator.translate("choose_pokemon_team_button"), mw
+    )
     pokemon_team_action.setMenuRole(QAction.MenuRole.NoRole)
-    pokemon_team_action.triggered.connect(lambda: PokemonTeamDialog(settings_obj, logger, trainer_card))
+    pokemon_team_action.triggered.connect(
+        lambda: PokemonTeamDialog(settings_obj, logger, trainer_card)
+    )
     game_menu.addAction(pokemon_team_action)
 
-    file_check_action = QAction(mw.translator.translate("ankimon_file_checker_button"), mw)
+    file_check_action = QAction(
+        mw.translator.translate("ankimon_file_checker_button"), mw
+    )
     file_check_action.setMenuRole(QAction.MenuRole.NoRole)
     file_check_action.triggered.connect(lambda: FileCheckerApp().exec())
     help_menu.addAction(file_check_action)
 
-    file_check_action = QAction(mw.translator.translate("ankimon_leaderboard_credentials_button"), mw)
+    file_check_action = QAction(
+        mw.translator.translate("ankimon_leaderboard_credentials_button"), mw
+    )
     file_check_action.setMenuRole(QAction.MenuRole.NoRole)
     file_check_action.triggered.connect(show_api_key_dialog)
     mw.pokemenu.addAction(file_check_action)
 
-    downloader_action = QAction(mw.translator.translate("download_resources_button"), mw)
+    downloader_action = QAction(
+        mw.translator.translate("download_resources_button"), mw
+    )
     downloader_action.setMenuRole(QAction.MenuRole.NoRole)
     downloader_action.triggered.connect(show_agreement_and_download_dialog)
     help_menu.addAction(downloader_action)
