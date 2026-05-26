@@ -399,7 +399,9 @@ class PokemonShopManager:
         buy_font.setPointSize(8)
         buy_button.setFont(buy_font)
         buy_button.setFixedHeight(35)
-        buy_button.setFixedWidth(buy_button.fontMetrics().boundingRect(button_text).width() + 20)
+        buy_button.setFixedWidth(
+            buy_button.fontMetrics().boundingRect(button_text).width() + 20
+        )
 
         if is_tm and owned_quantity > 0:
             buy_button.setEnabled(False)
@@ -447,7 +449,9 @@ class PokemonShopManager:
         db = mw.ankimon_db
         shop_data = db.get_user_data("todays_shop")
         if shop_data:
-            if shop_data.get("items") and shop_data.get("date") == datetime.now().strftime("%Y-%m-%d"):
+            if shop_data.get("items") and shop_data.get(
+                "date"
+            ) == datetime.now().strftime("%Y-%m-%d"):
                 return shop_data.get("items")
 
         seed = datetime.now().strftime("%Y-%m-%d")
@@ -459,7 +463,9 @@ class PokemonShopManager:
         db = mw.ankimon_db
         shop_data = db.get_user_data("todays_shop")
         if shop_data:
-            if shop_data.get("technical_machines") and shop_data.get("date") == datetime.now().strftime("%Y-%m-%d"):
+            if shop_data.get("technical_machines") and shop_data.get(
+                "date"
+            ) == datetime.now().strftime("%Y-%m-%d"):
                 return shop_data.get("technical_machines")
 
         tm_pool = self.get_tm_pool()

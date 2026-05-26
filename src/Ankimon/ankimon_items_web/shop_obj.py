@@ -4,6 +4,7 @@ The same QWebEngineView swaps between two screens by changing its URL. No
 window close/open flicker; the dropdown switcher in either screen calls back
 through QWebChannel to swap content in place.
 """
+
 import json
 import random
 from datetime import datetime
@@ -20,8 +21,8 @@ from ..resources import items_path, csv_file_items_cost, csv_file_descriptions
 from ..functions.pokedex_functions import find_details_move
 
 
-SCREEN_ITEMS = 'items'
-SCREEN_ANKIDEX = 'ankidex'
+SCREEN_ITEMS = "items"
+SCREEN_ANKIDEX = "ankidex"
 
 
 class NavBridge(QObject):
@@ -47,19 +48,19 @@ class ItemsBridge(QObject):
         super().__init__()
         self._w = window
 
-    @pyqtSlot(str, bool, result='QVariant')
+    @pyqtSlot(str, bool, result="QVariant")
     def buy(self, item_name, is_tm):
         result = self._w.handle_buy(item_name, bool(is_tm))
         self._w.push_screen_data()
         return result
 
-    @pyqtSlot(result='QVariant')
+    @pyqtSlot(result="QVariant")
     def reroll(self):
         result = self._w.handle_reroll()
         self._w.push_screen_data()
         return result
 
-    @pyqtSlot(str, result='QVariant')
+    @pyqtSlot(str, result="QVariant")
     def useItem(self, item_name):
         result = self._w.handle_use(item_name)
         self._w.push_screen_data()
@@ -108,8 +109,8 @@ class AnkimonItemsWeb(QDialog):
         self.channel = QWebChannel(self.webview)
         self.bridge = ItemsBridge(self)
         self.nav = NavBridge(self)
-        self.channel.registerObject('bridge', self.bridge)
-        self.channel.registerObject('nav', self.nav)
+        self.channel.registerObject("bridge", self.bridge)
+        self.channel.registerObject("nav", self.nav)
         self.webview.page().setWebChannel(self.channel)
 
         self.webview.loadFinished.connect(self._on_load_finished)
@@ -159,6 +160,7 @@ class AnkimonItemsWeb(QDialog):
         # Reuse the existing Ankidex singleton's data getter — keeps the
         # dex query logic in one place.
         from ..singletons import get_ankidex_window
+
         ankidex = get_ankidex_window()
         return ankidex.get_ankidex_data()
 
@@ -167,6 +169,7 @@ class AnkimonItemsWeb(QDialog):
             if state and isinstance(state, dict):
                 for key, val in state.items():
                     mw.settings_obj.set(f"ankidex.{key}", val)
+
         self.webview.page().runJavaScript(
             "if (window.getAnkidexState) window.getAnkidexState();",
             on_state_ready,
@@ -192,7 +195,9 @@ class AnkimonItemsWeb(QDialog):
     # ------------------------------------------------------------------
     def update_ui_data(self):
         data = self.get_inventory_data()
-        js_code = f"if (window.initializeItems) window.initializeItems({json.dumps(data)});"
+        js_code = (
+            f"if (window.initializeItems) window.initializeItems({json.dumps(data)});"
+        )
         self.webview.page().runJavaScript(js_code)
 
     def get_inventory_data(self):
@@ -246,14 +251,16 @@ class AnkimonItemsWeb(QDialog):
                 (shop_entry or {}).get("is_tm")
                 or (owned_entry or {}).get("category_id") == 37
             )
-            items.append(self._serialize_item(
-                name=name,
-                is_tm=is_tm,
-                in_shop=bool(shop_entry),
-                shop_price=(shop_entry or {}).get("price"),
-                item_type=(shop_entry or {}).get("item_type"),
-                owned_quantity=(owned_entry or {}).get("quantity", 0),
-            ))
+            items.append(
+                self._serialize_item(
+                    name=name,
+                    is_tm=is_tm,
+                    in_shop=bool(shop_entry),
+                    shop_price=(shop_entry or {}).get("price"),
+                    item_type=(shop_entry or {}).get("item_type"),
+                    owned_quantity=(owned_entry or {}).get("quantity", 0),
+                )
+            )
 
         return {
             "cash": int(sm.get_callback("trainer.cash") or 0),
@@ -261,7 +268,9 @@ class AnkimonItemsWeb(QDialog):
             "items": items,
         }
 
-    def _serialize_item(self, name, is_tm, in_shop, shop_price, item_type, owned_quantity):
+    def _serialize_item(
+        self, name, is_tm, in_shop, shop_price, item_type, owned_quantity
+    ):
         ui_name = name.replace("-", " ").title()
         entry = {
             "name": name,
@@ -294,8 +303,9 @@ class AnkimonItemsWeb(QDialog):
             entry["image_url"] = QUrl.fromLocalFile(
                 str(items_path / f"{name}.png")
             ).toString()
-            entry["description"] = self._lookup_description(name) \
-                or f"A useful item: {ui_name}"
+            entry["description"] = (
+                self._lookup_description(name) or f"A useful item: {ui_name}"
+            )
 
         return entry
 
@@ -419,15 +429,21 @@ class AnkimonItemsWeb(QDialog):
         sm.set_callback("trainer.cash", int(cash - cost))
 
         from ..pyobj.ankimon_shop import DAILY_ITEMS_POOL
+
         random.seed()
-        sm.todays_daily_items = random.sample(DAILY_ITEMS_POOL, sm.number_of_daily_items)
+        sm.todays_daily_items = random.sample(
+            DAILY_ITEMS_POOL, sm.number_of_daily_items
+        )
         sm.todays_daily_tms = random.sample(sm.get_tm_pool(), sm.number_of_daily_items)
 
-        mw.ankimon_db.set_user_data("todays_shop", {
-            "items": sm.todays_daily_items,
-            "technical_machines": sm.todays_daily_tms,
-            "date": datetime.now().strftime("%Y-%m-%d"),
-        })
+        mw.ankimon_db.set_user_data(
+            "todays_shop",
+            {
+                "items": sm.todays_daily_items,
+                "technical_machines": sm.todays_daily_tms,
+                "date": datetime.now().strftime("%Y-%m-%d"),
+            },
+        )
 
         return {"ok": True, "message": f"Rerolled stock for {cost}¥"}
 
@@ -448,4 +464,3 @@ class AnkimonItemsWeb(QDialog):
             if entry["name"] == item_name:
                 return entry
         return None
-
