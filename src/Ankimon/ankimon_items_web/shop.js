@@ -190,19 +190,24 @@
         }
 
         // Top-right badges. TMs are binary (owned or not), so we surface a
-        // word "OWNED" instead of a redundant "x1" quantity.
+        // word "OWNED" instead of a redundant "x1" quantity — and suppress
+        // it entirely in the Bag view where every visible card is owned.
         const badges = document.createElement('div');
         badges.className = 'shop-card-badges';
         if ((item.owned_quantity || 0) > 0) {
-            const badge = document.createElement('span');
             if (item.is_tm) {
-                badge.className = 'shop-card-badge owned';
-                badge.textContent = 'OWNED';
+                if (state.filter !== 'owned') {
+                    const badge = document.createElement('span');
+                    badge.className = 'shop-card-badge owned';
+                    badge.textContent = 'OWNED';
+                    badges.appendChild(badge);
+                }
             } else {
+                const badge = document.createElement('span');
                 badge.className = 'shop-card-badge qty';
                 badge.textContent = 'x' + item.owned_quantity;
+                badges.appendChild(badge);
             }
-            badges.appendChild(badge);
         }
         card.appendChild(badges);
 
