@@ -463,8 +463,8 @@
   "friendship_label": "Friendship",
   "friendship_tooltip": "Measures the bond between you and your Pokémon.",
   "bff_tooltip": "💖 Best Friend (Highest Friendship)",
-  "evolve_now_button": "✨ Evolve into {evo_name}! ✨",
-  "badge_ready": "✨ Ready to evolve!",
+  "evolve_now_button": "⇈ Evolve into {evo_name}! ⇈",
+  "badge_ready": "⇈ Ready to evolve!",
   "badge_wait_day": "☀️ Ready to evolve during the day",
   "badge_wait_night": "🌙 Ready to evolve at night"
 }

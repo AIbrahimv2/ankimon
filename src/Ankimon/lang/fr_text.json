@@ -463,8 +463,8 @@
   "friendship_label": "Amitié",
   "friendship_tooltip": "Mesure le lien entre vous et votre Pokémon.",
   "bff_tooltip": "💖 Meilleur Ami (Amitié maximale)",
-  "evolve_now_button": "✨ Évoluer en {evo_name} ! ✨",
-  "badge_ready": "✨ Prêt à évoluer !",
+  "evolve_now_button": "⇈ Évoluer en {evo_name} ! ⇈",
+  "badge_ready": "⇈ Prêt à évoluer !",
   "badge_wait_day": "☀️ Prêt à évoluer pendant la journée",
   "badge_wait_night": "🌙 Prêt à évoluer pendant la nuit"
 }

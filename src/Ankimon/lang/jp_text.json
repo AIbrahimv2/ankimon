@@ -463,8 +463,8 @@
   "friendship_label": "なかよし度",
   "friendship_tooltip": "あなたとポケモンの絆の強さです。",
   "bff_tooltip": "💖 最高の相棒 (なかよし度最大)",
-  "evolve_now_button": "✨ {evo_name}に進化させる！ ✨",
-  "badge_ready": "✨ 進化の準備ができました！",
+  "evolve_now_button": "⇈ {evo_name}に進化させる！ ⇈",
+  "badge_ready": "⇈ 進化の準備ができました！",
   "badge_wait_day": "☀️ 昼の間に進化できます",
   "badge_wait_night": "🌙 夜の間に進化できます"
 }

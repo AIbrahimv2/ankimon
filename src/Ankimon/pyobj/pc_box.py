@@ -45,7 +45,7 @@ from ..pyobj.settings import Settings
 from ..functions.friendship_evolution import current_time_label, evolution_readiness
 from ..functions.sprite_functions import get_sprite_path
 from ..utils import load_custom_font, get_tier_by_id, is_alive, format_move_name, format_pokemon_name
-from ..resources import icon_path, items_path, csv_file_items_cost, poke_evo_path, pokemon_tm_learnset_path
+from ..resources import icon_path, items_path, csv_file_items_cost, poke_evo_path, pokemon_tm_learnset_path, addon_dir
 from ..business import calculate_cp_from_dict
 from ..functions.pokedex_functions import find_details_move, get_all_pokemon_moves, format_lore_name, get_pretty_name_for_name, search_pokedex_by_id
 from ..functions.gui_functions import type_icon_path, move_category_path
@@ -648,8 +648,8 @@ class PokemonPC(QDialog):
             button_bg = "#3B4CCA"
             button_border = "#6A73D9"
             hover_color = "#6A73D9"
-            favorite_color = "#B3A125"
-            favorite_hover_color = "#AF8308"
+            favorite_color = "#998A3D"  # Muted antique brass/gold (classy, low-luminance)
+            favorite_hover_color = "#8A7C36"
             input_bg = "#002B5A"  # Slightly lighter than background for input fields
             slot_bg_color = "#002B5A"
         else:
@@ -659,8 +659,8 @@ class PokemonPC(QDialog):
             button_bg = "#3D7DCA"
             button_border = "#003A70"
             hover_color = "#A8D8FF"
-            favorite_color = "#FFDE00"
-            favorite_hover_color = "#FFA600"
+            favorite_color = "#EAD180"  # Soft honey-gold / desaturated sand gold (warm, mild brightness)
+            favorite_hover_color = "#D9BF70"
             input_bg = "#FFFFFF"  # White background for input fields
             slot_bg_color = "#CCE5FF"
 
@@ -1304,7 +1304,13 @@ class PokemonPC(QDialog):
                 if is_bff:
                     heart_badge = QLabel("💖")
                     heart_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-                    heart_badge.setStyleSheet("background: transparent;")
+                    heart_badge.setStyleSheet(
+                        "QLabel {"
+                        "  margin-top: 5px;"
+                        "  margin-left: 5px;"
+                        "  background: transparent;"
+                        "}"
+                    )
                     self.pokemon_grid.addWidget(
                         heart_badge, row, col, 
                         alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
@@ -1312,9 +1318,35 @@ class PokemonPC(QDialog):
                     badge_tooltips.append(self.translator.translate("bff_tooltip"))
 
                 if readiness["ready"] and (readiness["method"] == "level" or friendship_time_enabled):
-                    evo_badge = QLabel("✨")
+                    evo_badge = QLabel()
                     evo_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-                    evo_badge.setStyleSheet("background: transparent;")
+                    evo_badge.setFixedSize(23, 23) # Slightly larger size to accommodate margins cleanly
+                    
+                    # Load the generated high-quality PNG asset
+                    badge_path = addon_dir / "addon_sprites" / "evolution_indicator.png"
+                    if badge_path.exists():
+                        pixmap = QPixmap(str(badge_path))
+                        scaled_pixmap = pixmap.scaled(
+                            18, 18, 
+                            Qt.AspectRatioMode.KeepAspectRatio, 
+                            Qt.TransformationMode.SmoothTransformation
+                        )
+                        evo_badge.setPixmap(scaled_pixmap)
+                        evo_badge.setStyleSheet("margin-top: 2px; margin-right: 1px; background: transparent;")
+                    else:
+                        # Fallback to plain text ⇈ if asset is not found
+                        evo_badge.setText("⇈")
+                        evo_badge.setStyleSheet(
+                            "QLabel {"
+                            "  color: #3b82f6;"
+                            "  font-weight: bold;"
+                            "  margin-top: 2px;"
+                            "  margin-right: 1px;"
+                            "  background: transparent;"
+                            "}"
+                        )
+                        
+                    evo_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.pokemon_grid.addWidget(
                         evo_badge, row, col,
                         alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight
@@ -1330,7 +1362,13 @@ class PokemonPC(QDialog):
                     wait_icon = "🌙" if readiness["required_time"] == "night" else "☀️"
                     wait_badge = QLabel(wait_icon)
                     wait_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-                    wait_badge.setStyleSheet("background: transparent;")
+                    wait_badge.setStyleSheet(
+                        "QLabel {"
+                        "  margin-top: 5px;"
+                        "  margin-right: 5px;"
+                        "  background: transparent;"
+                        "}"
+                    )
                     self.pokemon_grid.addWidget(
                         wait_badge, row, col,
                         alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight
