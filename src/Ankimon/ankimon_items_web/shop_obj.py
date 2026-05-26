@@ -175,6 +175,7 @@ class AnkimonItemsWeb(QDialog):
                     mw.settings_obj.set(f"ankidex.{key}", val)
             if callback:
                 callback()
+
         self.webview.page().runJavaScript(
             "if (window.getAnkidexState) window.getAnkidexState();",
             on_state_ready,
@@ -431,11 +432,14 @@ class AnkimonItemsWeb(QDialog):
         new_tms = random.sample(sm.get_tm_pool(), sm.number_of_daily_items)
 
         try:
-            mw.ankimon_db.set_user_data("todays_shop", {
-                "items": new_items,
-                "technical_machines": new_tms,
-                "date": datetime.now().strftime("%Y-%m-%d"),
-            })
+            mw.ankimon_db.set_user_data(
+                "todays_shop",
+                {
+                    "items": new_items,
+                    "technical_machines": new_tms,
+                    "date": datetime.now().strftime("%Y-%m-%d"),
+                },
+            )
             sm.todays_daily_items = new_items
             sm.todays_daily_tms = new_tms
             sm.set_callback("trainer.cash", int(cash - cost))
