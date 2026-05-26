@@ -56,7 +56,7 @@ body {
     width: 100vw;
     height: 100vh;
     background: var(--bg-dark);
-    border-radius: 12px;
+    border-radius: 0;
     overflow: hidden;
     box-shadow: 0 20px 50px rgba(0,0,0,0.5);
 }
@@ -1380,29 +1380,7 @@ body {
     white-space: nowrap;
 }
 
-/* 3-State Indicators */
-.pokemon-card .caught-indicator {
-    position: absolute;
-    bottom: 12px;
-    right: 12px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent-blue);
-    box-shadow: 0 0 5px var(--accent-blue);
-    display: none;
-}
 
-.pokemon-card.state-caught .caught-indicator {
-    display: block;
-}
-
-.pokemon-card.state-seen .caught-indicator {
-    display: block;
-    background: rgba(255, 255, 255, 0.2);
-    box-shadow: none;
-    opacity: 0.5;
-}
 
 /* Abilities */
 .abilities-list {
