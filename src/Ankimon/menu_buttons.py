@@ -267,6 +267,7 @@ def create_menu_actions(
     from .reloader import restart_ankimon
     restart_action = QAction("Restart Ankimon", mw)
     restart_action.setMenuRole(QAction.MenuRole.NoRole)
+    restart_action.setShortcut(QKeySequence("Ctrl+Shift+R"))
     restart_action.triggered.connect(restart_ankimon)
     mw.pokemenu.addAction(restart_action)
 
