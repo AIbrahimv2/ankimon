@@ -123,22 +123,26 @@ class AnkimonItemsWeb(QDialog):
     # Screen switching
     # ------------------------------------------------------------------
     def load_screen(self, screen):
-        # Save Ankidex prefs before navigating away (preserves the in-page
-        # state the user toggled — view mode, sort, etc.)
-        if self.current_screen == SCREEN_ANKIDEX and screen != SCREEN_ANKIDEX:
-            self._save_ankidex_prefs()
+        def do_load():
+            self.current_screen = screen
+            if screen == SCREEN_ITEMS:
+                path = self.addon_dir / "ankimon_items_web" / "shop.html"
+                title = "Ankimon — Items"
+            elif screen == SCREEN_ANKIDEX:
+                path = self.addon_dir / "ankidex" / "ankidex.html"
+                title = "Ankimon — Ankidex"
+            else:
+                return
+            self.setWindowTitle(title)
+            self.webview.setUrl(QUrl.fromLocalFile(path.as_posix()))
 
-        self.current_screen = screen
-        if screen == SCREEN_ITEMS:
-            path = self.addon_dir / "ankimon_items_web" / "shop.html"
-            title = "Ankimon — Items"
-        elif screen == SCREEN_ANKIDEX:
-            path = self.addon_dir / "ankidex" / "ankidex.html"
-            title = "Ankimon — Ankidex"
+        # Save Ankidex prefs before navigating away — defer the URL change
+        # until the async getAnkidexState() callback fires, otherwise the JS
+        # context tears down before prefs are read.
+        if self.current_screen == SCREEN_ANKIDEX and screen != SCREEN_ANKIDEX:
+            self._save_ankidex_prefs(callback=do_load)
         else:
-            return
-        self.setWindowTitle(title)
-        self.webview.setUrl(QUrl.fromLocalFile(path.as_posix()))
+            do_load()
 
     def _on_load_finished(self, ok):
         if not ok:
@@ -164,12 +168,13 @@ class AnkimonItemsWeb(QDialog):
         ankidex = get_ankidex_window()
         return ankidex.get_ankidex_data()
 
-    def _save_ankidex_prefs(self):
+    def _save_ankidex_prefs(self, callback=None):
         def on_state_ready(state):
             if state and isinstance(state, dict):
                 for key, val in state.items():
                     mw.settings_obj.set(f"ankidex.{key}", val)
-
+            if callback:
+                callback()
         self.webview.page().runJavaScript(
             "if (window.getAnkidexState) window.getAnkidexState();",
             on_state_ready,
@@ -189,16 +194,6 @@ class AnkimonItemsWeb(QDialog):
     # Back-compat alias for the bridge methods that still call update_ui_data.
     def update_ui_data(self):
         self.push_screen_data()
-
-    # ------------------------------------------------------------------
-    # Data push (Python → JS)
-    # ------------------------------------------------------------------
-    def update_ui_data(self):
-        data = self.get_inventory_data()
-        js_code = (
-            f"if (window.initializeItems) window.initializeItems({json.dumps(data)});"
-        )
-        self.webview.page().runJavaScript(js_code)
 
     def get_inventory_data(self):
         sm = self.shop_manager
@@ -426,24 +421,26 @@ class AnkimonItemsWeb(QDialog):
         if cash < cost:
             return {"ok": False, "message": "Not enough money to reroll."}
 
-        sm.set_callback("trainer.cash", int(cash - cost))
-
+        # Compute new stock + write to DB first; only deduct cash once the
+        # write succeeds. Otherwise a DB failure could swallow the reroll
+        # cost with nothing to show for it.
         from ..pyobj.ankimon_shop import DAILY_ITEMS_POOL
 
         random.seed()
-        sm.todays_daily_items = random.sample(
-            DAILY_ITEMS_POOL, sm.number_of_daily_items
-        )
-        sm.todays_daily_tms = random.sample(sm.get_tm_pool(), sm.number_of_daily_items)
+        new_items = random.sample(DAILY_ITEMS_POOL, sm.number_of_daily_items)
+        new_tms = random.sample(sm.get_tm_pool(), sm.number_of_daily_items)
 
-        mw.ankimon_db.set_user_data(
-            "todays_shop",
-            {
-                "items": sm.todays_daily_items,
-                "technical_machines": sm.todays_daily_tms,
+        try:
+            mw.ankimon_db.set_user_data("todays_shop", {
+                "items": new_items,
+                "technical_machines": new_tms,
                 "date": datetime.now().strftime("%Y-%m-%d"),
-            },
-        )
+            })
+            sm.todays_daily_items = new_items
+            sm.todays_daily_tms = new_tms
+            sm.set_callback("trainer.cash", int(cash - cost))
+        except Exception as e:
+            return {"ok": False, "message": f"Reroll failed: {e}"}
 
         return {"ok": True, "message": f"Rerolled stock for {cost}¥"}
 
