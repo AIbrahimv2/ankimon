@@ -108,16 +108,28 @@ GROUPS = [
         "label": "Generations",
         "settings": [
             "Active Region",
-            "Generation 1",
-            "Generation 2",
-            "Generation 3",
-            "Generation 4",
-            "Generation 5",
-            "Generation 6",
-            "Generation 7",
-            "Generation 8",
-            "Generation 9",
         ],
+        # The 9 per-generation booleans render as a single chip row instead of
+        # 9 separate Enabled/Disabled rows — much faster to scan and toggle.
+        "chip_group": {
+            "label": "Enabled Generations",
+            "description": (
+                "Toggle which generations can spawn. Disabled gens are "
+                "excluded from the encounter pool entirely; the Active Region "
+                "only biases spawns within the enabled set."
+            ),
+            "keys": [
+                ("misc.gen1", "Gen 1"),
+                ("misc.gen2", "Gen 2"),
+                ("misc.gen3", "Gen 3"),
+                ("misc.gen4", "Gen 4"),
+                ("misc.gen5", "Gen 5"),
+                ("misc.gen6", "Gen 6"),
+                ("misc.gen7", "Gen 7"),
+                ("misc.gen8", "Gen 8"),
+                ("misc.gen9", "Gen 9"),
+            ],
+        },
     },
 ]
 

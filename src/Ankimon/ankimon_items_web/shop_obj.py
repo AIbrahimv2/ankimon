@@ -17,7 +17,7 @@ from PyQt6.QtWebChannel import QWebChannel
 
 import csv
 
-from ..utils import give_item
+from ..utils import give_item, is_dev_mode
 from ..resources import items_path, csv_file_items_cost, csv_file_descriptions
 from ..functions.pokedex_functions import find_details_move
 
@@ -531,15 +531,18 @@ class AnkimonItemsWeb(QDialog):
 
         groups = []
         for group_def in settings_schema.GROUPS:
+            settings = self._serialize_settings_list(
+                group_def.get("settings", []), key_by_friendly,
+                name_map, desc_map, config,
+            )
+            # Append a chip-group as one composite setting after the regular
+            # settings — keeps it in the same scroll section.
+            chip_def = group_def.get("chip_group")
+            if chip_def:
+                settings.append(self._serialize_chip_group(chip_def, config))
             group = {
                 "label": group_def["label"],
-                "settings": self._serialize_settings_list(
-                    group_def.get("settings", []),
-                    key_by_friendly,
-                    name_map,
-                    desc_map,
-                    config,
-                ),
+                "settings": settings,
                 "subgroups": [],
             }
             for sub in group_def.get("subgroups", []):
@@ -556,7 +559,24 @@ class AnkimonItemsWeb(QDialog):
                     }
                 )
             groups.append(group)
-        return {"groups": groups}
+        return {"groups": groups, "dev_mode": bool(is_dev_mode())}
+
+    @staticmethod
+    def _serialize_chip_group(chip_def, config):
+        chips = []
+        for key, chip_label in chip_def["keys"]:
+            chips.append({
+                "key": key,
+                "label": chip_label,
+                "value": bool(config.get(key, False)),
+            })
+        return {
+            "key": "__chips__" + chip_def["label"].lower().replace(" ", "_"),
+            "label": chip_def["label"],
+            "description": chip_def.get("description", ""),
+            "type": "chips",
+            "chips": chips,
+        }
 
     def _serialize_settings_list(
         self, friendly_names, key_by_friendly, name_map, desc_map, config

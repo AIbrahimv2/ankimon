@@ -123,11 +123,14 @@
         const label = document.createElement('span');
         label.className = 'setting-label';
         label.textContent = setting.label;
-        const key = document.createElement('span');
-        key.className = 'setting-key';
-        key.textContent = setting.key;
         info.appendChild(label);
-        info.appendChild(key);
+        // Config key only surfaces in dev mode — irrelevant noise otherwise.
+        if (state.data && state.data.dev_mode) {
+            const key = document.createElement('span');
+            key.className = 'setting-key';
+            key.textContent = setting.key;
+            info.appendChild(key);
+        }
         if (setting.description) {
             const desc = document.createElement('div');
             desc.className = 'setting-description';
@@ -154,9 +157,49 @@
             case 'int':
             case 'float':
                 return buildNumberInput(setting);
+            case 'chips':
+                return buildChipGroup(setting);
             default:
                 return buildTextInput(setting);
         }
+    }
+
+    function buildChipGroup(setting) {
+        const wrap = document.createElement('div');
+        wrap.className = 'setting-chips';
+        (setting.chips || []).forEach((chip) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'setting-chip';
+            btn.dataset.key = chip.key;
+            const current = (Object.prototype.hasOwnProperty.call(state.edits, chip.key))
+                ? state.edits[chip.key] : chip.value;
+            if (current) btn.classList.add('active');
+            btn.textContent = chip.label;
+            btn.addEventListener('click', () => {
+                const now = !btn.classList.contains('active');
+                // Manually track edits since chips don't go through setEdit's
+                // findSetting() lookup (each chip's "setting" is a sub-entry).
+                if (chip.value === now) {
+                    delete state.edits[chip.key];
+                } else {
+                    state.edits[chip.key] = now;
+                }
+                btn.classList.toggle('active', now);
+                updateDirtyUI();
+                markChipRowDirty(setting.key);
+            });
+            wrap.appendChild(btn);
+        });
+        return wrap;
+    }
+
+    function markChipRowDirty(rowKey) {
+        const row = document.querySelector(`.setting-row[data-key="${cssEscape(rowKey)}"]`);
+        if (!row) return;
+        const anyDirty = Array.from(row.querySelectorAll('.setting-chip')).some((c) =>
+            Object.prototype.hasOwnProperty.call(state.edits, c.dataset.key));
+        row.classList.toggle('dirty', anyDirty);
     }
 
     function buildToggle(setting) {
