@@ -38,6 +38,7 @@
     };
 
     let bridge = null;
+    let nav = null;
 
     function initChannel(callback) {
         if (typeof qt === 'undefined' || !qt.webChannelTransport) {
@@ -47,7 +48,9 @@
         }
         new QWebChannel(qt.webChannelTransport, function (channel) {
             bridge = channel.objects.bridge;
+            nav = channel.objects && channel.objects.nav;
             window.bridge = bridge;
+            window.nav = nav;
             callback(bridge);
         });
     }
@@ -110,7 +113,6 @@
             return;
         }
         empty.classList.add('hidden');
-
         // Keyed DOM Reconciliation to completely eliminate visual flicker:
         // Instead of destroying and rebuilding all card DOM elements (which
         // destroys <img> instances and triggers asynchronous image-decoding layout passes),
@@ -301,6 +303,12 @@
         // Update sprite src if different (preserves img DOM instance to avoid flickering)
         const img = card.querySelector('.shop-card-sprite img');
         if (img && img.getAttribute('src') !== (item.image_url || '')) {
+            img.style.opacity = '1';
+            img.onerror = () => {
+                img.onerror = () => { img.style.opacity = '0.25'; };
+                img.src = '../user_files/sprites/front_default/0.png';
+                img.style.opacity = '0.25';
+            };
             img.src = item.image_url || '';
         }
 
@@ -375,7 +383,11 @@
         img.decoding = 'sync';
         img.src = item.image_url || '';
         img.alt = item.ui_name || item.name;
-        img.onerror = () => { img.style.opacity = '0.25'; };
+        img.onerror = () => {
+            img.onerror = () => { img.style.opacity = '0.25'; };
+            img.src = '../user_files/sprites/front_default/0.png';
+            img.style.opacity = '0.25';
+        };
         spriteWrap.appendChild(img);
         card.appendChild(spriteWrap);
 
@@ -480,8 +492,14 @@
         }
 
         const sprite = document.getElementById('det-sprite');
+        sprite.style.opacity = '1';
         sprite.src = item.image_url || '';
         sprite.alt = item.ui_name || item.name;
+        sprite.onerror = () => {
+            sprite.onerror = null;
+            sprite.src = '../user_files/sprites/front_default/0.png';
+            sprite.style.opacity = '0.25';
+        };
 
         const glow = document.getElementById('det-glow');
         const glowColor = item.is_tm && item.move_type
@@ -1042,8 +1060,10 @@
                 const screen = item.dataset.screen;
                 closeMenu();
                 if (screen === 'items') return;
-                if (!bridge) return;
-                if (screen === 'ankidex' && bridge.openAnkidex) bridge.openAnkidex();
+                const router = (window.nav) || bridge;
+                if (!router) return;
+                if (screen === 'ankidex' && router.openAnkidex) router.openAnkidex();
+                else if (screen === 'settings' && router.openSettings) router.openSettings();
             });
         });
     }
