@@ -399,7 +399,9 @@ class PokemonShopManager:
         buy_font.setPointSize(8)
         buy_button.setFont(buy_font)
         buy_button.setFixedHeight(35)
-        buy_button.setFixedWidth(buy_button.fontMetrics().boundingRect(button_text).width() + 20)
+        buy_button.setFixedWidth(
+            buy_button.fontMetrics().boundingRect(button_text).width() + 20
+        )
 
         if is_tm and owned_quantity > 0:
             buy_button.setEnabled(False)
@@ -447,7 +449,9 @@ class PokemonShopManager:
         db = mw.ankimon_db
         shop_data = db.get_user_data("todays_shop")
         if shop_data:
-            if shop_data.get("items") and shop_data.get("date") == datetime.now().strftime("%Y-%m-%d"):
+            if shop_data.get("items") and shop_data.get(
+                "date"
+            ) == datetime.now().strftime("%Y-%m-%d"):
                 return shop_data.get("items")
 
         seed = datetime.now().strftime("%Y-%m-%d")
@@ -459,7 +463,9 @@ class PokemonShopManager:
         db = mw.ankimon_db
         shop_data = db.get_user_data("todays_shop")
         if shop_data:
-            if shop_data.get("technical_machines") and shop_data.get("date") == datetime.now().strftime("%Y-%m-%d"):
+            if shop_data.get("technical_machines") and shop_data.get(
+                "date"
+            ) == datetime.now().strftime("%Y-%m-%d"):
                 return shop_data.get("technical_machines")
 
         tm_pool = self.get_tm_pool()
@@ -468,6 +474,12 @@ class PokemonShopManager:
         return random.sample(tm_pool, self.number_of_daily_items)
 
     def get_tm_pool(self) -> list[str]:
+        # Cached: pokemon_tm_learnset.json is immutable at runtime, and this
+        # is on the hot path of the Items window's data fetch.
+        cached = getattr(self, "_tm_pool_cache", None)
+        if cached is not None:
+            return cached
+
         with open(pokemon_tm_learnset_path, "r") as f:
             pokemon_tm_learnset = json.load(f)
 
@@ -489,6 +501,7 @@ class PokemonShopManager:
         # Ensure deterministic order
         all_tms.sort(key=lambda tm: tm["name"])
 
+        self._tm_pool_cache = all_tms
         return all_tms
 
     def buy_item(self, item, item_type: Union[str, None] = None):

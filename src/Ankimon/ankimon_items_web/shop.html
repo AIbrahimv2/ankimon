@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ankimon Items</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Inline dark bg + skeleton placeholders so the user sees structure
+         instead of empty space while external CSS + initial data load.
+         Real renderGrid() clears the skeleton on first push from Python. -->
+    <style>
+        html { background: #0d1117; }
+        .skeleton {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 14px;
+            opacity: 0.5;
+            animation: skeleton-pulse 1.5s ease-in-out infinite;
+        }
+        .skeleton-card { height: 220px; }
+        @keyframes skeleton-pulse {
+            0%, 100% { opacity: 0.35; }
+            50%      { opacity: 0.6; }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="shop.css">
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+<body class="dark-mode">
+    <div class="app-container">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div id="nav-switcher" class="nav-switcher">
+                    <button id="nav-trigger" class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+                        <img src="../user_files/sprites/items/hyper-potion.png" class="app-logo icon-item-sprite" alt="">
+                        <h1>ITEMS</h1>
+                        <span class="nav-chevron">▾</span>
+                    </button>
+                    <div id="nav-menu" class="nav-menu hidden" role="menu">
+                        <button class="nav-menu-item active" role="menuitem" data-screen="items">
+                            <span class="nav-menu-icon"><img src="../user_files/sprites/items/hyper-potion.png" class="icon-item-sprite" alt=""></span>
+                            <div class="nav-menu-text">
+                                <span class="nav-menu-title">Items</span>
+                                <span class="nav-menu-desc">Your inventory and today's Mart</span>
+                            </div>
+                        </button>
+                        <button class="nav-menu-item" role="menuitem" data-screen="ankidex">
+                            <span class="nav-menu-icon"><img src="../user_files/sprites/items/poke-ball.png" alt=""></span>
+                            <div class="nav-menu-text">
+                                <span class="nav-menu-title">Ankidex</span>
+                                <span class="nav-menu-desc">Browse caught Pokémon</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-group">
+                    <label>View</label>
+                    <button class="nav-item active" data-filter="in_shop">
+                        <span class="nav-icon" style="color: var(--accent-red)">●</span>In Shop Today
+                        <span class="nav-count" id="count-in-shop">0</span>
+                    </button>
+                    <button class="nav-item" data-filter="owned">
+                        <span class="nav-icon" style="color: var(--accent-green)">●</span>In Your Bag
+                        <span class="nav-count" id="count-owned">0</span>
+                    </button>
+                </div>
+
+                <div class="nav-group">
+                    <label>Category</label>
+                    <button class="nav-item active" data-category="all">Any</button>
+                    <button class="nav-item" data-category="tm">TMs</button>
+                    <button class="nav-item" data-category="heal">Heal Items</button>
+                    <button class="nav-item" data-category="pokeball">Poké Balls</button>
+                    <button class="nav-item" data-category="evolution">Evolution</button>
+                    <button class="nav-item" data-category="fossil">Fossils</button>
+                </div>
+
+                <div class="nav-group">
+                    <label>Actions</label>
+                    <button id="reroll-btn" class="nav-item nav-action" title="Reroll today's stock">
+                        <svg class="icon-reroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 12a9 9 0 1 1-3-6.7"/>
+                            <path d="M21 3v5h-5"/>
+                        </svg>
+                        <span style="flex: 1">Reroll Stock</span>
+                        <span id="reroll-cost-label" class="reroll-cost-pill">100¥</span>
+                    </button>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="shop-currency-card">
+                    <div class="currency-label-row">
+                        <span class="shop-currency-label">Wallet</span>
+                        <span class="currency-icon">💰</span>
+                    </div>
+                    <div id="currency-value" class="shop-currency-value">0¥</div>
+                    <div class="currency-sub">Trainer Funds</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="search-container">
+                    <div class="search-input-wrapper">
+                        <input type="text" id="shop-search" placeholder="Search items, TMs, moves... (Press /)">
+                        <button id="clear-search" class="clear-btn hidden" title="Clear search">×</button>
+                    </div>
+                </div>
+
+                <div class="top-actions">
+                    <div class="shop-stat-chip">
+                        <span class="shop-stat-chip-label">Shop</span>
+                        <span id="stat-shop" class="shop-stat-chip-value">0</span>
+                    </div>
+                    <div class="shop-stat-chip">
+                        <span class="shop-stat-chip-label">Owned</span>
+                        <span id="stat-owned" class="shop-stat-chip-value">0</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-scroll" style="padding: 20px 24px;">
+                <div id="items-grid" class="pokemon-grid shop-grid">
+                    <!-- Skeleton placeholders — cleared by render() on first
+                         push from Python. -->
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                </div>
+                <div id="empty-state" class="shop-empty hidden">No items match your filters.</div>
+            </div>
+        </main>
+
+        <!-- Detail Panel -->
+        <section class="detail-panel" id="detail-panel">
+            <button id="close-detail" class="close-btn detail-close-global hidden" title="Close panel">✕</button>
+
+            <div id="detail-placeholder" class="detail-placeholder">
+                <div class="placeholder-icon"></div>
+                <h3>Item Inspector</h3>
+                <p>Pick a card to see its effect, price, and what you can do with it.</p>
+            </div>
+
+            <div id="detail-content" class="detail-content hidden">
+                <div class="detail-body">
+                    <div class="detail-hero-scroll">
+                        <div id="det-glow" class="detail-glow"></div>
+                        <span id="det-id" class="det-id-badge">ITEM</span>
+                        <h2 id="det-name" class="det-name-main">Item Name</h2>
+
+                        <div class="det-status-row" id="det-status-row"></div>
+
+                        <div class="detail-sprite">
+                            <img id="det-sprite" src="" alt="">
+                        </div>
+                    </div>
+
+                    <div class="det-section">
+                        <div class="det-section-label">Effect</div>
+                        <p id="det-description" class="dex-entry-text"></p>
+                    </div>
+
+                    <div id="det-move-section" class="det-section hidden">
+                        <div class="det-section-label">Move Profile</div>
+                        <div id="det-move-stats" class="stats-grid"></div>
+                    </div>
+
+                    <div class="det-section">
+                        <div class="det-section-label">Actions</div>
+                        <div id="det-actions" class="actions-grid"></div>
+                        <div id="det-hint" class="affordability-hint"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div id="toast" class="shop-toast"></div>
+
+    <!-- Confirmation modal -->
+    <div id="confirm-modal" class="confirm-modal hidden" role="dialog" aria-modal="true">
+        <div class="confirm-backdrop"></div>
+        <div class="confirm-card">
+            <div class="confirm-icon">
+                <svg class="icon-reroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 12a9 9 0 1 1-3-6.7"/>
+                    <path d="M21 3v5h-5"/>
+                </svg>
+            </div>
+            <h3 id="confirm-title" class="confirm-title">Reroll Stock?</h3>
+            <p id="confirm-body" class="confirm-body">
+                This will spend <span id="confirm-cost" class="confirm-cost">100¥</span>
+                and replace today's items <em>and</em> TMs with a fresh roll.
+            </p>
+            <div id="confirm-balance" class="confirm-balance">
+                <span class="confirm-balance-label">Balance after</span>
+                <span id="confirm-balance-value" class="confirm-balance-value">0¥</span>
+            </div>
+            <div class="confirm-actions">
+                <button id="confirm-cancel" class="confirm-btn cancel">Cancel</button>
+                <button id="confirm-ok" class="confirm-btn primary">Confirm Reroll</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="shop.js"></script>
+</body>
+</html>
