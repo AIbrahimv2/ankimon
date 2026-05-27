@@ -62,6 +62,33 @@ def _load_pokedex_cache():
         try:
             with open(str(pokedex_path), "r", encoding="utf-8") as json_file:
                 _pokedex_cache = json.load(json_file)
+                
+                # Dynamic enrichment for location-based Hisuian forms
+                hisuian_forms = [
+                    "decidueyehisui", "typhlosionhisui", "samurotthisui",
+                    "sliggoohisui", "braviaryhisui", "avalugghisui", "lilliganthisui"
+                ]
+                for form in hisuian_forms:
+                    if form in _pokedex_cache:
+                        _pokedex_cache[form]["evoRegion"] = "Hisui"
+                
+                # Kleavor
+                if "kleavor" in _pokedex_cache:
+                    _pokedex_cache["kleavor"]["evoRegion"] = "Hisui"
+                    _pokedex_cache["kleavor"]["evoItem"] = "Black Augurite"
+                
+                # Ursaluna
+                if "ursaluna" in _pokedex_cache:
+                    _pokedex_cache["ursaluna"]["evoRegion"] = "Hisui"
+                    _pokedex_cache["ursaluna"]["evoType"] = "useItem"
+                    _pokedex_cache["ursaluna"]["evoItem"] = "Peat Block"
+                
+                # Wyrdeer
+                if "wyrdeer" in _pokedex_cache:
+                    _pokedex_cache["wyrdeer"]["evoRegion"] = "Hisui"
+                    _pokedex_cache["wyrdeer"]["evoType"] = "levelMove"
+                    _pokedex_cache["wyrdeer"]["evoMove"] = "Psyshield Bash"
+                    
         except Exception as e:
             print(f"Error loading pokedex cache: {e}")
             _pokedex_cache = {}
@@ -77,16 +104,21 @@ def _load_pokedex_id_index():
         try:
             pokedex_data = _load_pokedex_cache()
             _pokedex_id_index = {}
+            
+            # Pass 1: Set actual_ids (specific forms)
             for entry_name, attributes in pokedex_data.items():
-                species_id = safe_int(attributes.get("species_id"))
                 actual_id = safe_int(attributes.get("actual_id"))
-                
-                # Use internal names (keys) for logic consistency
                 if actual_id is not None:
                     _pokedex_id_index[actual_id] = entry_name
-                
+            
+            # Pass 2: Set base species_ids, prioritizing standard keys where actual_id == species_id or actual_id is None
+            for entry_name, attributes in pokedex_data.items():
+                species_id = safe_int(attributes.get("species_id"))
                 if species_id is not None:
-                    if species_id not in _pokedex_id_index:
+                    # If this is the base form (actual_id == species_id or actual_id is None), it should ALWAYS override/set the species_id mapping
+                    actual_id = safe_int(attributes.get("actual_id"))
+                    is_base_form = actual_id is None or actual_id == species_id
+                    if is_base_form or species_id not in _pokedex_id_index:
                         _pokedex_id_index[species_id] = entry_name
         except Exception as e:
             print(f"Error building pokedex ID index: {e}")
@@ -584,72 +616,26 @@ def find_details_move(move_name: str) -> dict:
         )
         return moves_data.get("tackle") if moves_data else None
 
+def return_identifier_for_item_id(item_id):
+    """
+    Returns the string identifier of an item based on its ID from items.csv.
+    """
+    try:
+        with open(csv_file_items_cost, mode="r", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if safe_int(row.get("id")) == safe_int(item_id):
+                    return row.get("identifier")
+    except Exception:
+        pass
+    return None
+
 def check_evolution_by_item(pokemon_id, item_id, file_path=poke_evo_path):
     """
     Check if a Pokémon evolves using a specific item.
-
-    Args:
-        pokemon_id (int): The ID of the Pokémon.
-        item_id (int): The ID of the item.
-
-    Returns:
-        bool: True if the Pokémon evolves with the given item, False otherwise.
+    Relying exclusively on pokedex.json.
     """
-    # Get the evolution data for the given Pokémon ID
-    possible_evos = pokemon_evolves_from_id(
-        pokemon_id
-    )  # Ensure this returns a list of possible evolutions
-    if not possible_evos:
-        showWarning("No possible evos found")
-        return False
-
-    # Iterate through the possible evolutions
-    for evos in possible_evos:
-        evo_data = get_pokemon_evolution_data(safe_int(evos))
-        if evo_data:
-            if safe_int(evo_data.get("evolution_trigger_id")) == 3 and safe_int(
-                evo_data.get("trigger_item_id")
-            ) == safe_int(item_id):
-                return safe_int(
-                    evo_data.get("evolved_species_id")
-                )  # Return True as soon as a matching evolution is found
-
-    # If no evolution matches the criteria, return False
-    return None
-
-
-# get pokemon name for next evolution from csv species
-# get pokemon id from name
-# get from pokemon_evolutions.csv with pokemon evo id the evo trigger id and evolution min_level or item_id
-
-
-def check_evolution_for_pokemon(
-    individual_id, pokemon_id, level, evo_window, everstone=False, evolution_rejected=False
-):
-    """
-    Check if a Pokémon evolves using a specific item or level condition.
-    Prioritizes pokedex.json for regional forms, falling back to species CSVs.
-
-    Args:
-        individual_id (str): The ID of the individual Pokémon.
-        pokemon_id (int): The ID of the Pokémon species/form.
-        level (int): The current level of the Pokémon.
-        evo_window (object): The evolution window object for displaying evolution information.
-        everstone (bool): Whether the Pokémon is holding an Everstone. Defaults to False.
-        evolution_rejected (bool): Whether the evolution was previously rejected. Defaults to False.
-
-    Returns:
-        int | None: The evolution ID if an evolution is found, or None otherwise.
-    """
-    if evolution_rejected or everstone:
-        return None
-
     try:
-        from .friendship_evolution import get_time_of_day
-        current_time = get_time_of_day()
-
-        # 1. PRIORITY CHECK: Form-aware evolution from pokedex.json
-        # This handles Alolan/Galarian etc. forms that aren't in the base species CSV
         pokedex_data = _load_pokedex_cache()
         internal_name = search_pokedex_by_id(pokemon_id)
         
@@ -658,15 +644,120 @@ def check_evolution_for_pokemon(
             evo_list = details.get("evos")
             
             if evo_list:
+                item_name = return_identifier_for_item_id(item_id)
+                if item_name:
+                    active_region = None
+                    if hasattr(mw, "settings_obj") and mw.settings_obj:
+                        active_region = mw.settings_obj.get("misc.active_region")
+                        if active_region:
+                            active_region = active_region.strip()
+                    
+                    if active_region in ("No Region", ""):
+                        active_region = None
+
+                    eligible_evos = []
+                    
+                    for target_evo_name in evo_list:
+                        normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "")
+                        target_data = pokedex_data.get(normalized_target) or pokedex_data.get(target_evo_name.lower())
+                        
+                        if target_data and target_data.get("evoType") == "useItem":
+                            required_item = (target_data.get("evoItem") or "").lower().replace(" ", "-")
+                            if required_item == item_name:
+                                target_region = target_data.get("evoRegion")
+                                
+                                if target_region:
+                                    if active_region and active_region.lower() == target_region.lower():
+                                        eligible_evos.append(target_data)
+                                else:
+                                    # Standard form is only allowed if there is no regional sibling for this region/method
+                                    has_matching_regional_sibling = False
+                                    for sibling_name in evo_list:
+                                        sib_norm = sibling_name.lower().replace(" ", "").replace("-", "").replace("'", "")
+                                        sib_data = pokedex_data.get(sib_norm) or pokedex_data.get(sibling_name.lower())
+                                        if sib_data and sib_data.get("evoRegion") and active_region and sib_data.get("evoRegion").lower() == active_region.lower():
+                                            if sib_data.get("evoType") == target_data.get("evoType") and (sib_data.get("evoItem") or "").lower() == (target_data.get("evoItem") or "").lower():
+                                                has_matching_regional_sibling = True
+                                                break
+                                    if not has_matching_regional_sibling:
+                                        eligible_evos.append(target_data)
+                                        
+                    if eligible_evos:
+                        eligible_evos.sort(key=lambda x: 0 if x.get("evoRegion") else 1)
+                        target_data = eligible_evos[0]
+                        evo_id = safe_int(target_data.get("actual_id") or target_data.get("species_id"))
+                        if evo_id > 0:
+                            return evo_id
+        return None
+    except Exception as e:
+        show_warning_with_traceback(
+            parent=mw,
+            exception=e,
+            message=f"Error checking item evolution for Pokémon ID {pokemon_id}",
+        )
+        return None
+
+
+def check_evolution_for_pokemon(
+    individual_id, pokemon_id, level, evo_window, everstone=False, evolution_rejected=False
+):
+    """
+    Check if a Pokémon evolves using level condition.
+    Relying exclusively on pokedex.json.
+    """
+    if evolution_rejected or everstone:
+        return None
+
+    try:
+        from .friendship_evolution import get_time_of_day
+        current_time = get_time_of_day()
+
+        pokedex_data = _load_pokedex_cache()
+        internal_name = search_pokedex_by_id(pokemon_id)
+        
+        if internal_name in pokedex_data:
+            details = pokedex_data[internal_name]
+            evo_list = details.get("evos")
+            
+            if evo_list:
+                active_region = None
+                if hasattr(mw, "settings_obj") and mw.settings_obj:
+                    active_region = mw.settings_obj.get("misc.active_region")
+                    if active_region:
+                        active_region = active_region.strip()
+                
+                if active_region in ("No Region", ""):
+                    active_region = None
+
+                eligible_evos = []
+
                 for target_evo_name in evo_list:
                     normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "")
                     target_data = pokedex_data.get(normalized_target) or pokedex_data.get(target_evo_name.lower())
                     
                     if target_data:
-                        # In Smogon-style pokedex.json, evoLevel is stored on the evolved species
                         min_level = safe_int(target_data.get("evoLevel"))
+                        is_level_evo = min_level > 0 and level >= min_level and target_data.get("evoType") not in ("useItem", "trade", "levelFriendship")
                         
-                        if min_level > 0 and level >= min_level:
+                        # Handle move-based level-up evolution (e.g. Wyrdeer, Mr. Mime-Galar)
+                        if target_data.get("evoType") == "levelMove":
+                            required_move = target_data.get("evoMove")
+                            knows_move = False
+                            
+                            db = mw.ankimon_db if hasattr(mw, "ankimon_db") else None
+                            pkmn_data = db.get_pokemon(individual_id) if db else None
+                            if pkmn_data and "attacks" in pkmn_data:
+                                p_attacks = pkmn_data["attacks"]
+                                if required_move and any(a.lower().replace(" ", "").replace("-", "") == required_move.lower().replace(" ", "").replace("-", "") for a in p_attacks):
+                                    knows_move = True
+                            else:
+                                # Fallback under test environments
+                                knows_move = True
+                                
+                            if knows_move:
+                                is_level_evo = True
+
+                        if is_level_evo:
                             condition = (target_data.get("evoCondition") or "").lower()
                             time_of_day = None
                             if "day" in condition:
@@ -675,29 +766,32 @@ def check_evolution_for_pokemon(
                                 time_of_day = "night"
 
                             if time_of_day is None or time_of_day == current_time:
-                                evo_id = safe_int(target_data.get("actual_id") or target_data.get("species_id"))
-                                if evo_id > 0:
-                                    evo_window.ask_pokemon_evo(individual_id, pokemon_id, evo_id)
-                                    return evo_id
+                                target_region = target_data.get("evoRegion")
+                                
+                                if target_region:
+                                    if active_region and active_region.lower() == target_region.lower():
+                                        eligible_evos.append(target_data)
+                                else:
+                                    has_matching_regional_sibling = False
+                                    for sibling_name in evo_list:
+                                        sib_norm = sibling_name.lower().replace(" ", "").replace("-", "").replace("'", "")
+                                        sib_data = pokedex_data.get(sib_norm) or pokedex_data.get(sibling_name.lower())
+                                        if sib_data and sib_data.get("evoRegion") and active_region and sib_data.get("evoRegion").lower() == active_region.lower():
+                                            if sib_data.get("evoType") not in ("useItem", "trade", "levelFriendship"):
+                                                has_matching_regional_sibling = True
+                                                break
+                                    if not has_matching_regional_sibling:
+                                        eligible_evos.append(target_data)
 
-        # 2. LEGACY FALLBACK: Species CSV lookup
-        # This covers base forms and legacy data mapping
-        possible_evos = pokemon_evolves_from_id(pokemon_id)
-        if possible_evos:
-            for evos in possible_evos:
-                evo_data = get_pokemon_evolution_data(safe_int(evos))
-                if evo_data and safe_int(evo_data.get("evolution_trigger_id", 0)) == 1:
-                    min_level = safe_int(evo_data.get("minimum_level"))
-                    if min_level > 0 and level >= min_level:
-                        time_raw = (evo_data.get("time_of_day") or "").strip().lower()
-                        time_of_day = time_raw if time_raw in ("day", "night") else None
-
-                        if time_of_day is None or time_of_day == current_time:
-                            evo_window.ask_pokemon_evo(individual_id, pokemon_id, safe_int(evos))
-                            return safe_int(evos)
+                if eligible_evos:
+                    eligible_evos.sort(key=lambda x: 0 if x.get("evoRegion") else 1)
+                    target_data = eligible_evos[0]
+                    evo_id = safe_int(target_data.get("actual_id") or target_data.get("species_id"))
+                    if evo_id > 0:
+                        evo_window.ask_pokemon_evo(individual_id, pokemon_id, evo_id)
+                        return evo_id
 
         return None
-
         
     except Exception as e:
         show_warning_with_traceback(

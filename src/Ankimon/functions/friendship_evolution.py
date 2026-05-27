@@ -617,6 +617,49 @@ def _level_readiness(
     if not level_evos:
         return not_evolvable
 
+    # Filter based on active region
+    active_region = None
+    try:
+        from aqt import mw
+        if hasattr(mw, "settings_obj") and mw.settings_obj:
+            active_region = mw.settings_obj.get("misc.active_region")
+            if active_region:
+                active_region = active_region.strip()
+    except Exception:
+        pass
+    
+    if active_region in ("No Region", ""):
+        active_region = None
+
+    from .pokedex_functions import _load_pokedex_cache, search_pokedex_by_id
+    pokedex_data = _load_pokedex_cache()
+
+    filtered_evos = []
+    for e in level_evos:
+        target_name = search_pokedex_by_id(e.evo_id)
+        if target_name in pokedex_data:
+            target_data = pokedex_data[target_name]
+            target_region = target_data.get("evoRegion")
+            
+            if target_region:
+                if active_region and active_region.lower() == target_region.lower():
+                    filtered_evos.append(e)
+            else:
+                has_matching_regional_sibling = False
+                for other_e in level_evos:
+                    other_name = search_pokedex_by_id(other_e.evo_id)
+                    if other_name in pokedex_data:
+                        other_data = pokedex_data[other_name]
+                        other_region = other_data.get("evoRegion")
+                        if other_region and active_region and active_region.lower() == other_region.lower():
+                            has_matching_regional_sibling = True
+                            break
+                if not has_matching_regional_sibling:
+                    filtered_evos.append(e)
+                    
+    if filtered_evos:
+        level_evos = filtered_evos
+
     # If there are time-gated evolutions, prefer the one that matches current time
     eligible_now = [e for e in level_evos if e.time_of_day in (tod, None)]
     if eligible_now:
