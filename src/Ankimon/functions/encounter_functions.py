@@ -719,7 +719,8 @@ def generate_random_pokemon(
 
     # FALLBACK HIERARCHY
     # If a rolled tier fails, try the next one in the list.
-    TIER_ORDER = ["Mythical", "Mega", "Legendary", "Gmax", "Ultra", "Starter", "Normal", "Baby"]
+    # Normal is last so every tier ultimately falls back to it.
+    TIER_ORDER = ["Mythical", "Mega", "Legendary", "Gmax", "Ultra", "Starter", "Baby", "Normal"]
     
     selected_pokemon_id = None
     selected_tier = None
@@ -797,7 +798,12 @@ def generate_random_pokemon(
             
     # Final fallback if somehow everything failed (e.g. settings restrict all IDs)
     if not selected_pokemon_id:
-        selected_pokemon_id = 19 # Rattata
+        eligible_normal = [
+            pid for pid in encounter_data.NORMAL
+            if check_id_ok(pid)
+            and search_pokedex_by_id(pid) not in (None, "Pokémon not found")
+        ]
+        selected_pokemon_id = random.choice(eligible_normal) if eligible_normal else 19
         selected_tier = "Normal"
 
     # --- Regional form resolution ---
