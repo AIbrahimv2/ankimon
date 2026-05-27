@@ -104,6 +104,9 @@ class AnkimonItemsWeb(QDialog):
         layout.addWidget(frame)
 
         self.webview = QWebEngineView()
+        # Suppress the QtWebEngine browser-style right-click menu (Inspect,
+        # Reload, etc.) — irrelevant noise in a game UI.
+        self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         frame.layout().addWidget(self.webview)
 
         self.channel = QWebChannel(self.webview)

@@ -73,14 +73,21 @@
         const visible = items.filter(matchesFilters);
         const grid = document.getElementById('items-grid');
         const empty = document.getElementById('empty-state');
-        grid.innerHTML = '';
 
         if (visible.length === 0) {
+            grid.replaceChildren();
             empty.classList.remove('hidden');
             refreshDetailPanel();
             return;
         }
         empty.classList.add('hidden');
+
+        // Build the new content off-DOM in a DocumentFragment, then swap it
+        // in atomically with replaceChildren. Avoids the empty-grid flash
+        // and the per-appendChild reflow cascade that the old
+        // innerHTML='' + sequential appendChild loop caused on every
+        // buy/use/reroll refresh.
+        const frag = document.createDocumentFragment();
 
         // Split into Items vs TMs whenever both are visible and no specific
         // category is selected. Keeps the Mart's familiar Items/TMs grouping
@@ -92,14 +99,15 @@
             && tmEntries.length > 0;
 
         if (splitSections) {
-            grid.appendChild(buildSectionHeader('Items', 'items', itemEntries.length));
-            itemEntries.forEach((item) => grid.appendChild(buildCard(item)));
-            grid.appendChild(buildSectionHeader('TMs', 'tms', tmEntries.length));
-            tmEntries.forEach((item) => grid.appendChild(buildCard(item)));
+            frag.appendChild(buildSectionHeader('Items', 'items', itemEntries.length));
+            itemEntries.forEach((item) => frag.appendChild(buildCard(item)));
+            frag.appendChild(buildSectionHeader('TMs', 'tms', tmEntries.length));
+            tmEntries.forEach((item) => frag.appendChild(buildCard(item)));
         } else {
-            visible.forEach((item) => grid.appendChild(buildCard(item)));
+            visible.forEach((item) => frag.appendChild(buildCard(item)));
         }
 
+        grid.replaceChildren(frag);
         refreshDetailPanel();
     }
 

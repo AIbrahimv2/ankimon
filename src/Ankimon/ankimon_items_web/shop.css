@@ -2555,6 +2555,9 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 14px;
+    /* Scope reflow/paint to the grid so refreshing the cards (e.g. after
+     * a buy/use/reroll) doesn't cause perceptible layout shift elsewhere. */
+    contain: layout style;
 }
 
 /* --- Shop card — built on .pokemon-card hover + structure --- */
