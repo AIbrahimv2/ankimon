@@ -14,6 +14,7 @@ from aqt.qt import Qt, QUrl, QFrame
 from PyQt6.QtCore import QObject, pyqtSlot
 from PyQt6.QtGui import QColor
 from PyQt6.QtWebChannel import QWebChannel
+from PyQt6.QtWidgets import QStackedWidget
 
 import csv
 
@@ -149,25 +150,45 @@ class AnkimonItemsWeb(QDialog):
         frame.layout().setContentsMargins(0, 0, 0, 0)
         layout.addWidget(frame)
 
-        self.webview = QWebEngineView()
-        # Suppress the QtWebEngine browser-style right-click menu (Inspect,
-        # Reload, etc.) — irrelevant noise in a game UI.
-        self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
-        # Paint the underlying webview page dark so the user doesn't see a
-        # white flash between window-show and HTML/CSS first paint.
-        self.webview.page().setBackgroundColor(QColor("#0d1117"))
-        frame.layout().addWidget(self.webview)
+        self.stack = QStackedWidget()
+        frame.layout().addWidget(self.stack)
 
-        self.channel = QWebChannel(self.webview)
+        self.webview_items = QWebEngineView()
+        self.webview_ankidex = QWebEngineView()
+        self.webview_settings = QWebEngineView()
+
+        for w in (self.webview_items, self.webview_ankidex, self.webview_settings):
+            w.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+            w.page().setBackgroundColor(QColor("#0d1117"))
+            self.stack.addWidget(w)
+
         self.bridge = ItemsBridge(self)
         self.nav = NavBridge(self)
         self.settings_bridge = SettingsBridge(self)
-        self.channel.registerObject("bridge", self.bridge)
-        self.channel.registerObject("nav", self.nav)
-        self.channel.registerObject("settings", self.settings_bridge)
-        self.webview.page().setWebChannel(self.channel)
 
-        self.webview.loadFinished.connect(self._on_load_finished)
+        self.channel_items = QWebChannel(self.webview_items)
+        self.channel_items.registerObject("bridge", self.bridge)
+        self.channel_items.registerObject("nav", self.nav)
+        self.channel_items.registerObject("settings", self.settings_bridge)
+        self.webview_items.page().setWebChannel(self.channel_items)
+
+        self.channel_ankidex = QWebChannel(self.webview_ankidex)
+        self.channel_ankidex.registerObject("bridge", self.bridge)
+        self.channel_ankidex.registerObject("nav", self.nav)
+        self.channel_ankidex.registerObject("settings", self.settings_bridge)
+        self.webview_ankidex.page().setWebChannel(self.channel_ankidex)
+
+        self.channel_settings = QWebChannel(self.webview_settings)
+        self.channel_settings.registerObject("bridge", self.bridge)
+        self.channel_settings.registerObject("nav", self.nav)
+        self.channel_settings.registerObject("settings", self.settings_bridge)
+        self.webview_settings.page().setWebChannel(self.channel_settings)
+
+        self.webview_items.loadFinished.connect(lambda ok, s=SCREEN_ITEMS: self._on_screen_load_finished(ok, s))
+        self.webview_ankidex.loadFinished.connect(lambda ok, s=SCREEN_ANKIDEX: self._on_screen_load_finished(ok, s))
+        self.webview_settings.loadFinished.connect(lambda ok, s=SCREEN_SETTINGS: self._on_screen_load_finished(ok, s))
+
+        self.loaded_screens = set()
 
         # Boot with Items by default; menu entries can call load_screen()
         # before show() to pick a different initial screen.
@@ -181,45 +202,54 @@ class AnkimonItemsWeb(QDialog):
         def do_load():
             self.current_screen = screen
             if screen == SCREEN_ITEMS:
-                path = self.addon_dir / "ankimon_items_web" / "shop.html"
                 title = "Ankimon — Items"
+                target_view = self.webview_items
+                path = self.addon_dir / "ankimon_items_web" / "shop.html"
             elif screen == SCREEN_ANKIDEX:
-                path = self.addon_dir / "ankidex" / "ankidex.html"
                 title = "Ankimon — Ankidex"
+                target_view = self.webview_ankidex
+                path = self.addon_dir / "ankidex" / "ankidex.html"
             elif screen == SCREEN_SETTINGS:
-                path = self.addon_dir / "ankimon_items_web" / "settings.html"
                 title = "Ankimon — Settings"
+                target_view = self.webview_settings
+                path = self.addon_dir / "ankimon_items_web" / "settings.html"
             else:
                 return
-            self.setWindowTitle(title)
-            self.webview.setUrl(QUrl.fromLocalFile(path.as_posix()))
 
-        # Save Ankidex prefs before navigating away — defer the URL change
-        # until the async getAnkidexState() callback fires, otherwise the JS
-        # context tears down before prefs are read.
+            self.setWindowTitle(title)
+            self.stack.setCurrentWidget(target_view)
+
+            if screen not in self.loaded_screens:
+                self.loaded_screens.add(screen)
+                target_view.setUrl(QUrl.fromLocalFile(path.as_posix()))
+            else:
+                self.push_screen_data()
+
+        # Save Ankidex prefs before navigating away
         if self.current_screen == SCREEN_ANKIDEX and screen != SCREEN_ANKIDEX:
             self._save_ankidex_prefs(callback=do_load)
         else:
             do_load()
 
-    def _on_load_finished(self, ok):
+    def _on_screen_load_finished(self, ok, screen):
         if not ok:
             return
-        self.push_screen_data()
+        if self.current_screen == screen:
+            self.push_screen_data()
 
     def push_screen_data(self):
         if self.current_screen == SCREEN_ITEMS:
             data = self.get_inventory_data()
             js = f"if (window.initializeItems) window.initializeItems({json.dumps(data)});"
+            self.webview_items.page().runJavaScript(js)
         elif self.current_screen == SCREEN_ANKIDEX:
             data = self._get_ankidex_data()
             js = f"if (window.initializeAnkidex) window.initializeAnkidex({json.dumps(data)});"
+            self.webview_ankidex.page().runJavaScript(js)
         elif self.current_screen == SCREEN_SETTINGS:
             data = self.get_settings_data()
             js = f"if (window.initializeSettings) window.initializeSettings({json.dumps(data)});"
-        else:
-            return
-        self.webview.page().runJavaScript(js)
+            self.webview_settings.page().runJavaScript(js)
 
     def _get_ankidex_data(self):
         # Reuse the existing Ankidex singleton's data getter — keeps the
@@ -237,7 +267,7 @@ class AnkimonItemsWeb(QDialog):
             if callback:
                 callback()
 
-        self.webview.page().runJavaScript(
+        self.webview_ankidex.page().runJavaScript(
             "if (window.getAnkidexState) window.getAnkidexState();",
             on_state_ready,
         )
