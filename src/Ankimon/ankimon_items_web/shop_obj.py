@@ -539,9 +539,7 @@ class AnkimonItemsWeb(QDialog):
             held_item = data.get("held_item") or ""
             level = data.get("level")
             shiny = bool(data.get("shiny"))
-            is_main = bool(
-                main_individual_id and individual_id == main_individual_id
-            )
+            is_main = bool(main_individual_id and individual_id == main_individual_id)
 
             # Per-entry payload is intentionally minimal — for players with
             # 10k+ captures, every extra byte multiplies into MB of IPC.
