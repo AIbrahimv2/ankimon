@@ -28,6 +28,13 @@
         category: 'all',       // all | tm | heal | pokeball | evolution | fossil
         search: '',
         selected: null,        // item name
+        picker: {
+            open: false,
+            item: null,        // item being applied
+            choices: null,     // null = not yet loaded, [] = empty team, [...] = cached
+            loading: false,
+            search: '',
+        },
     };
 
     let bridge = null;
@@ -296,6 +303,12 @@
         // Update sprite src if different (preserves img DOM instance to avoid flickering)
         const img = card.querySelector('.shop-card-sprite img');
         if (img && img.getAttribute('src') !== (item.image_url || '')) {
+            img.style.opacity = '1';
+            img.onerror = () => {
+                img.onerror = () => { img.style.opacity = '0.25'; };
+                img.src = '../user_files/sprites/front_default/0.png';
+                img.style.opacity = '0.25';
+            };
             img.src = item.image_url || '';
         }
 
@@ -370,7 +383,11 @@
         img.decoding = 'sync';
         img.src = item.image_url || '';
         img.alt = item.ui_name || item.name;
-        img.onerror = () => { img.style.opacity = '0.25'; };
+        img.onerror = () => {
+            img.onerror = () => { img.style.opacity = '0.25'; };
+            img.src = '../user_files/sprites/front_default/0.png';
+            img.style.opacity = '0.25';
+        };
         spriteWrap.appendChild(img);
         card.appendChild(spriteWrap);
 
@@ -475,8 +492,14 @@
         }
 
         const sprite = document.getElementById('det-sprite');
+        sprite.style.opacity = '1';
         sprite.src = item.image_url || '';
         sprite.alt = item.ui_name || item.name;
+        sprite.onerror = () => {
+            sprite.onerror = null;
+            sprite.src = '../user_files/sprites/front_default/0.png';
+            sprite.style.opacity = '0.25';
+        };
 
         const glow = document.getElementById('det-glow');
         const glowColor = item.is_tm && item.move_type
@@ -611,6 +634,13 @@
 
     function onUse(item) {
         if (!bridge) return;
+        // Evolution items and held items need a Pokémon target — open the
+        // in-shell picker instead of calling useItem (which would trigger
+        // the legacy QInputDialog in Python).
+        if (item.category === 'evolution' || item.category === 'other') {
+            openPicker(item);
+            return;
+        }
         bridge.useItem(item.name, function (result) {
             if (!result) return;
             if (result.message) showToast(result.message, !result.ok);
@@ -688,14 +718,20 @@
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                const picker = document.getElementById('picker-modal');
                 const modal = document.getElementById('confirm-modal');
-                if (!modal.classList.contains('hidden')) {
+                if (!picker.classList.contains('hidden')) {
+                    closePicker();
+                } else if (!modal.classList.contains('hidden')) {
                     closeConfirm();
                 } else if (state.selected) {
                     state.selected = null;
                     render();
                 }
             } else if (e.key === '/' && document.activeElement !== searchInput) {
+                // Don't grab '/' while typing in the picker search box.
+                const pickerSearch = document.getElementById('picker-search');
+                if (document.activeElement === pickerSearch) return;
                 e.preventDefault();
                 searchInput.focus();
             } else if (e.key === 'Enter') {
@@ -728,6 +764,268 @@
 
     function closeConfirm() {
         document.getElementById('confirm-modal').classList.add('hidden');
+    }
+
+    // ---------- Pokémon picker (evolution items + held items) ----------
+    // Choices are lazy-fetched on first open (avoids shipping multi-MB
+    // payloads with every inventory push) and cached in state.picker.choices
+    // for the lifetime of the items window. Invalidated after team-mutating
+    // actions (useItemOnPokemon) so the next open reflects the change.
+    function openPicker(item) {
+        state.picker.item = item;
+        state.picker.search = '';
+        state.picker.open = true;
+
+        document.getElementById('picker-title').textContent =
+            item.category === 'evolution' ? 'Evolve which Pokémon?' : 'Give to which Pokémon?';
+        document.getElementById('picker-subtitle').textContent =
+            (item.ui_name || item.name || '').toUpperCase();
+
+        const searchEl = document.getElementById('picker-search');
+        searchEl.value = '';
+        document.getElementById('picker-modal').classList.remove('hidden');
+
+        if (state.picker.choices === null) {
+            loadPickerChoices(() => {
+                // Don't render if user closed the modal during fetch.
+                if (state.picker.open) renderPickerGrid();
+            });
+            renderPickerLoading();
+        } else {
+            renderPickerGrid();
+        }
+        // Auto-focus the search box so the user can type to filter.
+        setTimeout(() => searchEl.focus(), 0);
+    }
+
+    function loadPickerChoices(done) {
+        if (state.picker.loading || !bridge || !bridge.getPokemonChoices) {
+            if (done) done();
+            return;
+        }
+        state.picker.loading = true;
+        bridge.getPokemonChoices(function (result) {
+            state.picker.loading = false;
+            state.picker.choices = (result && result.choices) || [];
+            if (done) done();
+        });
+    }
+
+    function renderPickerLoading() {
+        const grid = document.getElementById('picker-grid');
+        const empty = document.getElementById('picker-empty');
+        const countEl = document.getElementById('picker-count');
+        empty.textContent = 'Loading your team…';
+        empty.classList.remove('hidden');
+        grid.replaceChildren();
+        grid.style.display = 'none';
+        countEl.textContent = '…';
+        countEl.classList.remove('truncated');
+    }
+
+    function closePicker() {
+        state.picker.open = false;
+        state.picker.item = null;
+        state.picker.search = '';
+        document.getElementById('picker-modal').classList.add('hidden');
+    }
+
+    // Hard cap on rendered cards — long-time players can have 10k+
+    // captured Pokémon, and rendering all of them blows out the DOM, the
+    // lazy-image queue, and any hope of a smooth open. Past the cap we
+    // require search to drill down (which is the natural UX for "pick
+    // one of many" anyway).
+    const PICKER_RENDER_CAP = 60;
+
+    function renderPickerGrid() {
+        const grid = document.getElementById('picker-grid');
+        const empty = document.getElementById('picker-empty');
+        const countEl = document.getElementById('picker-count');
+        const choices = state.picker.choices || [];
+        if (state.picker.choices === null) {
+            renderPickerLoading();
+            return;
+        }
+        const q = state.picker.search.trim().toLowerCase();
+        // Compact field names from Python — see get_pokemon_choices:
+        //   id=individual_id, p=pokedex_id, n=name, l=level,
+        //   s=shiny, m=is_main, h=held_item, nk=nickname (if differs)
+        const matched = q
+            ? choices.filter((c) => {
+                const hay = [c.nk, c.n, c.h, String(c.l || ''), String(c.p || '')]
+                    .filter(Boolean).join(' ').toLowerCase();
+                return hay.includes(q);
+            })
+            : choices;
+
+        const visible = matched.slice(0, PICKER_RENDER_CAP);
+
+        // Count chip — show "60 / 16,626" when we capped, plain count otherwise.
+        if (matched.length > visible.length) {
+            countEl.textContent = `${visible.length} / ${matched.length.toLocaleString()}`;
+            countEl.title = `Showing ${visible.length} of ${matched.length} — type to narrow down`;
+            countEl.classList.add('truncated');
+        } else {
+            countEl.textContent = String(matched.length);
+            countEl.title = '';
+            countEl.classList.remove('truncated');
+        }
+
+        if (matched.length === 0) {
+            grid.replaceChildren();
+            empty.textContent = state.picker.choices.length === 0
+                ? "You don't have any Pokémon yet."
+                : 'No Pokémon match that search.';
+            empty.classList.remove('hidden');
+            grid.style.display = 'none';
+            return;
+        }
+        empty.classList.add('hidden');
+        grid.style.display = '';
+
+        const frag = document.createDocumentFragment();
+        visible.forEach((choice) => frag.appendChild(buildPickerCard(choice)));
+
+        // Footer row when truncated — gives the user an obvious "more
+        // exist, refine to see them" cue instead of leaving them guessing.
+        if (matched.length > visible.length) {
+            const more = document.createElement('div');
+            more.className = 'picker-more-hint';
+            more.textContent =
+                `+ ${(matched.length - visible.length).toLocaleString()} more — type a name or level to find a specific Pokémon`;
+            frag.appendChild(more);
+        }
+
+        grid.replaceChildren(frag);
+        grid.scrollTop = 0;
+    }
+
+    function buildPickerCard(choice) {
+        // Compact fields from Python: id, p, n, l, s, m, h, nk.
+        // Match the Ankidex `.pokemon-card` shape so it picks up the same
+        // hover/sprite/border treatment automatically. Team-specific bits
+        // (level, active/shiny marks, held item) layer on top.
+        const isMain = !!choice.m;
+        const isShiny = !!choice.s;
+        const heldItem = choice.h || '';
+        const nickname = choice.nk || '';
+        const name = choice.n || '';
+        const displayName = nickname || name || 'Unknown';
+
+        const card = document.createElement('div');
+        card.className = 'pokemon-card team-card state-caught';
+        if (isMain) card.classList.add('is-main');
+
+        if (choice.l !== null && choice.l !== undefined) {
+            const lvl = document.createElement('div');
+            lvl.className = 'team-card-level';
+            lvl.textContent = 'Lv ' + choice.l;
+            card.appendChild(lvl);
+        }
+
+        if (isMain || isShiny) {
+            const marks = document.createElement('div');
+            marks.className = 'team-card-marks';
+            if (isMain) {
+                const m = document.createElement('span');
+                m.className = 'mark mark-main';
+                m.textContent = '★';
+                m.title = 'Active Pokémon';
+                marks.appendChild(m);
+            }
+            if (isShiny) {
+                const s = document.createElement('span');
+                s.className = 'mark mark-shiny';
+                s.textContent = '✦';
+                s.title = 'Shiny';
+                marks.appendChild(s);
+            }
+            card.appendChild(marks);
+        }
+
+        const spriteWrap = document.createElement('div');
+        spriteWrap.className = 'card-sprite';
+        const img = document.createElement('img');
+        // Explicit width/height attrs lock layout space before the
+        // sprite request fires — without them, the img collapses to 0
+        // and the card's column-flex shrinks to just the level pill.
+        img.width = 96;
+        img.height = 96;
+        // Reconstruct sprite path on the JS side — avoids shipping a
+        // ~100-byte URL per Pokémon in the inventory payload.
+        img.src = `../user_files/sprites/front_default/${choice.p || 0}.png`;
+        img.alt = displayName;
+        img.onerror = () => {
+            // Fallback to placeholder, then dim if even that fails.
+            img.onerror = () => { img.style.opacity = '0.25'; };
+            img.src = '../user_files/sprites/front_default/0.png';
+        };
+        spriteWrap.appendChild(img);
+        card.appendChild(spriteWrap);
+
+        const info = document.createElement('div');
+        info.className = 'card-info';
+        const nameEl = document.createElement('div');
+        nameEl.className = 'card-name';
+        nameEl.textContent = displayName;
+        info.appendChild(nameEl);
+
+        // Second line: held item (or species when nickname differs).
+        const metaParts = [];
+        if (heldItem) {
+            metaParts.push(`<span class="meta-held">Holds ${titleCase(heldItem)}</span>`);
+        } else if (nickname && name && nickname.toLowerCase() !== name.toLowerCase()) {
+            metaParts.push(titleCase(name));
+        }
+        if (metaParts.length > 0) {
+            const meta = document.createElement('div');
+            meta.className = 'team-card-meta';
+            meta.innerHTML = metaParts.join(' · ');
+            info.appendChild(meta);
+        }
+        card.appendChild(info);
+
+        card.addEventListener('click', () => onPickerChoose(choice));
+        return card;
+    }
+
+    function titleCase(s) {
+        return String(s || '').replace(/-/g, ' ').replace(
+            /\w\S*/g, (t) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()
+        );
+    }
+
+    function onPickerChoose(choice) {
+        const item = state.picker.item;
+        if (!item || !bridge || !bridge.useItemOnPokemon) {
+            closePicker();
+            return;
+        }
+        closePicker();
+        // Held-item / evolution might change the team — invalidate so
+        // the next open re-fetches fresh data.
+        state.picker.choices = null;
+        // choice.id == individual_id in the compact payload.
+        bridge.useItemOnPokemon(item.name, choice.id, function (result) {
+            if (!result) return;
+            if (result.message) showToast(result.message, !result.ok);
+        });
+    }
+
+    function bindPickerUI() {
+        document.getElementById('picker-close').addEventListener('click', closePicker);
+        document.getElementById('picker-cancel').addEventListener('click', closePicker);
+        document.getElementById('picker-modal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('picker-backdrop')) closePicker();
+        });
+        // Debounce search re-renders — typing fast in a 16k-row list
+        // shouldn't kick a full filter+render on every keystroke.
+        let searchTimer = null;
+        document.getElementById('picker-search').addEventListener('input', (e) => {
+            state.picker.search = e.target.value || '';
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(renderPickerGrid, 80);
+        });
     }
 
     // Nav switcher
@@ -772,6 +1070,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         bindUI();
+        bindPickerUI();
         bindNavSwitcher();
         initChannel(() => {});
     });

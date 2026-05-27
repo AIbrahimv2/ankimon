@@ -97,6 +97,19 @@ class ItemsBridge(QObject):
         self._w.push_screen_data()
         return result
 
+    # In-shell Pokémon picker — replaces the legacy QInputDialog flow for
+    # evolution items + held items. JS calls getPokemonChoices() to populate
+    # the modal, then useItemOnPokemon() with the chosen individual_id.
+    @pyqtSlot(result="QVariant")
+    def getPokemonChoices(self):
+        return self._w.get_pokemon_choices()
+
+    @pyqtSlot(str, str, result="QVariant")
+    def useItemOnPokemon(self, item_name, individual_id):
+        result = self._w.handle_use_with_target(item_name, individual_id)
+        self._w.push_screen_data()
+        return result
+
     # Back-compat: items.shop.js previously called bridge.openAnkidex; keep
     # it as a passthrough so older cached pages still work.
     @pyqtSlot()
@@ -341,6 +354,9 @@ class AnkimonItemsWeb(QDialog):
             "cash": int(sm.get_callback("trainer.cash") or 0),
             "reroll_cost": int(sm.daily_items_reroll_cost or 0),
             "items": items,
+            # pokemon_choices intentionally NOT included — for players with
+            # 10k+ captures the payload is multiple MB. JS lazy-fetches via
+            # bridge.getPokemonChoices() on first picker open + caches.
         }
 
     def _serialize_item(
@@ -546,7 +562,133 @@ class AnkimonItemsWeb(QDialog):
         if self.item_window is None:
             return {"ok": False, "message": "Item bag service unavailable."}
         item_type = item.get("item_type") or ("TM" if item.get("is_tm") else None)
-        return self.item_window.dispatch_use(item_name, item_type)
+        result = self.item_window.dispatch_use(item_name, item_type)
+        # Fossils + healing main can change team data (new entry / hp).
+        if item.get("category") in ("fossil", "heal"):
+            self._invalidate_pokemon_cache()
+        return result
+
+    def _invalidate_pokemon_cache(self):
+        self._pokemon_choices_cache = None
+
+    def get_pokemon_choices(self):
+        """Return the player's Pokémon team for the in-shell picker — name,
+        nickname, level, id. Replaces the QInputDialog flow for evolution
+        items and held items.
+
+        Cached on the instance — `get_all_pokemon()` JSON-parses every
+        captured row, which costs hundreds of ms for players with 10k+
+        captures. Buy/reroll don't change the team, so they reuse the
+        cache; team-mutating actions call `_invalidate_pokemon_cache()`.
+        """
+        cached = getattr(self, "_pokemon_choices_cache", None)
+        if cached is not None:
+            return cached
+
+        try:
+            pokemons = mw.ankimon_db.get_all_pokemon() or []
+        except Exception as e:
+            print(f"[Ankimon] get_pokemon_choices: get_all_pokemon failed: {e}")
+            return {"choices": []}
+
+        # Active Pokémon's individual_id (so we can flag it in the UI).
+        main_individual_id = None
+        bag = self.item_window
+        if bag is not None and getattr(bag, "main_pokemon", None):
+            main_individual_id = getattr(bag.main_pokemon, "individual_id", None)
+
+        choices = []
+        for data in pokemons:
+            if not isinstance(data, dict):
+                continue
+            individual_id = data.get("individual_id")
+            pokedex_id = data.get("id")
+            name = data.get("name")
+            if not individual_id or not name:
+                # No id or no name means we can't display or address it —
+                # but pokedex_id == 0 / missing is fine (we just fall back
+                # to a placeholder sprite).
+                continue
+
+            nickname = (data.get("nickname") or "").strip()
+            held_item = data.get("held_item") or ""
+            level = data.get("level")
+            shiny = bool(data.get("shiny"))
+            is_main = bool(main_individual_id and individual_id == main_individual_id)
+
+            # Per-entry payload is intentionally minimal — for players with
+            # 10k+ captures, every extra byte multiplies into MB of IPC.
+            # JS reconstructs the sprite URL from pokedex_id; nickname is
+            # only shipped when it actually differs from the species name.
+            entry = {
+                "id": individual_id,
+                "p": pokedex_id or 0,
+                "n": name,
+                "l": int(level) if level is not None else None,
+            }
+            if shiny:
+                entry["s"] = 1
+            if is_main:
+                entry["m"] = 1
+            if held_item:
+                entry["h"] = held_item
+            if nickname and nickname.lower() != (name or "").lower():
+                entry["nk"] = nickname
+            choices.append(entry)
+
+        # Active first, then by level (high → low), then alphabetical.
+        choices.sort(
+            key=lambda c: (
+                not c.get("m"),
+                -(c.get("l") or 0),
+                (c.get("nk") or c.get("n") or "").lower(),
+            )
+        )
+        result = {"choices": choices}
+        self._pokemon_choices_cache = result
+        return result
+
+    def handle_use_with_target(self, item_name, individual_id):
+        """Apply an item to a specific Pokémon (chosen via the in-shell
+        picker). Bypasses dispatch_use's QInputDialog branches by calling
+        the underlying item_window helpers directly with the id."""
+        item = self._find_serialized(item_name)
+        if not item:
+            return {"ok": False, "message": "Item not found in your bag."}
+        if (item.get("owned_quantity") or 0) <= 0:
+            return {"ok": False, "message": "You don't own that item."}
+        if self.item_window is None:
+            return {"ok": False, "message": "Item bag service unavailable."}
+        if not individual_id:
+            return {"ok": False, "message": "No Pokémon selected."}
+
+        bag = self.item_window
+        # Either branch below mutates the team (held-item or evolution),
+        # so invalidate up front regardless of which path runs.
+        self._invalidate_pokemon_cache()
+        try:
+            if item.get("category") == "evolution":
+                # Check_Evo_Item needs the pre-evo's pokedex id to match
+                # against the evolution table. Pull it from the proven
+                # get_pokemon() API.
+                pokemon_data = None
+                try:
+                    pokemon_data = mw.ankimon_db.get_pokemon(individual_id)
+                except Exception as e:
+                    print(f"[Ankimon] get_pokemon({individual_id}) failed: {e}")
+                pokedex_id = (pokemon_data or {}).get("id")
+                if not pokedex_id:
+                    return {"ok": False, "message": "Could not look up that Pokémon."}
+                bag.Check_Evo_Item(individual_id, pokedex_id, item_name)
+                return {"ok": True, "message": ""}
+
+            # Held items (and anything else routed through the give-item
+            # flow) — the legacy method already surfaces success/error via
+            # log_and_showinfo, so we just return an empty message.
+            bag._give_held_item_by_id(individual_id, item_name)
+            return {"ok": True, "message": ""}
+        except Exception as e:
+            return {"ok": False, "message": f"Use failed: {e}"}
 
     def _find_serialized(self, item_name):
         data = self.get_inventory_data()

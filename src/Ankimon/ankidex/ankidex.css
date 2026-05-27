@@ -1837,7 +1837,6 @@ body {
     border-radius: 8px;
     padding: 8px;
     z-index: 100;
-    backdrop-filter: blur(8px);
 }
 
 .mini-map-label {
