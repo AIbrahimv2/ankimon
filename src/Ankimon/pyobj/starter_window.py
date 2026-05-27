@@ -159,7 +159,9 @@ class StarterWindow(QWidget):
         self.display_chosen_starter_pokemon(starter_name)
 
         from ..singletons import pokemon_pc
-        pokemon_pc.refresh_pokemon_grid()
+        from ..utils import is_alive
+        if is_alive(pokemon_pc):
+            pokemon_pc.refresh_pokemon_grid()
 
         close_anki()
 

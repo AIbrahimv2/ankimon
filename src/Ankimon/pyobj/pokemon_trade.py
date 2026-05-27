@@ -56,7 +56,9 @@ def add_pokemon_to_collection(new_pokemon, refresh_callback=None, parent_window=
             refresh_callback()
 
         from ..singletons import pokemon_pc
-        pokemon_pc.refresh_pokemon_grid()
+        from ..utils import is_alive
+        if is_alive(pokemon_pc):
+            pokemon_pc.refresh_pokemon_grid()
     except Exception as e:
         show_warning_with_traceback(parent=parent_window, exception=e, message="Error adding Pokemon to collection")
 
