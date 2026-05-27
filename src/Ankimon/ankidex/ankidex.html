@@ -120,6 +120,13 @@
                     <!-- Grid items will be injected here -->
                 </div>
 
+                <!-- Empty State -->
+                <div id="empty-state" class="empty-state hidden">
+                    <div class="empty-icon"></div>
+                    <h2>No Pokémon found</h2>
+                    <p>Try adjusting your search or filters.</p>
+                    <button onclick="document.getElementById('clear-filters').click()" class="btn btn-primary">Clear all filters</button>
+                </div>
             </div>
 
             <!-- Discovery Map View -->
@@ -161,14 +168,6 @@
 
                 </div>
             </div>
-                
-                <!-- Empty State -->
-                <div id="empty-state" class="empty-state hidden">
-                    <div class="empty-icon"></div>
-                    <h2>No Pokémon found</h2>
-                    <p>Try adjusting your search or filters.</p>
-                    <button onclick="document.getElementById('clear-filters').click()" class="btn btn-primary">Clear all filters</button>
-                </div>
             </main>
 
             <!-- Detail Panel -->
