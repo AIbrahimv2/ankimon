@@ -216,6 +216,31 @@
         </div>
     </div>
 
+    <!-- Pokémon picker modal (evolution items + held items) — reuses the
+         Ankidex card styling for a richer, faster grid. Choices are
+         pre-loaded with inventory data so opening is synchronous. -->
+    <div id="picker-modal" class="picker-modal hidden" role="dialog" aria-modal="true">
+        <div class="picker-backdrop"></div>
+        <div class="picker-card">
+            <div class="picker-header">
+                <div class="picker-header-text">
+                    <h3 id="picker-title" class="picker-title">Choose a Pokémon</h3>
+                    <p id="picker-subtitle" class="picker-subtitle">Item</p>
+                </div>
+                <button id="picker-close" class="picker-close" type="button" aria-label="Close">✕</button>
+            </div>
+            <div class="picker-toolbar">
+                <input id="picker-search" class="picker-search" type="text" placeholder="Filter by name, level, type…">
+                <span id="picker-count" class="picker-count">0</span>
+            </div>
+            <div id="picker-grid" class="picker-grid"></div>
+            <div id="picker-empty" class="picker-empty hidden">No Pokémon match that search.</div>
+            <div class="picker-actions">
+                <button id="picker-cancel" class="confirm-btn cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script src="shop.js"></script>
 </body>
 </html>

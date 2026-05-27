@@ -3114,6 +3114,296 @@ body {
     cursor: not-allowed;
 }
 
+/* --- Pokémon picker modal (evolution + held items) --- */
+/* Picker reuses the `.pokemon-card` Ankidex visuals — same hover, same
+   sprite scaling. The team-specific bits (level pill, active outline,
+   held-item line) live in `.team-card` overrides below. */
+.picker-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.18s ease-out;
+}
+
+.picker-modal.hidden {
+    display: none;
+}
+
+.picker-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 10, 12, 0.7);
+    backdrop-filter: blur(4px);
+}
+
+.picker-card {
+    position: relative;
+    background: linear-gradient(160deg, var(--bg-card), var(--bg-darker));
+    border: 1px solid var(--border-main);
+    border-radius: 18px;
+    width: min(960px, calc(100vw - 60px));
+    height: min(720px, calc(100vh - 60px));
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: confirmPop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.picker-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--border-main);
+    flex-shrink: 0;
+}
+
+.picker-header-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.picker-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-bright);
+    letter-spacing: -0.3px;
+    margin: 0;
+}
+
+.picker-subtitle {
+    margin: 4px 0 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.picker-close {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.picker-close:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-bright);
+    border-color: var(--border-main);
+}
+
+.picker-toolbar {
+    padding: 12px 22px 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.picker-search {
+    flex: 1;
+    box-sizing: border-box;
+    background: var(--bg-darker);
+    border: 1px solid var(--border-main);
+    border-radius: 10px;
+    padding: 9px 14px;
+    color: var(--text-bright);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    transition: var(--transition-fast);
+}
+
+.picker-search:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+
+.picker-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    padding: 4px 10px;
+    background: var(--bg-darker);
+    border: 1px solid var(--border-main);
+    border-radius: 8px;
+    flex-shrink: 0;
+    min-width: 36px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.picker-count.truncated {
+    color: var(--accent-blue);
+    border-color: rgba(88, 166, 255, 0.4);
+    background: rgba(88, 166, 255, 0.08);
+}
+
+.picker-more-hint {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    padding: 18px 12px 8px;
+    border-top: 1px dashed var(--border-main);
+    margin-top: 6px;
+}
+
+.picker-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 18px 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+    align-content: start;
+}
+
+.picker-grid::-webkit-scrollbar {
+    width: 10px;
+}
+
+.picker-grid::-webkit-scrollbar-thumb {
+    background: var(--border-main);
+    border-radius: 5px;
+}
+
+.picker-grid::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Team-card variant of pokemon-card — drops the per-card hover lift
+   (modal is finite, we want the grid to feel stable) but keeps the
+   sprite scale + border-glow on hover. Fixed dimensions ensure the
+   grid stays uniform whether sprites have decoded yet or not. */
+.pokemon-card.team-card {
+    /* Lock card dimensions so the grid doesn't reflow as sprites load
+       and missing/404 sprites don't collapse the row. */
+    min-height: 180px;
+    padding: 36px 12px 14px;       /* room for absolute level pill + marks */
+    justify-content: flex-start;
+    cursor: pointer;
+}
+
+.pokemon-card.team-card:hover {
+    transform: none;
+    border-color: var(--accent-blue);
+    background: var(--bg-card-hover);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.pokemon-card.team-card.is-main {
+    border-color: var(--accent-blue);
+    background: rgba(88, 166, 255, 0.05);
+    box-shadow: inset 0 0 0 1px rgba(88, 166, 255, 0.4);
+}
+
+/* Always reserve the full sprite footprint — `flex-shrink: 0` keeps the
+   container at 96×96 even when img hasn't loaded (no intrinsic size). */
+.pokemon-card.team-card .card-sprite {
+    width: 96px;
+    height: 96px;
+    flex-shrink: 0;
+    margin: 0 0 8px;
+}
+
+.pokemon-card.team-card .card-sprite img {
+    width: 96px;
+    height: 96px;
+    object-fit: contain;
+}
+
+.pokemon-card.team-card .card-info {
+    min-height: 22px;              /* reserve space for the name line */
+}
+
+.team-card-level {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--text-bright);
+    padding: 2px 8px;
+    background: var(--bg-darker);
+    border: 1px solid var(--border-main);
+    border-radius: 6px;
+    letter-spacing: 0.4px;
+}
+
+.team-card-marks {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    display: flex;
+    gap: 4px;
+    font-size: 0.85rem;
+}
+
+.team-card-marks .mark {
+    line-height: 1;
+}
+
+.team-card-marks .mark-main { color: var(--accent-blue); }
+.team-card-marks .mark-shiny { color: var(--accent-gold); }
+
+.team-card-meta {
+    margin-top: 6px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.team-card-meta .meta-held {
+    color: var(--accent-green);
+    font-weight: 700;
+}
+
+.picker-empty {
+    padding: 40px 22px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.picker-actions {
+    padding: 12px 22px 16px;
+    border-top: 1px solid var(--border-main);
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.picker-actions .confirm-btn {
+    flex: 0 0 auto;
+    min-width: 110px;
+}
+
 /* --- Navigation switcher (sidebar logo dropdown) --- */
 .nav-switcher {
     position: relative;
