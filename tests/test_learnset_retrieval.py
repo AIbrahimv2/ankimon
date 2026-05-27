@@ -121,3 +121,27 @@ class TestGetLevelupMove:
     def test_no_match_returns_empty_list(self):
         result = get_levelup_move_for_pokemon("slowpoke", 13, 9)
         assert result == []
+
+
+class TestLearnsetMismatches:
+    def test_clean_pokeapi_name_suffixes(self):
+        from Ankimon.functions.learnset_retrieval import clean_pokeapi_name
+        assert clean_pokeapi_name("Darmanitan-galar-standard") == "Darmanitan-galar"
+        assert clean_pokeapi_name("meowstic-female") == "meowsticf"
+        assert clean_pokeapi_name("giratina-altered") == "giratina"
+        assert clean_pokeapi_name("ogerpon-wellspring-mask") == "ogerpon-wellspring"
+
+    def test_get_learnset_moves_with_mismatched_pokeapi_names(self):
+        # Even with mocked learnsets, if we pass a name with standard/normal suffix,
+        # it should clean it first and successfully find the moves for the base form.
+        moves = _get_learnset_moves("slowpoke-standard", 12, 9)
+        assert "confusion" in moves
+        
+        # Test female suffix mapping
+        from Ankimon.functions.learnset_retrieval import _load_learnset_cache
+        cache = _load_learnset_cache()
+        cache["slowpokef"] = cache["slowpoke"]
+        moves_f = _get_learnset_moves("slowpoke-female", 12, 9)
+        assert "confusion" in moves_f
+
+

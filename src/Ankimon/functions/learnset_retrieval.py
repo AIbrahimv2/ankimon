@@ -23,6 +23,25 @@ def clear_learnset_cache():
     global _learnset_cache
     _learnset_cache = None
 
+def clean_pokeapi_name(name: str) -> str:
+    name_lower = name.lower()
+    
+    # Handle female forms (PokéAPI "-female" -> Smogon "f")
+    if name_lower.endswith("-female"):
+        return name[:-7] + "f"
+        
+    suffixes_to_strip = [
+        "-standard", "-normal", "-altered", "-land", "-red-striped",
+        "-male", "-ordinary", "-aria", "-average", "-disguised",
+        "-amped", "-ice", "-single-strike", "-zero", "-curly",
+        "-two-segment", "-green-plumage", "-plant", "-mask"
+    ]
+    for suffix in suffixes_to_strip:
+        if name_lower.endswith(suffix):
+            return name[:-len(suffix)]
+            
+    return name
+
 def _get_learnset_moves(pokemon_name, pokemon_level, generation=9):
     """
     Return all moves a Pokémon can know at *pokemon_level* in a single *generation*.
@@ -31,17 +50,36 @@ def _get_learnset_moves(pokemon_name, pokemon_level, generation=9):
     """
     learnsets = _load_learnset_cache()
 
-    pokemon_name = pokemon_name.lower().replace("-", "").replace(" ", "").replace("'", "").replace(".", "")
-    pokemon_learnset = learnsets.get(pokemon_name, {}).get("learnset", {})
+    # Try standard key normalization first
+    norm_name = pokemon_name.lower().replace("-", "").replace(" ", "").replace("'", "").replace(".", "")
+    pokemon_learnset = learnsets.get(norm_name, {}).get("learnset", {})
     
-    # Fallback to base form for Mega/Gigantamax/Primal if no learnset found
-    if not pokemon_learnset and any(x in pokemon_name for x in ["mega", "gmax", "primal"]):
+    # Fallback 1: clean PokéAPI suffix mismatches (e.g. "darmanitan-galar-standard" -> "darmanitangalar")
+    if not pokemon_learnset:
+        cleaned_name = clean_pokeapi_name(pokemon_name)
+        cleaned_norm = cleaned_name.lower().replace("-", "").replace(" ", "").replace("'", "").replace(".", "")
+        pokemon_learnset = learnsets.get(cleaned_norm, {}).get("learnset", {})
+        
+    # Fallback 2: reverse lookup canonical key using pokedex ID index
+    if not pokemon_learnset:
+        try:
+            from .pokedex_functions import search_pokedex, search_pokedex_by_id, safe_int
+            actual_id = safe_int(search_pokedex(pokemon_name, "actual_id"))
+            if actual_id:
+                canonical_key = search_pokedex_by_id(actual_id)
+                if canonical_key and canonical_key != "Pokémon not found":
+                    pokemon_learnset = learnsets.get(canonical_key, {}).get("learnset", {})
+        except Exception:
+            pass
+    
+    # Fallback 3: base form for Mega/Gigantamax/Primal if no learnset found
+    if not pokemon_learnset and any(x in norm_name for x in ["mega", "gmax", "primal"]):
         # Use pokedex to find the base form via species_id
         from .pokedex_functions import _load_pokedex_cache, search_pokedex_by_id, search_pokedex
         pokedex_data = _load_pokedex_cache()
         
         # Use search_pokedex to handle normalized names and fallbacks
-        species_id = search_pokedex(pokemon_name, "species_id")
+        species_id = search_pokedex(norm_name, "species_id")
         
         if species_id and not isinstance(species_id, list):
             base_name = search_pokedex_by_id(species_id)
