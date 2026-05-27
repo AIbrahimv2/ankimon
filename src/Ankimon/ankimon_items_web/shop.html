@@ -6,9 +6,10 @@
     <title>Ankimon Items</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Inline dark bg + skeleton placeholders so the user sees structure
-         instead of empty space while external CSS + initial data load.
-         Real renderGrid() clears the skeleton on first push from Python. -->
+    <!-- Inline dark bg so the first paint is dark, even before shop.css
+         finishes loading. Prevents the white flash between window-show
+         and full CSS application. Skeleton placeholders pulse dimly so
+         the main content area shows structure during the load window. -->
     <style>
         html { background: #0d1117; }
         .skeleton {
@@ -53,6 +54,13 @@
                             <div class="nav-menu-text">
                                 <span class="nav-menu-title">Ankidex</span>
                                 <span class="nav-menu-desc">Browse caught Pokémon</span>
+                            </div>
+                        </button>
+                        <button class="nav-menu-item" role="menuitem" data-screen="settings">
+                            <span class="nav-menu-icon"><svg class="icon-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                            <div class="nav-menu-text">
+                                <span class="nav-menu-title">Settings</span>
+                                <span class="nav-menu-desc">Configure Ankimon</span>
                             </div>
                         </button>
                     </div>
@@ -131,8 +139,8 @@
 
             <div class="content-scroll" style="padding: 20px 24px;">
                 <div id="items-grid" class="pokemon-grid shop-grid">
-                    <!-- Skeleton placeholders — cleared by render() on first
-                         push from Python. -->
+                    <!-- Skeleton placeholders — cleared by render() on
+                         first push from Python. -->
                     <div class="skeleton skeleton-card"></div>
                     <div class="skeleton skeleton-card"></div>
                     <div class="skeleton skeleton-card"></div>

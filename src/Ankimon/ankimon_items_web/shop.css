@@ -3451,9 +3451,26 @@ body {
     height: 24px;
 }
 
-/* --- Items identity icon (hyper-potion sprite used as Items' visual ID).
- * Sizing comes from .app-logo (32x32) and .nav-menu-icon img (18x18);
- * we just want crisp pixel art at small scales. */
+/* --- Gear icon (nav dropdown + Settings sidebar logo) --- */
+/* Default 18x18 to match the pokeball img sizing inside .nav-menu-icon. */
+.icon-gear {
+    width: 18px;
+    height: 18px;
+    display: block;
+    color: var(--accent-blue);
+}
+
+/* When the gear doubles as a sidebar logo it shares the .app-logo class
+ * which gives it 32x32 — but the size declared by .app-logo and .icon-gear
+ * are at equal specificity, so explicitly bump for the combo. */
+.app-logo.icon-gear {
+    width: 32px;
+    height: 32px;
+}
+
+/* --- Items icon (the hyper-potion sprite used as Items' identity).
+ * .nav-menu-icon img and .app-logo handle sizing; we just want crisp
+ * pixel art at the small icon scale. */
 .icon-item-sprite {
     image-rendering: pixelated;
     object-fit: contain;

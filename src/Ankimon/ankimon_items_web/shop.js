@@ -31,6 +31,7 @@
     };
 
     let bridge = null;
+    let nav = null;
 
     function initChannel(callback) {
         if (typeof qt === 'undefined' || !qt.webChannelTransport) {
@@ -40,7 +41,9 @@
         }
         new QWebChannel(qt.webChannelTransport, function (channel) {
             bridge = channel.objects.bridge;
+            nav = channel.objects && channel.objects.nav;
             window.bridge = bridge;
+            window.nav = nav;
             callback(bridge);
         });
     }
@@ -103,7 +106,6 @@
             return;
         }
         empty.classList.add('hidden');
-
         // Keyed DOM Reconciliation to completely eliminate visual flicker:
         // Instead of destroying and rebuilding all card DOM elements (which
         // destroys <img> instances and triggers asynchronous image-decoding layout passes),
@@ -760,8 +762,10 @@
                 const screen = item.dataset.screen;
                 closeMenu();
                 if (screen === 'items') return;
-                if (!bridge) return;
-                if (screen === 'ankidex' && bridge.openAnkidex) bridge.openAnkidex();
+                const router = (window.nav) || bridge;
+                if (!router) return;
+                if (screen === 'ankidex' && router.openAnkidex) router.openAnkidex();
+                else if (screen === 'settings' && router.openSettings) router.openSettings();
             });
         });
     }

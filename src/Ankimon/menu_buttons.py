@@ -114,6 +114,16 @@ def create_menu_actions(
 
     actions = []
 
+    def _open_shell_at(screen):
+        w = get_items_window()
+        if w.isMinimized():
+            w.showNormal()
+        if w.current_screen != screen:
+            w.load_screen(screen)
+        w.show()
+        w.raise_()
+        w.activateWindow()
+
     if database_complete:
         # Pokémon PC
         pokemon_pc_action = QAction("Pokémon PC", mw)
@@ -134,13 +144,6 @@ def create_menu_actions(
         )
 
         # Itembag — unified shell window, items screen.
-        def _open_shell_at(screen):
-            w = get_items_window()
-            if w.current_screen != screen:
-                w.load_screen(screen)
-            w.show()
-            w.raise_()
-            w.activateWindow()
 
         itembag_action = QAction(mw.translator.translate("itembag_button"), mw)
         itembag_action.setMenuRole(QAction.MenuRole.NoRole)
@@ -299,9 +302,12 @@ def create_menu_actions(
     version_action.triggered.connect(lambda: get_version_dialog().open())
     help_menu.addAction(version_action)
 
+    # Settings — opens the unified shell at the Settings screen. The legacy
+    # SettingsWindow singleton stays available as a service for anything that
+    # still calls into it directly, but is no longer launched from the menu.
     config_action = QAction(mw.translator.translate("ankimon_settings_button"), mw)
     config_action.setMenuRole(QAction.MenuRole.NoRole)
-    config_action.triggered.connect(lambda: get_settings_window().show_window())
+    config_action.triggered.connect(lambda: _open_shell_at("settings"))
 
     # Show the Settings window
     mw.pokemenu.addAction(config_action)
@@ -374,7 +380,7 @@ def create_menu_actions(
     # Mart entry — opens the same unified Items window as the Item Bag entry.
     shop_manager_action = QAction(mw.translator.translate("item_shop_button"), mw)
     shop_manager_action.setMenuRole(QAction.MenuRole.NoRole)
-    shop_manager_action.triggered.connect(lambda: get_items_window().show())
+    shop_manager_action.triggered.connect(lambda: _open_shell_at("items"))
     game_menu.addAction(shop_manager_action)
 
     # Choose Trainer Sprite Action

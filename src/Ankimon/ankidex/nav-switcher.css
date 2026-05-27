@@ -166,7 +166,15 @@ body:not(.shell-mode) .nav-trigger {
     pointer-events: none;
 }
 
-/* --- Items identity icon (hyper-potion sprite used as Items' visual ID). */
+/* --- Gear icon (Settings entry in the nav dropdown) --- */
+.icon-gear {
+    width: 18px;
+    height: 18px;
+    display: block;
+    color: var(--accent-blue);
+}
+
+/* --- Items icon (hyper-potion sprite used as Items' identity). --- */
 .icon-item-sprite {
     image-rendering: pixelated;
     object-fit: contain;

@@ -469,8 +469,12 @@ class ItemWindow(QWidget):
                 from ..functions.pokedex_functions import search_pokedex_by_id
 
                 fossil_pokemon_name = search_pokedex_by_id(fossil_id)
-                self.Evolve_Fossil(name, fossil_id, fossil_pokemon_name)
-                return {"ok": True, "message": f"Revived {fossil_pokemon_name}."}
+                if self.Evolve_Fossil(name, fossil_id, fossil_pokemon_name):
+                    return {"ok": True, "message": f"Revived {fossil_pokemon_name}."}
+                return {
+                    "ok": False,
+                    "message": f"Failed to revive {fossil_pokemon_name}.",
+                }
             if name in self.pokeball_chances:
                 self.Handle_Pokeball(name)
                 return {"ok": True, "message": f"Threw {name}."}
@@ -564,9 +568,14 @@ class ItemWindow(QWidget):
         individual_id, prevo_id = selected
         self.Check_Evo_Item(individual_id, prevo_id, item_name)
 
-    def Evolve_Fossil(self, item_name: str, fossil_id: int, fossil_poke_name: str):
+    def Evolve_Fossil(
+        self, item_name: str, fossil_id: int, fossil_poke_name: str
+    ) -> bool:
+        """Revive a fossil into its corresponding Pokémon. Returns True on
+        success, False if another item action is already running or revival
+        threw. Existing PyQt button callers ignore the return value."""
         if self._item_action_in_progress:
-            return
+            return False
         self._item_action_in_progress = True
         try:
             if not isinstance(fossil_id, int):
@@ -579,12 +588,14 @@ class ItemWindow(QWidget):
 
             if is_alive(pokemon_pc):
                 pokemon_pc.refresh_pokemon_grid()
+            return True
         except Exception as e:
             show_warning_with_traceback(
                 parent=self,
                 exception=e,
                 message=f"Error using fossil item '{item_name}'",
             )
+            return False
         finally:
             self._item_action_in_progress = False
 
@@ -661,7 +672,7 @@ class ItemWindow(QWidget):
             if evo_id:
                 # Perform your action when the item matches the Pokémon's evolution item
                 self.logger.log_and_showinfo("info", "Pokemon Evolution is fitting !")
-                self.evo_window.ask_pokemon_evo(individual_id, prevo_id, evo_id)
+                self.evo_window.ask_pokemon_evo(individual_id, prevo_id, evo_id, item_name=item_name)
             else:
                 self.logger.log_and_showinfo(
                     "info", "This Pokemon does not need this item."
@@ -671,24 +682,19 @@ class ItemWindow(QWidget):
 
     def load_evolution_items(self):
         try:
-            evolution_item_ids = set()
-            with open(
-                poke_evo_path, mode="r", newline="", encoding="utf-8"
-            ) as evo_file:
-                reader = csv.DictReader(evo_file)
-                for row in reader:
-                    if row["evolution_trigger_id"] == "3":
-                        item_id = row["trigger_item_id"]
-                        if item_id:
-                            evolution_item_ids.add(item_id)
-
-            with open(
-                csv_file_items_cost, mode="r", newline="", encoding="utf-8"
-            ) as items_file:
-                reader = csv.DictReader(items_file)
-                for row in reader:
-                    if row["id"] in evolution_item_ids:
-                        self.evolution_items.add(row["identifier"])
+            self.evolution_items = set()
+            
+            # Load all items from pokedex.json that are used as evolution items (evoType == "useItem")
+            from ..functions.pokedex_functions import _load_pokedex_cache
+            pokedex_data = _load_pokedex_cache()
+            
+            for details in pokedex_data.values():
+                if details.get("evoType") == "useItem":
+                    evo_item = details.get("evoItem")
+                    if evo_item:
+                        # e.g., Convert "Galarica Cuff" -> "galarica-cuff", "Ice Stone" -> "ice-stone"
+                        identifier = evo_item.lower().replace(" ", "-")
+                        self.evolution_items.add(identifier)
 
         except Exception as e:
             self.logger.log_and_showinfo("error", f"Error loading evolution items: {e}")
