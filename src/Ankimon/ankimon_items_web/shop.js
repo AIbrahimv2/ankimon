@@ -106,7 +106,6 @@
             return;
         }
         empty.classList.add('hidden');
-
         // Keyed DOM Reconciliation to completely eliminate visual flicker:
         // Instead of destroying and rebuilding all card DOM elements (which
         // destroys <img> instances and triggers asynchronous image-decoding layout passes),

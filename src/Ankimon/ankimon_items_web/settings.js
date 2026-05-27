@@ -45,7 +45,9 @@
 
     function renderGroupJumps() {
         const container = document.getElementById('group-jumps');
-        container.innerHTML = '';
+        // Build into a fragment then swap atomically to avoid a brief
+        // empty-state on every save refresh.
+        const frag = document.createDocumentFragment();
         (state.data.groups || []).forEach((g) => {
             const btn = document.createElement('button');
             btn.className = 'group-jump';
@@ -58,8 +60,9 @@
             btn.appendChild(label);
             btn.appendChild(count);
             btn.addEventListener('click', () => scrollToGroup(g.label));
-            container.appendChild(btn);
+            frag.appendChild(btn);
         });
+        container.replaceChildren(frag);
     }
 
     function countSettings(group) {
@@ -70,7 +73,10 @@
 
     function renderContent() {
         const root = document.getElementById('settings-content');
-        root.innerHTML = '';
+        // Build the whole settings tree into a fragment off-DOM, then swap
+        // it in atomically. Without this, every save → re-fetch cycle
+        // flashes an empty form area while ~60 rows rebuild sequentially.
+        const frag = document.createDocumentFragment();
         (state.data.groups || []).forEach((group) => {
             const groupEl = document.createElement('section');
             groupEl.className = 'settings-group';
@@ -106,8 +112,9 @@
                 groupEl.appendChild(subEl);
             });
 
-            root.appendChild(groupEl);
+            frag.appendChild(groupEl);
         });
+        root.replaceChildren(frag);
     }
 
     function buildSettingRow(setting) {
