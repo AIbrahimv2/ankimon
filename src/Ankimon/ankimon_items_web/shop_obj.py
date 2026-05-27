@@ -159,6 +159,7 @@ class AnkimonItemsWeb(QDialog):
         # Boot with Items by default; menu entries can call load_screen()
         # before show() to pick a different initial screen.
         self.load_screen(SCREEN_ITEMS)
+        self._restore_geometry()
 
     # ------------------------------------------------------------------
     # Screen switching
@@ -228,10 +229,41 @@ class AnkimonItemsWeb(QDialog):
             on_state_ready,
         )
 
+    def show(self):
+        if self.isMinimized():
+            self.showNormal()
+        else:
+            super().show()
+        self.raise_()
+        self.activateWindow()
+
+    def _restore_geometry(self):
+        import base64
+        from PyQt6.QtCore import QByteArray
+        try:
+            geo = mw.pm.profile.get("ankimon.items_web_window.geometry")
+            if geo:
+                self.restoreGeometry(QByteArray(base64.b64decode(geo)))
+        except Exception:
+            pass
+
+    def _save_geometry(self):
+        import base64
+        try:
+            if not self.isMinimized():
+                mw.pm.profile["ankimon.items_web_window.geometry"] = base64.b64encode(bytes(self.saveGeometry())).decode()
+        except Exception:
+            pass
+
     def closeEvent(self, event):
         if self.current_screen == SCREEN_ANKIDEX:
             self._save_ankidex_prefs()
+        self._save_geometry()
         super().closeEvent(event)
+
+    def hideEvent(self, event):
+        self._save_geometry()
+        super().hideEvent(event)
 
     def showEvent(self, event):
         # Re-push fresh data on every show (e.g. after buy/use happened
