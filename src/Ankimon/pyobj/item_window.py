@@ -672,7 +672,7 @@ class ItemWindow(QWidget):
             if evo_id:
                 # Perform your action when the item matches the Pokémon's evolution item
                 self.logger.log_and_showinfo("info", "Pokemon Evolution is fitting !")
-                self.evo_window.ask_pokemon_evo(individual_id, prevo_id, evo_id)
+                self.evo_window.ask_pokemon_evo(individual_id, prevo_id, evo_id, item_name=item_name)
             else:
                 self.logger.log_and_showinfo(
                     "info", "This Pokemon does not need this item."
@@ -682,24 +682,19 @@ class ItemWindow(QWidget):
 
     def load_evolution_items(self):
         try:
-            evolution_item_ids = set()
-            with open(
-                poke_evo_path, mode="r", newline="", encoding="utf-8"
-            ) as evo_file:
-                reader = csv.DictReader(evo_file)
-                for row in reader:
-                    if row["evolution_trigger_id"] == "3":
-                        item_id = row["trigger_item_id"]
-                        if item_id:
-                            evolution_item_ids.add(item_id)
-
-            with open(
-                csv_file_items_cost, mode="r", newline="", encoding="utf-8"
-            ) as items_file:
-                reader = csv.DictReader(items_file)
-                for row in reader:
-                    if row["id"] in evolution_item_ids:
-                        self.evolution_items.add(row["identifier"])
+            self.evolution_items = set()
+            
+            # Load all items from pokedex.json that are used as evolution items (evoType == "useItem")
+            from ..functions.pokedex_functions import _load_pokedex_cache
+            pokedex_data = _load_pokedex_cache()
+            
+            for details in pokedex_data.values():
+                if details.get("evoType") == "useItem":
+                    evo_item = details.get("evoItem")
+                    if evo_item:
+                        # e.g., Convert "Galarica Cuff" -> "galarica-cuff", "Ice Stone" -> "ice-stone"
+                        identifier = evo_item.lower().replace(" ", "-")
+                        self.evolution_items.add(identifier)
 
         except Exception as e:
             self.logger.log_and_showinfo("error", f"Error loading evolution items: {e}")
