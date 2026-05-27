@@ -377,7 +377,10 @@
         if (!bridge) return;
         const payload = {...state.edits};
         if (Object.keys(payload).length === 0) return;
-        bridge.saveSettings(payload, function (result) {
+        // Stringify so the bridge sees a stable `str` parameter — see the
+        // SettingsBridge.saveSettings comment for why we avoid passing the
+        // dict directly through QVariant.
+        bridge.saveSettings(JSON.stringify(payload), function (result) {
             if (!result) return;
             if (result.ok) {
                 const adj = (result.adjustments || []).join('\n');
@@ -413,8 +416,15 @@
 
     // ---------- Scroll spy / jumps ----------
     function scrollToGroup(label) {
+        // scrollIntoView in QtWebEngine sometimes targets the document
+        // rather than .content-scroll. Compute the offset relative to the
+        // scroll container and call scrollTo() on it directly — reliable
+        // across Qt versions.
         const el = document.querySelector(`.settings-group[data-group="${cssEscape(label)}"]`);
-        if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+        const scroller = document.querySelector('.content-scroll');
+        if (!el || !scroller) return;
+        const top = el.offsetTop - 16;  // small breathing room above the header
+        scroller.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
     }
 
     function cssEscape(s) {

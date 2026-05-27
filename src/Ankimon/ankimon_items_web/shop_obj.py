@@ -58,8 +58,17 @@ class SettingsBridge(QObject):
     def getSettings(self):
         return self._w.get_settings_data()
 
-    @pyqtSlot("QVariant", result="QVariant")
-    def saveSettings(self, payload):
+    # Accept a JSON-encoded string rather than a QVariant dict — PyQt's
+    # QVariant → dict auto-unwrap can fail on the first invocation
+    # (depending on Qt/PyQt versions), making the first save click error
+    # out while later clicks succeed. Round-tripping through JSON removes
+    # that ambiguity entirely.
+    @pyqtSlot(str, result="QVariant")
+    def saveSettings(self, payload_json):
+        try:
+            payload = json.loads(payload_json) if payload_json else {}
+        except (TypeError, ValueError) as e:
+            return {"ok": False, "message": f"Invalid payload JSON: {e}"}
         return self._w.handle_save_settings(payload)
 
 
