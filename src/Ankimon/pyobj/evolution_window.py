@@ -1,5 +1,6 @@
 import json
 import random
+from typing import Optional
 
 from aqt import mw
 from aqt.qt import (
@@ -161,7 +162,7 @@ class EvoWindow(QWidget):
         pkmn_label.setPixmap(merged_pixmap)
         return pkmn_label
 
-    def ask_pokemon_evo(self, individual_id: int, prevo_id: int, evo_id: int):
+    def ask_pokemon_evo(self, individual_id: int, prevo_id: int, evo_id: int, item_name: Optional[str] = None):
         """
         Displays the GUI notification that the given Pokemon is about to evolve.
 
@@ -172,6 +173,7 @@ class EvoWindow(QWidget):
             individual_id (int): The UUID of the Pokemon to evolve.
             prevo_id (int): The identifier (National Pokedex Number) of the Pokémon to evolve.
             evo_id (int): The identifier (National Pokedex Number) of the evolved Pokémon.
+            item_name (str, optional): The name of the evolution item used, if any.
         """
 
         self.setMaximumWidth(600)
@@ -179,7 +181,7 @@ class EvoWindow(QWidget):
         self.clear_layout(self.layout())
         layout = self.layout()
         pokemon_images, evolve_button, dont_evolve_button = (
-            self._ask_pokemon_evo_layout(individual_id, prevo_id, evo_id)
+            self._ask_pokemon_evo_layout(individual_id, prevo_id, evo_id, item_name)
         )
         layout.addWidget(pokemon_images)
         layout.addWidget(evolve_button)
@@ -188,7 +190,7 @@ class EvoWindow(QWidget):
         self.setLayout(layout)
         self.show()
 
-    def _ask_pokemon_evo_layout(self, individual_id: int, prevo_id: int, evo_id: int):
+    def _ask_pokemon_evo_layout(self, individual_id: int, prevo_id: int, evo_id: int, item_name: Optional[str] = None):
         """
         Creates the GUI layout for the upcoming evolution.
 
@@ -199,6 +201,7 @@ class EvoWindow(QWidget):
             individual_id (int): The UUID of the Pokemon to evolve.
             prevo_id (int): The identifier (National Pokedex Number) of the Pokémon to evolve.
             evo_id (int): The identifier (National Pokedex Number) of the evolved Pokémon.
+            item_name (str, optional): The name of the evolution item used, if any.
         """
 
         # Update mainpokemon_evolution and handle evolution logic
@@ -272,7 +275,7 @@ class EvoWindow(QWidget):
         qconnect(
             evolve_button.clicked,
             lambda: self.evolve_pokemon(
-                individual_id, prevo_id, prevo_name, evo_id, evo_name, self.main_pokemon
+                individual_id, prevo_id, prevo_name, evo_id, evo_name, self.main_pokemon, item_name
             ),
         )
         qconnect(
@@ -293,7 +296,7 @@ class EvoWindow(QWidget):
             if widget:
                 widget.deleteLater()
 
-    def evolve_pokemon(self, individual_id, prevo_id, prevo_name, evo_id, evo_name, main_pokemon):
+    def evolve_pokemon(self, individual_id, prevo_id, prevo_name, evo_id, evo_name, main_pokemon, item_name=None):
         """Evolve a pokemon and save to database."""
         db = mw.ankimon_db
 
@@ -373,6 +376,20 @@ class EvoWindow(QWidget):
             # Save to database
             db.save_pokemon(pokemon)
             self.logger.log_and_showinfo("info", self.translator.translate("mainpokemon_has_evolved", prevo_name=prevo_name, evo_name=evo_name))
+
+            # Consume the item (stone) if it was used for the evolution
+            if item_name:
+                db.update_item_quantity(item_name, -1)
+                # Refresh items window if it is open
+                from ..singletons import get_item_window, get_items_window
+                item_w = get_item_window()
+                if item_w and is_alive(item_w):
+                    item_w.renewWidgets()
+
+                # Also refresh items web window if it's open
+                items_web_w = get_items_window()
+                if items_web_w and is_alive(items_web_w):
+                    items_web_w.update_ui_data()
         except Exception as e:
             show_warning_with_traceback(
                 parent=mw, exception=e, message=f"Error occured in evolving pokemon"
