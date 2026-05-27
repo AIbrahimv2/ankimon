@@ -3452,3 +3452,11 @@ body {
     width: 24px;
     height: 24px;
 }
+
+/* --- Items identity icon (hyper-potion sprite used as Items' visual ID).
+ * Sizing comes from .app-logo (32x32) and .nav-menu-icon img (18x18);
+ * we just want crisp pixel art at small scales. */
+.icon-item-sprite {
+    image-rendering: pixelated;
+    object-fit: contain;
+}

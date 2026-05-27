@@ -12,6 +12,7 @@ from datetime import datetime
 from aqt import QDialog, QVBoxLayout, QWebEngineView, mw
 from aqt.qt import Qt, QUrl, QFrame
 from PyQt6.QtCore import QObject, pyqtSlot
+from PyQt6.QtGui import QColor
 from PyQt6.QtWebChannel import QWebChannel
 
 import csv
@@ -107,6 +108,9 @@ class AnkimonItemsWeb(QDialog):
         # Suppress the QtWebEngine browser-style right-click menu (Inspect,
         # Reload, etc.) — irrelevant noise in a game UI.
         self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        # Paint the underlying webview page dark so the user doesn't see a
+        # white flash between window-show and HTML/CSS first paint.
+        self.webview.page().setBackgroundColor(QColor("#0d1117"))
         frame.layout().addWidget(self.webview)
 
         self.channel = QWebChannel(self.webview)

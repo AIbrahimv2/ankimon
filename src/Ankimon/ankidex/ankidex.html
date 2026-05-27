@@ -6,6 +6,28 @@
     <title>Ankidex</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Inline dark bg + skeleton placeholders so the user sees structure
+         while external CSS + initial dex data load. The first render in
+         ankidex.js does pokemon-grid.innerHTML='' which clears them. -->
+    <style>
+        html { background: #0d1117; }
+        .skeleton-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 14px;
+        }
+        .skeleton {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 14px;
+            height: 160px;
+            animation: skeleton-pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes skeleton-pulse {
+            0%, 100% { opacity: 0.35; }
+            50%      { opacity: 0.6; }
+        }
+    </style>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="ankidex.css">
     <link rel="stylesheet" href="nav-switcher.css">
@@ -24,7 +46,7 @@
                     </button>
                     <div id="nav-menu" class="nav-menu hidden" role="menu">
                         <button class="nav-menu-item" role="menuitem" data-screen="items">
-                            <span class="nav-menu-icon"><img src="../user_files/sprites/items/poke-ball.png" alt=""></span>
+                            <span class="nav-menu-icon"><img src="../user_files/sprites/items/hyper-potion.png" class="icon-item-sprite" alt=""></span>
                             <div class="nav-menu-text">
                                 <span class="nav-menu-title">Items</span>
                                 <span class="nav-menu-desc">Your inventory and today's Mart</span>
@@ -138,7 +160,17 @@
 
             <div class="content-scroll">
                 <div id="pokemon-grid" class="pokemon-grid">
-                    <!-- Grid items will be injected here -->
+                    <!-- Skeleton placeholders wrapped in a grid (.pokemon-grid
+                         is display:block; sub-grids handle layout normally).
+                         Cleared on first render by ankidex.js innerHTML=''. -->
+                    <div class="skeleton-grid">
+                        <div class="skeleton"></div><div class="skeleton"></div>
+                        <div class="skeleton"></div><div class="skeleton"></div>
+                        <div class="skeleton"></div><div class="skeleton"></div>
+                        <div class="skeleton"></div><div class="skeleton"></div>
+                        <div class="skeleton"></div><div class="skeleton"></div>
+                        <div class="skeleton"></div><div class="skeleton"></div>
+                    </div>
                 </div>
 
             </div>

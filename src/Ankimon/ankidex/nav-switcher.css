@@ -165,3 +165,9 @@ body:not(.shell-mode) .nav-trigger {
     cursor: default;
     pointer-events: none;
 }
+
+/* --- Items identity icon (hyper-potion sprite used as Items' visual ID). */
+.icon-item-sprite {
+    image-rendering: pixelated;
+    object-fit: contain;
+}
