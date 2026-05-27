@@ -672,7 +672,9 @@ class ItemWindow(QWidget):
             if evo_id:
                 # Perform your action when the item matches the Pokémon's evolution item
                 self.logger.log_and_showinfo("info", "Pokemon Evolution is fitting !")
-                self.evo_window.ask_pokemon_evo(individual_id, prevo_id, evo_id, item_name=item_name)
+                self.evo_window.ask_pokemon_evo(
+                    individual_id, prevo_id, evo_id, item_name=item_name
+                )
             else:
                 self.logger.log_and_showinfo(
                     "info", "This Pokemon does not need this item."
@@ -683,11 +685,12 @@ class ItemWindow(QWidget):
     def load_evolution_items(self):
         try:
             self.evolution_items = set()
-            
+
             # Load all items from pokedex.json that are used as evolution items (evoType == "useItem")
             from ..functions.pokedex_functions import _load_pokedex_cache
+
             pokedex_data = _load_pokedex_cache()
-            
+
             for details in pokedex_data.values():
                 if details.get("evoType") == "useItem":
                     evo_item = details.get("evoItem")
