@@ -889,7 +889,7 @@ def generate_random_pokemon(
             pid
             for pid in encounter_data.NORMAL
             if check_id_ok(pid)
-            and search_pokedex_by_id(pid) not in (None, "Pokémon not found")
+            and search_pokedex_by_id(pid) != "Pokémon not found"
         ]
         selected_pokemon_id = random.choice(eligible_normal) if eligible_normal else 19
         selected_tier = "Normal"
