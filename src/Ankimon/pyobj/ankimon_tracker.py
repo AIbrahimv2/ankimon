@@ -76,12 +76,23 @@ class AnkimonTracker:
     def get_total_reviews(self):
         if mw.col is None:
             return 0
-        match = re.search(r'Studied\s+[^\d]*(\d+)(?=[^\n]*card)', mw.col.studied_today())
-        if match is None:
-            # Empty-study session or localized Anki whose "Studied N cards"
-            # text doesn't match the English regex.
-            return 0
-        return int(match.group(1))
+        try:
+            # Query Anki's database directly for review logs since today's scheduler cutoff.
+            # This is language-agnostic, robust, and handles custom day boundaries.
+            cutoff = mw.col.sched.day_cutoff
+            return mw.col.db.scalar(
+                "SELECT count() FROM revlog WHERE id > ?", (cutoff - 86400) * 1000
+            )
+        except Exception:
+            # Fallback to parsing localized string if the database query fails.
+            try:
+                text = mw.col.studied_today()
+                nums = re.findall(r'\d+', text)
+                if nums:
+                    return int(nums[0])
+            except Exception:
+                pass
+        return 0
 
     def set_main_pokemon(self, pokemon):
         """Set the main Pokémon being used."""
