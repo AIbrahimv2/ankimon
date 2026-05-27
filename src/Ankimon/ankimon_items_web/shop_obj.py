@@ -139,7 +139,7 @@ class AnkimonItemsWeb(QDialog):
         self.webview = QWebEngineView()
         # Suppress the QtWebEngine browser-style right-click menu (Inspect,
         # Reload, etc.) — irrelevant noise in a game UI.
-        self.webview.page().setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         # Paint the underlying webview page dark so the user doesn't see a
         # white flash between window-show and HTML/CSS first paint.
         self.webview.page().setBackgroundColor(QColor("#0d1117"))
