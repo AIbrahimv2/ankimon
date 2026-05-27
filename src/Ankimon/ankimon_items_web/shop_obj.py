@@ -302,7 +302,9 @@ class AnkimonItemsWeb(QDialog):
             entry["move_type"] = move_type
             entry["move_power"] = self._coerce_int(move.get("basePower"))
             accuracy = move.get("accuracy")
-            entry["move_accuracy"] = "—" if accuracy is True else self._coerce_int(accuracy)
+            entry["move_accuracy"] = (
+                "—" if accuracy is True else self._coerce_int(accuracy)
+            )
             entry["move_pp"] = self._coerce_int(move.get("pp"))
             entry["move_damage_class"] = (move.get("category") or "").title() or None
         else:
