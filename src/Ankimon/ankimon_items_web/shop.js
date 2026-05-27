@@ -45,10 +45,32 @@
         });
     }
 
+    function preloadImages(urls, callback) {
+        if (!urls || urls.length === 0) {
+            callback();
+            return;
+        }
+        let loaded = 0;
+        const target = urls.length;
+        urls.forEach((url) => {
+            const img = new Image();
+            img.onload = img.onerror = () => {
+                loaded++;
+                if (loaded === target) {
+                    callback();
+                }
+            };
+            img.src = url;
+        });
+    }
+
     // Entry from Python
     window.initializeItems = function (data) {
         state.data = data;
-        render();
+        const urls = (data.items || []).map((i) => i.image_url).filter(Boolean);
+        preloadImages(urls, function () {
+            render();
+        });
     };
 
     // ---------- Rendering ----------
@@ -82,32 +104,74 @@
         }
         empty.classList.add('hidden');
 
-        // Build the new content off-DOM in a DocumentFragment, then swap it
-        // in atomically with replaceChildren. Avoids the empty-grid flash
-        // and the per-appendChild reflow cascade that the old
-        // innerHTML='' + sequential appendChild loop caused on every
-        // buy/use/reroll refresh.
-        const frag = document.createDocumentFragment();
+        // Keyed DOM Reconciliation to completely eliminate visual flicker:
+        // Instead of destroying and rebuilding all card DOM elements (which
+        // destroys <img> instances and triggers asynchronous image-decoding layout passes),
+        // we map existing cards by their item name and update/reorder them in-place.
+        const existingCards = Array.from(grid.querySelectorAll('.shop-card'));
+        const cardMap = new Map();
+        existingCards.forEach(card => {
+            const name = card.getAttribute('data-item-name');
+            if (name) cardMap.set(name, card);
+        });
 
-        // Split into Items vs TMs whenever both are visible and no specific
-        // category is selected. Keeps the Mart's familiar Items/TMs grouping
-        // inside the unified view, but collapses to a flat grid otherwise.
         const itemEntries = visible.filter((i) => !i.is_tm);
         const tmEntries = visible.filter((i) => i.is_tm);
         const splitSections = state.category === 'all'
             && itemEntries.length > 0
             && tmEntries.length > 0;
 
+        const targetElements = [];
+
         if (splitSections) {
-            frag.appendChild(buildSectionHeader('Items', 'items', itemEntries.length));
-            itemEntries.forEach((item) => frag.appendChild(buildCard(item)));
-            frag.appendChild(buildSectionHeader('TMs', 'tms', tmEntries.length));
-            tmEntries.forEach((item) => frag.appendChild(buildCard(item)));
+            targetElements.push({type: 'header', kind: 'items', label: 'Items', count: itemEntries.length});
+            itemEntries.forEach((item) => targetElements.push({type: 'card', item}));
+            targetElements.push({type: 'header', kind: 'tms', label: 'TMs', count: tmEntries.length});
+            tmEntries.forEach((item) => targetElements.push({type: 'card', item}));
         } else {
-            visible.forEach((item) => frag.appendChild(buildCard(item)));
+            visible.forEach((item) => targetElements.push({type: 'card', item}));
         }
 
-        grid.replaceChildren(frag);
+        const elementsList = targetElements.map(target => {
+            if (target.type === 'card') {
+                const existing = cardMap.get(target.item.name);
+                if (existing) {
+                    updateCard(existing, target.item);
+                    return existing;
+                } else {
+                    return buildCard(target.item);
+                }
+            } else {
+                // Find existing header or create a new one
+                let headerEl = grid.querySelector(`.shop-section-header .shop-section-title.${target.kind}`);
+                if (headerEl) {
+                    headerEl = headerEl.closest('.shop-section-header');
+                    const countEl = headerEl.querySelector('.shop-section-sub');
+                    if (countEl) {
+                        countEl.textContent = target.count + ' ' + (target.count === 1 ? 'entry' : 'entries');
+                    }
+                    return headerEl;
+                } else {
+                    return buildSectionHeader(target.label, target.kind, target.count);
+                }
+            }
+        });
+
+        // Remove obsolete elements
+        const activeSet = new Set(elementsList);
+        Array.from(grid.childNodes).forEach(node => {
+            if (!activeSet.has(node)) {
+                node.remove();
+            }
+        });
+
+        // Order elements in the grid in-place
+        elementsList.forEach((el, index) => {
+            if (grid.childNodes[index] !== el) {
+                grid.insertBefore(el, grid.childNodes[index] || null);
+            }
+        });
+
         refreshDetailPanel();
     }
 
@@ -176,9 +240,87 @@
         return {label: parts.join(' · '), cls};
     }
 
+    function updateCard(card, item) {
+        // Reset and update class list
+        card.className = 'shop-card pokemon-card-equivalent';
+        const stateCls = cardStateClass(item);
+        if (stateCls) card.classList.add(stateCls);
+        if (item.is_tm && (item.owned_quantity || 0) > 0) card.classList.add('owned');
+        if (item.in_shop && state.data.cash < (item.price || 0) &&
+            (!item.is_tm || (item.owned_quantity || 0) === 0)) {
+            card.classList.add('unaffordable');
+        }
+        if (state.selected === item.name) card.classList.add('selected');
+
+        // Update tag
+        let tag = card.querySelector('.shop-card-tag');
+        const tagText = cardTagFor(item);
+        if (tagText) {
+            if (!tag) {
+                tag = document.createElement('div');
+                card.insertBefore(tag, card.firstChild);
+            }
+            tag.className = 'shop-card-tag ' + tagText.cls;
+            tag.textContent = tagText.label;
+        } else if (tag) {
+            tag.remove();
+        }
+
+        // Update badges
+        let badges = card.querySelector('.shop-card-badges');
+        if (!badges) {
+            badges = document.createElement('div');
+            badges.className = 'shop-card-badges';
+            const refNode = card.querySelector('.shop-card-tag') ? card.querySelector('.shop-card-tag').nextSibling : card.firstChild;
+            card.insertBefore(badges, refNode);
+        }
+        badges.innerHTML = '';
+        if ((item.owned_quantity || 0) > 0) {
+            if (item.is_tm) {
+                if (state.filter !== 'owned') {
+                    const badge = document.createElement('span');
+                    badge.className = 'shop-card-badge owned';
+                    badge.textContent = 'OWNED';
+                    badges.appendChild(badge);
+                }
+            } else {
+                const badge = document.createElement('span');
+                badge.className = 'shop-card-badge qty';
+                badge.textContent = 'x' + item.owned_quantity;
+                badges.appendChild(badge);
+            }
+        }
+
+        // Update sprite src if different (preserves img DOM instance to avoid flickering)
+        const img = card.querySelector('.shop-card-sprite img');
+        if (img && img.getAttribute('src') !== (item.image_url || '')) {
+            img.src = item.image_url || '';
+        }
+
+        // Update name
+        const nameEl = card.querySelector('.shop-card-name');
+        if (nameEl) {
+            nameEl.textContent = item.ui_name || item.name;
+        }
+
+        // Update price pill
+        let priceEl = card.querySelector('.shop-card-price-pill');
+        if (item.in_shop) {
+            if (!priceEl) {
+                priceEl = document.createElement('div');
+                priceEl.className = 'shop-card-price-pill';
+                card.appendChild(priceEl);
+            }
+            priceEl.textContent = formatMoney(item.price || 0) + '¥';
+        } else if (priceEl) {
+            priceEl.remove();
+        }
+    }
+
     function buildCard(item) {
         const card = document.createElement('div');
         card.className = 'shop-card pokemon-card-equivalent';
+        card.setAttribute('data-item-name', item.name);
         const stateCls = cardStateClass(item);
         if (stateCls) card.classList.add(stateCls);
         if (item.is_tm && (item.owned_quantity || 0) > 0) card.classList.add('owned');
@@ -223,6 +365,7 @@
         const spriteWrap = document.createElement('div');
         spriteWrap.className = 'shop-card-sprite';
         const img = document.createElement('img');
+        img.decoding = 'sync';
         img.src = item.image_url || '';
         img.alt = item.ui_name || item.name;
         img.onerror = () => { img.style.opacity = '0.25'; };
@@ -441,12 +584,13 @@
         labelEl.appendChild(val);
         row.appendChild(labelEl);
 
-        if (max !== null && typeof value === 'number') {
+        if (max !== null) {
             const bg = document.createElement('div');
             bg.className = 'stat-bar-bg';
             const fill = document.createElement('div');
             fill.className = 'stat-bar-fill';
-            const pct = Math.max(0, Math.min(100, (value / max) * 100));
+            const numVal = typeof value === 'number' ? value : 0;
+            const pct = Math.max(0, Math.min(100, (numVal / max) * 100));
             fill.dataset.targetWidth = pct + '%';
             bg.appendChild(fill);
             row.appendChild(bg);

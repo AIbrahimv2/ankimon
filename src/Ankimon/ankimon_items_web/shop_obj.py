@@ -84,7 +84,9 @@ class AnkimonItemsWeb(QDialog):
         self.current_screen = None
         self.setWindowTitle("Ankimon")
 
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        # Disabled WA_TranslucentBackground to prevent heavy window-level repaint
+        # flickering under Windows DWM when QWebEngineView re-composes or updates.
+        # self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowFlags(
             self.windowFlags()
             | Qt.WindowType.WindowMaximizeButtonHint
@@ -299,7 +301,8 @@ class AnkimonItemsWeb(QDialog):
             )
             entry["move_type"] = move_type
             entry["move_power"] = self._coerce_int(move.get("basePower"))
-            entry["move_accuracy"] = self._coerce_int(move.get("accuracy"))
+            accuracy = move.get("accuracy")
+            entry["move_accuracy"] = "—" if accuracy is True else self._coerce_int(accuracy)
             entry["move_pp"] = self._coerce_int(move.get("pp"))
             entry["move_damage_class"] = (move.get("category") or "").title() or None
         else:
@@ -391,6 +394,8 @@ class AnkimonItemsWeb(QDialog):
     def _coerce_int(value):
         try:
             if value in (None, "", "—"):
+                return None
+            if isinstance(value, bool):
                 return None
             return int(value)
         except (TypeError, ValueError):

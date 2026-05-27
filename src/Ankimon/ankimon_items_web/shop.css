@@ -1820,7 +1820,6 @@ body {
     border-radius: 8px;
     padding: 8px;
     z-index: 100;
-    backdrop-filter: blur(8px);
 }
 
 .mini-map-label {
@@ -2972,7 +2971,6 @@ body {
     position: absolute;
     inset: 0;
     background: rgba(8, 10, 12, 0.7);
-    backdrop-filter: blur(4px);
 }
 
 .confirm-card {

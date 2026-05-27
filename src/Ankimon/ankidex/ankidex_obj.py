@@ -14,8 +14,10 @@ class Ankidex(QDialog):
         self.ankimon_tracker = ankimon_tracker
         self.setWindowTitle("Ankidex")
 
-        # Premium feel: translucent background and larger default size
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        # Premium feel: larger default size
+        # Disabled WA_TranslucentBackground to prevent heavy window-level repaint
+        # flickering under Windows DWM when QWebEngineView re-composes or updates.
+        # self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowMinimizeButtonHint)
         self.resize(1200, 720)
 

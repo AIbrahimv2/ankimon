@@ -493,6 +493,9 @@ def swap_ankimon_account():
         if hasattr(mw, "ankidex_window") and is_alive(mw.ankidex_window):
             mw.ankidex_window.update_ui_data()
 
+        if hasattr(mw, "items_web_window") and is_alive(mw.items_web_window):
+            mw.items_web_window.update_ui_data()
+
         # If in reviewer, force HUD update
         if hasattr(mw, "reviewer") and mw.reviewer and hasattr(mw, "reviewer_obj"):
             mw.reviewer_obj.update_life_bar(mw.reviewer, None, 0)
