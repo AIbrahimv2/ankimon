@@ -693,7 +693,9 @@ class AnkimonItemsWeb(QDialog):
                     settings_obj.set(key, val)
                     changed = True
             if changed:
-                settings_obj.save_config()
+                # Settings.save_config(config) requires the dict — passing
+                # the fully-merged config persists every key in one write.
+                settings_obj.save_config(config)
         except Exception as e:
             return {"ok": False, "message": f"Save failed: {e}"}
 

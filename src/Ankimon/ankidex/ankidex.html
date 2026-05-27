@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <!-- Inline dark bg + skeleton placeholders so the user sees structure
-         while external CSS + initial dex data load. The first render in
-         ankidex.js does pokemon-grid.innerHTML='' which clears them. -->
+         while the external CSS + initial dex data load. The first render
+         in ankidex.js does pokemon-grid.innerHTML='' which clears them. -->
     <style>
         html { background: #0d1117; }
         .skeleton-grid {
@@ -60,7 +60,7 @@
                             </div>
                         </button>
                         <button class="nav-menu-item" role="menuitem" data-screen="settings">
-                            <span class="nav-menu-icon">⚙</span>
+                            <span class="nav-menu-icon"><svg class="icon-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
                             <div class="nav-menu-text">
                                 <span class="nav-menu-title">Settings</span>
                                 <span class="nav-menu-desc">Configure Ankimon</span>
@@ -167,9 +167,10 @@
 
             <div class="content-scroll">
                 <div id="pokemon-grid" class="pokemon-grid">
-                    <!-- Skeleton placeholders wrapped in a grid (.pokemon-grid
-                         is display:block; sub-grids handle layout normally).
-                         Cleared on first render by ankidex.js innerHTML=''. -->
+                    <!-- Skeleton placeholders wrapped in a grid (the real
+                         .pokemon-grid is display:block, sub-grids handle
+                         the layout). innerHTML='' on first render clears
+                         the whole wrapper. -->
                     <div class="skeleton-grid">
                         <div class="skeleton"></div><div class="skeleton"></div>
                         <div class="skeleton"></div><div class="skeleton"></div>

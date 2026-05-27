@@ -50,15 +50,25 @@
 }
 
 .group-jump.active {
-    background: var(--bg-card-hover);
+    background: rgba(88, 166, 255, 0.10);
     color: var(--accent-blue);
     font-weight: 600;
+    /* Left accent bar so the highlight reads as a clear "you are here"
+     * marker anchored to the title text. Inset box-shadow avoids the
+     * layout shift a border-left would cause. */
+    box-shadow: inset 3px 0 0 var(--accent-blue);
 }
 
 .group-jump-count {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.7rem;
     color: var(--text-muted);
+    transition: color 0.15s ease;
+}
+
+.group-jump.active .group-jump-count {
+    color: var(--accent-blue);
+    opacity: 0.75;
 }
 
 /* --- Save action dirty pill --- */
@@ -85,6 +95,22 @@
     color: var(--accent-blue);
 }
 
+/* Override .nav-action's red palette — Save isn't destructive like the
+ * Mart's reroll, so use a neutral blue tint at rest and green when dirty. */
+#save-btn {
+    background: linear-gradient(135deg,
+        rgba(88, 166, 255, 0.10),
+        rgba(88, 166, 255, 0.03));
+    border-color: rgba(88, 166, 255, 0.25);
+}
+
+#save-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg,
+        rgba(88, 166, 255, 0.22),
+        rgba(88, 166, 255, 0.08));
+    border-color: var(--accent-blue);
+}
+
 #save-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -95,6 +121,13 @@
         rgba(63, 185, 80, 0.18),
         rgba(63, 185, 80, 0.06));
     border-color: rgba(63, 185, 80, 0.45);
+}
+
+#save-btn.dirty:hover:not(:disabled) {
+    background: linear-gradient(135deg,
+        rgba(63, 185, 80, 0.30),
+        rgba(63, 185, 80, 0.10));
+    border-color: var(--accent-green);
 }
 
 #save-btn.dirty .icon-save { color: var(--accent-green); }
@@ -150,33 +183,23 @@
     color: var(--text-muted);
 }
 
+/* Subgroups visually match top-level groups — same heading treatment,
+ * no card chrome. Slightly smaller heading preserves the implicit
+ * "nested under parent group" hierarchy without a visual container. */
 .settings-subgroup {
-    margin-top: 24px;
-    padding: 18px 20px;
-    background: var(--bg-card);
-    border: 1px solid var(--border-main);
-    border-radius: 14px;
+    margin-top: 32px;
 }
 
 .settings-subgroup.hidden { display: none; }
 
 .settings-subgroup-title {
-    font-size: 0.75rem;
-    font-weight: 800;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--accent-blue);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    color: var(--text-bright);
     margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.settings-subgroup-title::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(to right, var(--border-main), transparent);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-main);
 }
 
 /* --- Setting row --- */
@@ -392,4 +415,48 @@
 /* Chip rows are wider than form inputs — let them spill across the control column. */
 .setting-row:has(.setting-chips) {
     grid-template-columns: 1fr 360px;
+}
+
+/* --- Section jump highlight --- */
+/* When the user clicks a section in the sidebar nav, briefly tint the
+ * landing section so they get a clear visual confirmation.
+ *
+ * Uses a ::before pseudo-element rather than box-shadow so we can apply
+ * an asymmetric inset: extend 14px above and on the sides, but crop 14px
+ * INTO the section's bottom — the last setting-row already has 16px of
+ * padding below its text, which the section bg would naturally pick up.
+ * Without the crop, the visible tinted area below the last row ends up
+ * ~30px (row padding + box-shadow extension) vs ~14px above the header.
+ * The crop balances both edges to ~14px. */
+.settings-group,
+.settings-subgroup {
+    position: relative;
+    /* isolation: isolate forces a new stacking context so the flash
+     * pseudo-element's z-index: -1 stays scoped inside the section
+     * (otherwise it escapes upward and renders behind opaque ancestor
+     * backgrounds, making the flash invisible). */
+    isolation: isolate;
+}
+
+.settings-group.flash-highlight::before,
+.settings-subgroup.flash-highlight::before {
+    content: '';
+    position: absolute;
+    /* top right bottom left — negative outsets, positive insets crop:
+     *   top: -14px  → tint extends 14px above section
+     *   bottom: 2px → tint crops 2px from section's bottom, leaving the
+     *                 last 14px of the row's 16px padding-bottom as tinted
+     *                 area below the last row's text. Matches the 14px above
+     *                 the header. */
+    inset: -14px -14px 2px -14px;
+    background: rgba(88, 166, 255, 0.16);
+    border-radius: 10px;
+    pointer-events: none;
+    z-index: -1;
+    animation: section-flash 1.2s ease-out forwards;
+}
+
+@keyframes section-flash {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
 }

@@ -41,6 +41,10 @@
         renderContent();
         applySearchFilter();
         updateDirtyUI();
+        // Re-run the spy after render so the active button reflects the
+        // post-render scroll position (in case the DOM rebuild moved things
+        // around).
+        updateActiveSection();
     }
 
     function renderGroupJumps() {
@@ -422,37 +426,100 @@
     }
 
     // ---------- Scroll spy / jumps ----------
+    //
+    // Approach (after several iterations):
+    // 1. Clicking a section in the sidebar SETS the active state directly
+    //    and suppresses the scroll-spy for 1.5s. This means the user's
+    //    explicit choice wins even when the scroll lands at max (e.g.
+    //    Generations near the bottom of a short page).
+    // 2. Otherwise the spy runs on scroll. The active section is the LAST
+    //    one whose top has crossed a reading line near the top of the
+    //    scroller — the classic "where am I" check.
+    // 3. When the user is at max scroll AND later sections couldn't reach
+    //    the line, fall back to whichever section's top is closest to
+    //    (just below) the line. That's how Study/Generations become
+    //    select-able via manual scrolling on short content.
+
+    let suppressSpyUntil = 0;
+    const READING_LINE_PX = 80;
+
+    function setActiveButton(label) {
+        if (label === state.activeGroup) return;
+        state.activeGroup = label;
+        document.querySelectorAll('.group-jump').forEach((b) => {
+            b.classList.toggle('active', b.dataset.group === label);
+        });
+    }
+
     function scrollToGroup(label) {
-        // scrollIntoView in QtWebEngine sometimes targets the document
-        // rather than .content-scroll. Compute the offset relative to the
-        // scroll container and call scrollTo() on it directly — reliable
-        // across Qt versions.
         const el = document.querySelector(`.settings-group[data-group="${cssEscape(label)}"]`);
         const scroller = document.querySelector('.content-scroll');
         if (!el || !scroller) return;
-        const top = el.offsetTop - 16;  // small breathing room above the header
-        scroller.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
+        const elTop = el.getBoundingClientRect().top;
+        const scrollerTop = scroller.getBoundingClientRect().top;
+        const offsetWithinScroller = elTop - scrollerTop + scroller.scrollTop;
+        // 32px breathing room so the section header sits comfortably
+        // below the top-bar instead of butting up against it.
+        const target = Math.max(0, offsetWithinScroller - 32);
+        scroller.scrollTo({top: target, behavior: 'smooth'});
+        flashSection(el);
+        // Win against the spy: the user's click wins even if the resulting
+        // scroll position would normally activate a different section.
+        setActiveButton(label);
+        suppressSpyUntil = Date.now() + 1500;
+    }
+
+    function flashSection(el) {
+        // Brief tint so the user sees the jump landed on the right section.
+        // Re-trigger the animation if the class is already present
+        // (consecutive clicks on the same nav item).
+        el.classList.remove('flash-highlight');
+        // Force reflow so the animation restarts on re-add.
+        void el.offsetWidth;
+        el.classList.add('flash-highlight');
     }
 
     function cssEscape(s) {
         return s.replace(/"/g, '\\"');
     }
 
-    function updateActiveJump() {
-        const groups = document.querySelectorAll('.settings-group');
+    function updateActiveSection() {
+        if (Date.now() < suppressSpyUntil) return;
         const scroller = document.querySelector('.content-scroll');
         if (!scroller) return;
-        const scrollTop = scroller.scrollTop;
+        const sRect = scroller.getBoundingClientRect();
+        const sections = Array.from(document.querySelectorAll('.settings-group'))
+            .filter((g) => !g.classList.contains('hidden'));
+        if (!sections.length) return;
+
+        const readingLine = sRect.top + READING_LINE_PX;
+
+        // Primary: last section whose top has crossed the reading line.
         let active = null;
-        groups.forEach((g) => {
-            if (g.classList.contains('hidden')) return;
-            if (g.offsetTop - 24 <= scrollTop) active = g.dataset.group;
+        sections.forEach((g) => {
+            if (g.getBoundingClientRect().top <= readingLine + 4) active = g;
         });
-        if (active === state.activeGroup) return;
-        state.activeGroup = active;
-        document.querySelectorAll('.group-jump').forEach((b) => {
-            b.classList.toggle('active', b.dataset.group === active);
-        });
+
+        // Fallback when we're at max scroll: short later sections that
+        // couldn't physically be scrolled past the line still need to be
+        // select-able. Pick whichever section's top is closest to (just
+        // below) the line.
+        const atMax = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 4;
+        if (atMax) {
+            let nearestBelow = null;
+            let nearestDist = Infinity;
+            sections.forEach((g) => {
+                const dist = g.getBoundingClientRect().top - readingLine;
+                if (dist > 0 && dist < nearestDist) {
+                    nearestDist = dist;
+                    nearestBelow = g;
+                }
+            });
+            if (nearestBelow) active = nearestBelow;
+        }
+
+        if (!active) active = sections[0];
+        setActiveButton(active.dataset.group);
     }
 
     // ---------- UI plumbing ----------
@@ -475,7 +542,7 @@
         document.getElementById('discard-btn').addEventListener('click', onDiscard);
 
         const scroller = document.querySelector('.content-scroll');
-        if (scroller) scroller.addEventListener('scroll', updateActiveJump);
+        if (scroller) scroller.addEventListener('scroll', updateActiveSection);
 
         document.addEventListener('keydown', (e) => {
             if (e.key === '/' && document.activeElement !== search) {

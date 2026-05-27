@@ -6,6 +6,30 @@
     <title>Ankimon Settings</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Inline dark bg + skeleton placeholders so the user sees structure
+         instead of empty space while the external CSS + initial settings
+         data load. Real renderContent() clears the placeholders. -->
+    <style>
+        html { background: #0d1117; }
+        .skeleton {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            animation: skeleton-pulse 1.5s ease-in-out infinite;
+        }
+        .skeleton-section {
+            background: transparent;
+            border: none;
+            margin-bottom: 36px;
+            animation: none;
+        }
+        .skeleton-heading { height: 32px; width: 180px; margin-bottom: 18px; }
+        .skeleton-row { height: 64px; margin-bottom: 12px; }
+        @keyframes skeleton-pulse {
+            0%, 100% { opacity: 0.35; }
+            50%      { opacity: 0.6; }
+        }
+    </style>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="shop.css">
     <link rel="stylesheet" href="settings.css">
@@ -19,13 +43,16 @@
             <div class="sidebar-header">
                 <div id="nav-switcher" class="nav-switcher">
                     <button id="nav-trigger" class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">
-                        <img src="../user_files/sprites/items/poke-ball.png" class="app-logo">
+                        <svg class="app-logo icon-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                        </svg>
                         <h1>SETTINGS</h1>
                         <span class="nav-chevron">▾</span>
                     </button>
                     <div id="nav-menu" class="nav-menu hidden" role="menu">
                         <button class="nav-menu-item" role="menuitem" data-screen="items">
-                            <span class="nav-menu-icon"><img src="../user_files/sprites/items/poke-ball.png" alt=""></span>
+                            <span class="nav-menu-icon"><img src="../user_files/sprites/items/hyper-potion.png" class="icon-item-sprite" alt=""></span>
                             <div class="nav-menu-text">
                                 <span class="nav-menu-title">Items</span>
                                 <span class="nav-menu-desc">Your inventory and today's Mart</span>
@@ -39,7 +66,7 @@
                             </div>
                         </button>
                         <button class="nav-menu-item active" role="menuitem" data-screen="settings">
-                            <span class="nav-menu-icon">⚙</span>
+                            <span class="nav-menu-icon"><svg class="icon-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
                             <div class="nav-menu-text">
                                 <span class="nav-menu-title">Settings</span>
                                 <span class="nav-menu-desc">Configure Ankimon</span>
@@ -96,7 +123,21 @@
             </header>
 
             <div class="content-scroll" style="padding: 20px 24px 64px;">
-                <div id="settings-content"></div>
+                <div id="settings-content">
+                    <!-- Skeleton placeholders — cleared by renderContent()
+                         when initializeSettings() fires. -->
+                    <section class="skeleton-section">
+                        <div class="skeleton skeleton-heading"></div>
+                        <div class="skeleton skeleton-row"></div>
+                        <div class="skeleton skeleton-row"></div>
+                        <div class="skeleton skeleton-row"></div>
+                    </section>
+                    <section class="skeleton-section">
+                        <div class="skeleton skeleton-heading"></div>
+                        <div class="skeleton skeleton-row"></div>
+                        <div class="skeleton skeleton-row"></div>
+                    </section>
+                </div>
                 <div id="settings-empty" class="shop-empty hidden">No settings match your search.</div>
             </div>
         </main>
