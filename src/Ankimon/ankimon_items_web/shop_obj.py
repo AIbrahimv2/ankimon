@@ -92,6 +92,10 @@ class ItemsBridge(QObject):
         self._w.push_screen_data()
         return result
 
+    @pyqtSlot(bool, result="QVariant")
+    def setSkipRerollConfirm(self, skip):
+        return self._w.handle_set_skip_reroll_confirm(bool(skip))
+
     @pyqtSlot(str, result="QVariant")
     def useItem(self, item_name):
         result = self._w.handle_use(item_name)
@@ -184,9 +188,15 @@ class AnkimonItemsWeb(QDialog):
         self.channel_settings.registerObject("settings", self.settings_bridge)
         self.webview_settings.page().setWebChannel(self.channel_settings)
 
-        self.webview_items.loadFinished.connect(lambda ok, s=SCREEN_ITEMS: self._on_screen_load_finished(ok, s))
-        self.webview_ankidex.loadFinished.connect(lambda ok, s=SCREEN_ANKIDEX: self._on_screen_load_finished(ok, s))
-        self.webview_settings.loadFinished.connect(lambda ok, s=SCREEN_SETTINGS: self._on_screen_load_finished(ok, s))
+        self.webview_items.loadFinished.connect(
+            lambda ok, s=SCREEN_ITEMS: self._on_screen_load_finished(ok, s)
+        )
+        self.webview_ankidex.loadFinished.connect(
+            lambda ok, s=SCREEN_ANKIDEX: self._on_screen_load_finished(ok, s)
+        )
+        self.webview_settings.loadFinished.connect(
+            lambda ok, s=SCREEN_SETTINGS: self._on_screen_load_finished(ok, s)
+        )
 
         self.loaded_screens = set()
 
@@ -283,6 +293,7 @@ class AnkimonItemsWeb(QDialog):
     def _restore_geometry(self):
         import base64
         from PyQt6.QtCore import QByteArray
+
         try:
             geo = mw.pm.profile.get("ankimon.items_web_window.geometry")
             if geo:
@@ -292,9 +303,12 @@ class AnkimonItemsWeb(QDialog):
 
     def _save_geometry(self):
         import base64
+
         try:
             if not self.isMinimized():
-                mw.pm.profile["ankimon.items_web_window.geometry"] = base64.b64encode(bytes(self.saveGeometry())).decode()
+                mw.pm.profile["ankimon.items_web_window.geometry"] = base64.b64encode(
+                    bytes(self.saveGeometry())
+                ).decode()
         except Exception:
             pass
 
@@ -383,11 +397,36 @@ class AnkimonItemsWeb(QDialog):
         return {
             "cash": int(sm.get_callback("trainer.cash") or 0),
             "reroll_cost": int(sm.daily_items_reroll_cost or 0),
+            "skip_reroll_confirm": self._get_skip_reroll_today(),
             "items": items,
             # pokemon_choices intentionally NOT included — for players with
             # 10k+ captures the payload is multiple MB. JS lazy-fetches via
             # bridge.getPokemonChoices() on first picker open + caches.
         }
+
+    def _get_skip_reroll_today(self):
+        # Stored as {"date": "YYYY-MM-DD", "skip": bool}. Treated as False
+        # whenever the date doesn't match today, which gives the "reset every
+        # day" behavior without needing a separate cleanup pass.
+        try:
+            data = mw.ankimon_db.get_user_data("shop_skip_reroll_confirm")
+        except Exception:
+            return False
+        if not isinstance(data, dict):
+            return False
+        if data.get("date") != datetime.now().strftime("%Y-%m-%d"):
+            return False
+        return bool(data.get("skip"))
+
+    def handle_set_skip_reroll_confirm(self, skip):
+        try:
+            mw.ankimon_db.set_user_data(
+                "shop_skip_reroll_confirm",
+                {"date": datetime.now().strftime("%Y-%m-%d"), "skip": bool(skip)},
+            )
+        except Exception as e:
+            return {"ok": False, "message": str(e)}
+        return {"ok": True}
 
     def _serialize_item(
         self, name, is_tm, in_shop, shop_price, item_type, owned_quantity

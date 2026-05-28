@@ -707,6 +707,14 @@
             if (e.target.classList.contains('confirm-backdrop')) closeConfirm();
         });
         document.getElementById('confirm-ok').addEventListener('click', () => {
+            const skip = document.getElementById('confirm-skip');
+            if (skip && skip.checked && bridge && bridge.setSkipRerollConfirm) {
+                bridge.setSkipRerollConfirm(true, function () {});
+                // Optimistic — push_screen_data() will overwrite, but this
+                // keeps the flag set if the next click happens to land before
+                // the round-trip completes.
+                if (state.data) state.data.skip_reroll_confirm = true;
+            }
             closeConfirm();
             onReroll();
         });
@@ -750,6 +758,14 @@
         const after = (state.data.cash || 0) - cost;
         const insufficient = after < 0;
 
+        // "Don't ask again today" — skip the modal entirely when affordable.
+        // The insufficient case still falls through so the user sees the
+        // "Not Enough ¥" disabled-button feedback.
+        if (state.data.skip_reroll_confirm && !insufficient) {
+            onReroll();
+            return;
+        }
+
         document.getElementById('confirm-cost').textContent = formatMoney(cost) + '¥';
         const balance = document.getElementById('confirm-balance');
         document.getElementById('confirm-balance-value').textContent = formatMoney(after) + '¥';
@@ -758,6 +774,9 @@
         const okBtn = document.getElementById('confirm-ok');
         okBtn.disabled = insufficient;
         okBtn.textContent = insufficient ? 'Not Enough ¥' : 'Confirm Reroll';
+
+        const skipCheckbox = document.getElementById('confirm-skip');
+        if (skipCheckbox) skipCheckbox.checked = false;
 
         document.getElementById('confirm-modal').classList.remove('hidden');
     }

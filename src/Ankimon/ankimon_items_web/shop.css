@@ -2978,8 +2978,8 @@ body {
     background: linear-gradient(160deg, var(--bg-card), var(--bg-darker));
     border: 1px solid var(--border-main);
     border-radius: 18px;
-    padding: 28px 28px 22px;
-    width: 380px;
+    padding: 22px 24px 18px;
+    width: 340px;
     max-width: calc(100vw - 40px);
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
     text-align: center;
@@ -2992,17 +2992,15 @@ body {
 }
 
 .confirm-icon {
-    width: 52px;
-    height: 52px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    margin: 0 auto 14px;
+    margin: 0 auto 10px;
     background:
         radial-gradient(circle at 30% 30%, rgba(248, 81, 73, 0.35), transparent 60%),
         var(--bg-darker);
     border: 1px solid rgba(248, 81, 73, 0.4);
     color: var(--accent-red);
-    font-size: 1.4rem;
-    font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3010,24 +3008,11 @@ body {
 }
 
 .confirm-title {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-weight: 800;
     color: var(--text-bright);
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     letter-spacing: -0.3px;
-}
-
-.confirm-body {
-    font-size: 0.88rem;
-    line-height: 1.5;
-    color: var(--text-main);
-    margin-bottom: 18px;
-}
-
-.confirm-body em {
-    font-style: normal;
-    color: var(--accent-blue);
-    font-weight: 600;
 }
 
 .confirm-cost {
@@ -3036,34 +3021,89 @@ body {
     font-weight: 700;
 }
 
-.confirm-balance {
-    background: rgba(255, 255, 255, 0.025);
-    border: 1px solid var(--border-main);
-    border-radius: 10px;
-    padding: 10px 14px;
-    margin-bottom: 20px;
+.confirm-summary {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 700;
 }
 
-.confirm-balance-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
+.confirm-summary-arrow {
     color: var(--text-muted);
+    font-weight: 400;
+}
+
+.confirm-summary-suffix {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
     letter-spacing: 1px;
-    font-weight: 700;
 }
 
 .confirm-balance-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.95rem;
-    font-weight: 700;
     color: var(--accent-gold);
 }
 
-.confirm-balance.insufficient .confirm-balance-value {
+.confirm-summary.insufficient .confirm-balance-value {
     color: var(--accent-red);
+}
+
+.confirm-skip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 0 0 14px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s ease;
+}
+
+.confirm-skip:hover {
+    color: var(--text-bright);
+}
+
+.confirm-skip input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    border-radius: 4px;
+    border: 1px solid var(--border-main);
+    background: var(--bg-darker);
+    cursor: pointer;
+    position: relative;
+    transition: var(--transition-fast);
+}
+
+.confirm-skip:hover input[type="checkbox"] {
+    border-color: var(--text-muted);
+}
+
+.confirm-skip input[type="checkbox"]:checked {
+    background: var(--accent-red);
+    border-color: var(--accent-red);
+}
+
+.confirm-skip input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--text-bright);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
 }
 
 .confirm-actions {
@@ -3736,8 +3776,8 @@ body {
 }
 
 .confirm-icon .icon-reroll {
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
 }
 
 /* --- Gear icon (nav dropdown + Settings sidebar logo) --- */
