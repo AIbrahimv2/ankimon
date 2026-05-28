@@ -318,7 +318,7 @@ def test_get_all_pokemon_ids_caching(temp_env):
     db.switch_database("ankimonDEV.db")
     assert db._all_pokemon_ids_cache is None
 
-def test_hotkey_0_triggers_new_encounter():
+def test_hotkey_0_updates_life_bar():
     # Setup mocks
     mock_singletons = sys.modules["Ankimon.singletons"]
     
@@ -354,12 +354,67 @@ def test_hotkey_0_triggers_new_encounter():
         # Trigger hotkey 0 function
         ui_mod.test_encounter_shortcut_function()
         
-        # Verify new_pokemon got called
+        # Verify new_pokemon got called with update_hud=True
         mock_new_pokemon.assert_called_once_with(
             ui_mod.enemy_pokemon,
             ui_mod.get_test_window(),
             ui_mod.ankimon_tracker_obj,
-            ui_mod.reviewer_obj
+            ui_mod.reviewer_obj,
+            update_hud=True
         )
+
+def test_new_pokemon_with_update_hud():
+    # Setup singletons mock
+    mock_singletons = sys.modules["Ankimon.singletons"]
+    
+    spec_ef = importlib.util.spec_from_file_location(
+        "Ankimon.functions.encounter_functions",
+        _src / "Ankimon" / "functions" / "encounter_functions.py",
+    )
+    ef_mod = importlib.util.module_from_spec(spec_ef)
+    sys.modules[spec_ef.name] = ef_mod
+    
+    # Pre-patch singletons & functions so load doesn't fail
+    ef_mod.main_pokemon = mock_singletons.main_pokemon
+    ef_mod.settings_obj = mock_singletons.settings_obj
+    ef_mod.ankimon_tracker_obj = MagicMock()
+    ef_mod.trainer_card = mock_singletons.trainer_card
+    ef_mod.search_pokedex_by_id = MagicMock(return_value="Pikachu")
+    ef_mod.search_pokedex = MagicMock(return_value=1)
+    ef_mod.check_id_ok = MagicMock(return_value=True)
+    ef_mod.check_min_generate_level = MagicMock(return_value=1)
+    ef_mod._meets_prerequisites = MagicMock(return_value=True)
+    ef_mod._percentages_cache = {}
+    
+    # Run mock loaders
+    with patch("Ankimon.utils.load_collected_pokemon_ids", return_value=set()):
+        spec_ef.loader.exec_module(ef_mod)
+    
+    # Setup mocks for arguments
+    enemy_pokemon = MagicMock()
+    enemy_pokemon.name = "Pikachu"
+    enemy_pokemon.id = 25
+    
+    mock_tracker = MagicMock()
+    mock_reviewer = MockReviewerManager()
+    mock_reviewer._ownership_cache[25] = False
+    mock_reviewer.update_life_bar = MagicMock()
+    
+    # Call new_pokemon with update_hud=True
+    with patch("random.randint", return_value=5), \
+         patch("random.choice", return_value=25), \
+         patch.object(ef_mod, "get_tier", return_value="Normal"), \
+         patch.object(ef_mod, "get_all_pokemon_in_tier", return_value=[25]), \
+         patch("Ankimon.functions.encounter_functions.mw") as mock_mw:
+        
+        mock_mw.reviewer.web = MagicMock()
+        ef_mod.new_pokemon(enemy_pokemon, MagicMock(), mock_tracker, mock_reviewer, update_hud=True)
+        
+        # Verify update_life_bar got called on reviewer_obj
+        mock_reviewer.update_life_bar.assert_called_once()
+        args, kwargs = mock_reviewer.update_life_bar.call_args
+        assert args[1] == 0
+        assert args[2] == 0
+
 
 

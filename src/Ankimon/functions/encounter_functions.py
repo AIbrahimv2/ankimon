@@ -903,6 +903,7 @@ def new_pokemon(
     test_window: TestWindow,
     ankimon_tracker: AnkimonTracker,
     reviewer_obj: Reviewer_Manager,
+    update_hud: bool = False,
 ) -> PokemonObject:
     """
     Initializes a new wild Pokémon encounter by generating a random Pokémon,
@@ -999,12 +1000,8 @@ def new_pokemon(
             test_window.display_first_encounter()
         except RuntimeError:
             pass
-    class Container(object):
-        pass
 
-    reviewer = Container()
-    reviewer.web = mw.reviewer.web
-    reviewer_obj.update_life_bar(reviewer, 0, 0)
+
 
     # Track as seen in Pokedex
     if hasattr(mw, 'ankimon_db'):
@@ -1019,6 +1016,13 @@ def new_pokemon(
                     seen_ids.append(pkmn_id)
                     mw.ankimon_db.set_user_data("pokedex_seen", seen_ids)
             except: pass
+
+    if update_hud and reviewer_obj is not None:
+        class Container(object):
+            pass
+        reviewer = Container()
+        reviewer.web = mw.reviewer.web
+        reviewer_obj.update_life_bar(reviewer, 0, 0)
 
     return pokemon
 

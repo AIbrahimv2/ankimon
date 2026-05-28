@@ -156,7 +156,7 @@ def catch_shortcut_function():
             _collected_pokemon_ids,
             achievements,
         )
-        new_pokemon(enemy_pokemon, get_test_window(), ankimon_tracker_obj, reviewer_obj)
+        new_pokemon(enemy_pokemon, get_test_window(), ankimon_tracker_obj, reviewer_obj, update_hud=True)
     else:
         tooltip("You only catch a pokemon once it's fainted!")
 
@@ -169,7 +169,7 @@ def defeat_shortcut_function():
         kill_pokemon(
             main_pokemon, enemy_pokemon, get_evo_window(), logger, achievements, trainer_card
         )
-        new_pokemon(enemy_pokemon, get_test_window(), ankimon_tracker_obj, reviewer_obj)
+        new_pokemon(enemy_pokemon, get_test_window(), ankimon_tracker_obj, reviewer_obj, update_hud=True)
     else:
         tooltip("Wild pokemon has to be fainted to defeat it!")
 
@@ -259,5 +259,5 @@ def team_cycle_shortcut_function():
 def test_encounter_shortcut_function():
     """Testing hotkey: trigger a new pokemon encounter immediately"""
     if is_dev_mode():
-        new_pokemon(enemy_pokemon, get_test_window(), ankimon_tracker_obj, reviewer_obj)
+        new_pokemon(enemy_pokemon, get_test_window(), ankimon_tracker_obj, reviewer_obj, update_hud=True)
         tooltip("New encounter triggered (Test Hotkey 0)")
