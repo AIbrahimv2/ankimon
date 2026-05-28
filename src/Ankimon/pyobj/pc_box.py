@@ -461,7 +461,6 @@ def clear_layout(layout):
         item = layout.takeAt(0)
         widget = item.widget()
         if widget is not None:
-            widget.setParent(None)
             widget.deleteLater()
         elif item.layout():
             clear_layout(item.layout())
@@ -477,14 +476,21 @@ class PokemonSlotButton(QPushButton):
 
 
 class ScaledMovieLabel(QLabel):
-    def __init__(self, gif_path, width, height):
-        super().__init__()
+    def __init__(self, gif_path, width, height, parent=None):
+        super().__init__(parent)
         self.target_width = width
         self.target_height = height
-        self.movie = QMovie(gif_path)
+        self.movie = QMovie(gif_path, parent=self)
         self.movie.frameChanged.connect(self.on_frame_changed)
-        self.movie.start()
         self.setFixedSize(width, height)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.movie.start()
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        self.movie.stop()
 
     def on_frame_changed(self, frame_number):
         # Get current frame pixmap
@@ -1217,7 +1223,7 @@ class PokemonPC(QDialog):
             for col in range(self.n_cols):
                 pokemon_idx = row * self.n_cols + col
                 if pokemon_idx >= len(pokemon_list_slice):
-                    empty_label = QLabel()
+                    empty_label = QLabel(self.grid_container)
                     empty_label.setFixedSize(self.slot_size, self.slot_size)
                     self.pokemon_grid.addWidget(
                         empty_label, row, col, alignment=Qt.AlignmentFlag.AlignCenter
@@ -1233,7 +1239,7 @@ class PokemonPC(QDialog):
                     pokemon["gender"],
                     pokemon.get("name"),
                 )
-                pokemon_button = PokemonSlotButton("")
+                pokemon_button = PokemonSlotButton("", self.grid_container)
                 pokemon_button.setObjectName("pokemonSlot")
                 pokemon_button.setFixedSize(self.slot_size, self.slot_size)
 
@@ -1280,7 +1286,7 @@ class PokemonPC(QDialog):
 
                 if self.gif_in_collection:
                     scaled_movie_label = ScaledMovieLabel(
-                        pkmn_image_path, self.slot_size - 10, self.slot_size - 10
+                        pkmn_image_path, self.slot_size - 10, self.slot_size - 10, self.grid_container
                     )
                     scaled_movie_label.setAttribute(
                         Qt.WidgetAttribute.WA_TransparentForMouseEvents
@@ -1302,7 +1308,7 @@ class PokemonPC(QDialog):
                 readiness = evolution_readiness(pokemon)
                 
                 if is_bff:
-                    heart_badge = QLabel("💖")
+                    heart_badge = QLabel("💖", self.grid_container)
                     heart_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
                     heart_badge.setStyleSheet(
                         "QLabel {"
@@ -1318,7 +1324,7 @@ class PokemonPC(QDialog):
                     badge_tooltips.append(self.translator.translate("bff_tooltip"))
 
                 if readiness["ready"] and (readiness["method"] == "level" or friendship_time_enabled):
-                    evo_badge = QLabel()
+                    evo_badge = QLabel(self.grid_container)
                     evo_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
                     evo_badge.setFixedSize(23, 23) # Slightly larger size to accommodate margins cleanly
                     
@@ -1360,7 +1366,7 @@ class PokemonPC(QDialog):
                     and readiness["required_time"]
                 ):
                     wait_icon = "🌙" if readiness["required_time"] == "night" else "☀️"
-                    wait_badge = QLabel(wait_icon)
+                    wait_badge = QLabel(wait_icon, self.grid_container)
                     wait_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
                     wait_badge.setStyleSheet(
                         "QLabel {"
