@@ -188,9 +188,15 @@ class AnkimonItemsWeb(QDialog):
         self.channel_settings.registerObject("settings", self.settings_bridge)
         self.webview_settings.page().setWebChannel(self.channel_settings)
 
-        self.webview_items.loadFinished.connect(lambda ok, s=SCREEN_ITEMS: self._on_screen_load_finished(ok, s))
-        self.webview_ankidex.loadFinished.connect(lambda ok, s=SCREEN_ANKIDEX: self._on_screen_load_finished(ok, s))
-        self.webview_settings.loadFinished.connect(lambda ok, s=SCREEN_SETTINGS: self._on_screen_load_finished(ok, s))
+        self.webview_items.loadFinished.connect(
+            lambda ok, s=SCREEN_ITEMS: self._on_screen_load_finished(ok, s)
+        )
+        self.webview_ankidex.loadFinished.connect(
+            lambda ok, s=SCREEN_ANKIDEX: self._on_screen_load_finished(ok, s)
+        )
+        self.webview_settings.loadFinished.connect(
+            lambda ok, s=SCREEN_SETTINGS: self._on_screen_load_finished(ok, s)
+        )
 
         self.loaded_screens = set()
 
@@ -287,6 +293,7 @@ class AnkimonItemsWeb(QDialog):
     def _restore_geometry(self):
         import base64
         from PyQt6.QtCore import QByteArray
+
         try:
             geo = mw.pm.profile.get("ankimon.items_web_window.geometry")
             if geo:
@@ -296,9 +303,12 @@ class AnkimonItemsWeb(QDialog):
 
     def _save_geometry(self):
         import base64
+
         try:
             if not self.isMinimized():
-                mw.pm.profile["ankimon.items_web_window.geometry"] = base64.b64encode(bytes(self.saveGeometry())).decode()
+                mw.pm.profile["ankimon.items_web_window.geometry"] = base64.b64encode(
+                    bytes(self.saveGeometry())
+                ).decode()
         except Exception:
             pass
 
