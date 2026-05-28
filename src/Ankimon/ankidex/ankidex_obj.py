@@ -223,7 +223,7 @@ class Ankidex(QDialog):
                 },
                 "forms": encounter_data.REGIONAL_FORM_REGION,
             },
-            "evolutionNote": "In Ankimon, evolutions are currently supported through level progression only.",
+            "evolutionNote": "Evolutions in Ankimon can trigger via Level, Friendship, Evolution Stones/Items, Time of Day, or knowing specific Moves.",
         }
 
     def load_initial_html(self):

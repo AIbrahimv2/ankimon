@@ -254,7 +254,7 @@ def get_friendship_evolutions_for_species(
         
         if evo_list:
             for target_evo_name in evo_list:
-                normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "")
+                normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
                 target_data = pokedex_data.get(normalized_target) or pokedex_data.get(target_evo_name.lower())
                 
                 if target_data:
@@ -280,8 +280,9 @@ def get_friendship_evolutions_for_species(
                                 )
                             )
             
-            if evolutions:
-                return tuple(evolutions)
+        # Always return the pokedex.json results if the species exists in pokedex.json,
+        # preventing incorrect legacy CSV fallback (which doesn't distinguish regional forms).
+        return tuple(evolutions)
 
     # 2. LEGACY FALLBACK: Species CSV lookup
     for evo in pokemon_evolves_from_id(pokemon_id):
@@ -349,15 +350,22 @@ def get_level_evolutions_for_species(
         
         if evo_list:
             for target_evo_name in evo_list:
-                normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "")
+                normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
                 target_data = pokedex_data.get(normalized_target) or pokedex_data.get(target_evo_name.lower())
                 
                 if target_data:
                     # In Smogon-style pokedex.json, evoLevel is stored on the evolved species
-                    target_id = safe_int(target_data.get("actual_id") or target_data.get("species_id"))
                     min_level = safe_int(target_data.get("evoLevel"))
+                    evo_type = target_data.get("evoType")
+                    target_id = safe_int(target_data.get("actual_id") or target_data.get("species_id"))
                     
-                    if target_id > 0 and min_level > 0:
+                    is_eligible = min_level > 0
+                    if evo_type == "levelMove":
+                        is_eligible = True
+                        if min_level <= 0:
+                            min_level = 1
+                    
+                    if target_id > 0 and is_eligible:
                         # Extract time of day if present in evoCondition
                         condition = (target_data.get("evoCondition") or "").lower()
                         time_of_day = None
@@ -375,8 +383,9 @@ def get_level_evolutions_for_species(
                             )
                         )
             
-            if evolutions:
-                return tuple(evolutions)
+        # Always return the pokedex.json results if the species exists in pokedex.json,
+        # preventing incorrect legacy CSV fallback (which doesn't distinguish regional forms).
+        return tuple(evolutions)
 
     # 2. LEGACY FALLBACK: Species CSV lookup
     for evo in pokemon_evolves_from_id(pokemon_id):
@@ -540,6 +549,7 @@ def evolution_readiness(pokemon: Any, now: Optional[datetime] = None) -> dict:
             evolution_rejected=evolution_rejected,
             not_evolvable=not_evolvable,
             tod=tod,
+            pokemon=pokemon,
         )
 
     chosen = _select_evolution(evos, tod)
@@ -589,6 +599,7 @@ def _level_readiness(
     evolution_rejected: bool,
     not_evolvable: dict,
     tod: str,
+    pokemon = None,
 ) -> dict:
     """Compute readiness for a plain level-up evolution.
 
@@ -674,8 +685,32 @@ def _level_readiness(
     time_ok = required_time is None or required_time == tod
     ready = (not everstone) and level >= min_level and time_ok
 
+    # Check for levelMove move requirement
+    knows_move = True
+    required_move = None
+    target_name = search_pokedex_by_id(chosen.evo_id)
+    if target_name in pokedex_data:
+        t_data = pokedex_data[target_name]
+        if t_data.get("evoType") == "levelMove":
+            required_move = t_data.get("evoMove")
+            knows_move = False
+            p_attacks = []
+            if isinstance(pokemon, dict):
+                p_attacks = pokemon.get("attacks") or []
+            elif pokemon is not None:
+                p_attacks = getattr(pokemon, "attacks", []) or []
+                
+            if required_move and p_attacks:
+                if any(a.lower().replace(" ", "").replace("-", "") == required_move.lower().replace(" ", "").replace("-", "") for a in p_attacks):
+                    knows_move = True
+
+    if not knows_move:
+        ready = False
+
     if everstone:
         status_text = "Everstone prevents evolution"
+    elif not knows_move and required_move:
+        status_text = f"Needs to learn {required_move} to evolve"
     elif ready and evolution_rejected:
         status_text = "Evolution rejected — tap Evolve now to override"
     elif ready:
@@ -683,7 +718,10 @@ def _level_readiness(
     elif level >= min_level and not time_ok:
         status_text = f"Ready — waiting for {required_time.capitalize()} (now {tod.capitalize()})"
     else:
-        text = f"Evolves into {evo_name} at Lv{min_level}"
+        if required_move:
+            text = f"Evolves into {evo_name} knowing {required_move}"
+        else:
+            text = f"Evolves into {evo_name} at Lv{min_level}"
         if required_time is not None:
             text += f" · needs {required_time.capitalize()}"
         status_text = text
@@ -778,6 +816,10 @@ def check_friendship_evolution_for_pokemon(
         The evolved species id if the evolution was triggered, else ``None``.
     """
     from ..singletons import settings_obj  # lazy: avoids load-time circular import
+    from ..utils import is_alive
+    if not is_alive(evo_window):
+        from ..singletons import get_evo_window
+        evo_window = get_evo_window()
 
     if (
         not settings_obj.get("evolution.friendship_time_enabled", True)

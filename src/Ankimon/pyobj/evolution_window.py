@@ -366,8 +366,25 @@ class EvoWindow(QWidget):
 
             # Update nickname only if it was never customized (matched pre-evo name)
             old_nickname = pokemon.get("nickname", "")
-            if not old_nickname or old_nickname.lower() == prevo_name.lower():
-                pokemon["nickname"] = evo_name.capitalize()
+            
+            def normalize_nick(s):
+                return str(s).lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
+                
+            from ..functions.pokedex_functions import get_pretty_name_for_id
+            prevo_pretty = get_pretty_name_for_id(prevo_id)
+            
+            norm_old = normalize_nick(old_nickname)
+            is_default = (
+                not old_nickname 
+                or norm_old == normalize_nick(prevo_name) 
+                or norm_old == normalize_nick(prevo_pretty)
+            )
+            
+            if is_default:
+                pretty_evo = get_pretty_name_for_id(evo_id)
+                if pretty_evo == "Pokémon not found":
+                    pretty_evo = evo_name.replace("-", " ").title()
+                pokemon["nickname"] = pretty_evo
 
             # Recompute CP and clear rejection flag
             pokemon["cp"] = calculate_cp_from_dict(pokemon)

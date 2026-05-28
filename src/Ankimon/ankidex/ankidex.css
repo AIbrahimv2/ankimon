@@ -1391,7 +1391,7 @@ body {
     border-radius: 4px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    max-width: 80px;
+    max-width: 240px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

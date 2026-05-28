@@ -368,7 +368,7 @@ def search_pokedex(pokemon_name, variable):
             
             # 2. Try normalized version (no spaces, hyphens, or apostrophes)
             # This handles cases like "Venusaur-Mega" matching "venusaurmega"
-            normalized_name = current_name.replace(" ", "").replace("-", "").replace("'", "")
+            normalized_name = current_name.replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
             if normalized_name in pokedex_data:
                 pokemon_info = pokedex_data[normalized_name]
                 var = pokemon_info.get(variable)
@@ -658,7 +658,7 @@ def check_evolution_by_item(pokemon_id, item_id, file_path=poke_evo_path):
                     eligible_evos = []
                     
                     for target_evo_name in evo_list:
-                        normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "")
+                        normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
                         target_data = pokedex_data.get(normalized_target) or pokedex_data.get(target_evo_name.lower())
                         
                         if target_data and target_data.get("evoType") == "useItem":
@@ -673,7 +673,7 @@ def check_evolution_by_item(pokemon_id, item_id, file_path=poke_evo_path):
                                     # Standard form is only allowed if there is no regional sibling for this region/method
                                     has_matching_regional_sibling = False
                                     for sibling_name in evo_list:
-                                        sib_norm = sibling_name.lower().replace(" ", "").replace("-", "").replace("'", "")
+                                        sib_norm = sibling_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
                                         sib_data = pokedex_data.get(sib_norm) or pokedex_data.get(sibling_name.lower())
                                         if sib_data and sib_data.get("evoRegion") and active_region and sib_data.get("evoRegion").lower() == active_region.lower():
                                             if sib_data.get("evoType") == target_data.get("evoType") and (sib_data.get("evoItem") or "").lower() == (target_data.get("evoItem") or "").lower():
@@ -705,6 +705,11 @@ def check_evolution_for_pokemon(
     Check if a Pokémon evolves using level condition.
     Relying exclusively on pokedex.json.
     """
+    from ..utils import is_alive
+    if not is_alive(evo_window):
+        from ..singletons import get_evo_window
+        evo_window = get_evo_window()
+
     if evolution_rejected or everstone:
         return None
 
@@ -732,7 +737,7 @@ def check_evolution_for_pokemon(
                 eligible_evos = []
 
                 for target_evo_name in evo_list:
-                    normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "")
+                    normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
                     target_data = pokedex_data.get(normalized_target) or pokedex_data.get(target_evo_name.lower())
                     
                     if target_data:
@@ -774,7 +779,7 @@ def check_evolution_for_pokemon(
                                 else:
                                     has_matching_regional_sibling = False
                                     for sibling_name in evo_list:
-                                        sib_norm = sibling_name.lower().replace(" ", "").replace("-", "").replace("'", "")
+                                        sib_norm = sibling_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
                                         sib_data = pokedex_data.get(sib_norm) or pokedex_data.get(sibling_name.lower())
                                         if sib_data and sib_data.get("evoRegion") and active_region and sib_data.get("evoRegion").lower() == active_region.lower():
                                             if sib_data.get("evoType") not in ("useItem", "trade", "levelFriendship"):

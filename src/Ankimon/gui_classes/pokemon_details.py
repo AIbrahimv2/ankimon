@@ -425,6 +425,7 @@ def PokemonCollectionDetails(
             "evolution_rejected": evolution_rejected,
             "individual_id": individual_id,
             "everstone": everstone,
+            "attacks": attacks,
         }
         readiness = evolution_readiness(pkmn_data_stub)
         if readiness["ready"] and trigger_evo_callback:

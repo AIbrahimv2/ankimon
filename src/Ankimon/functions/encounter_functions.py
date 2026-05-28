@@ -924,6 +924,18 @@ def new_pokemon(
     """
     ankimon_tracker.faint_processed = False
     ankimon_tracker.caught = 0
+
+    # Reset the battle simulation state in the battle loop
+    try:
+        from ..battle_loop import _state
+        _state.new_state = None
+        _state.mutator_full_reset = 1
+    except Exception as e:
+        print(f"[Ankimon] Error resetting battle state in new_pokemon: {e}")
+
+    # Force HUD update on next card/refresh
+    if reviewer_obj is not None:
+        reviewer_obj._last_state = None
     (
         name,
         pkmn_id,

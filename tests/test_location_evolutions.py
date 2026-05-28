@@ -185,3 +185,60 @@ def test_manual_readiness_filtering_cubone():
     assert result["evolvable"] is True
     assert result["evo_id"] == 10115
     assert "Alola" in result["evo_name"]
+
+def test_mimejr_manual_evolution_readiness():
+    # Mime Jr. is ID 439
+    # 1. Under "No Region" knowing Mimic, Mime Jr. should be ready to evolve into Mr. Mime (ID 122)
+    pf.mw.settings_obj.active_region_val = "No Region"
+    result = fe.evolution_readiness({
+        "id": 439,
+        "level": 32,
+        "attacks": ["Mimic", "Confusion"],
+        "everstone": False,
+        "evolution_rejected": False
+    }, now=datetime(2026, 1, 1, 12, 0))
+    assert result["evolvable"] is True
+    assert result["ready"] is True
+    assert result["evo_id"] == 122
+    assert "Mr. Mime" in result["evo_name"]
+    assert "Galar" not in result["evo_name"]
+
+    # 2. Under "No Region" NOT knowing Mimic, Mime Jr. should NOT be ready, evolvable is True (shows in list), ready is False, and status_text mentions Mimic
+    result = fe.evolution_readiness({
+        "id": 439,
+        "level": 32,
+        "attacks": ["Confusion", "Tackle"],
+        "everstone": False,
+        "evolution_rejected": False
+    }, now=datetime(2026, 1, 1, 12, 0))
+    assert result["evolvable"] is True
+    assert result["ready"] is False
+    assert "Needs to learn Mimic" in result["status_text"]
+
+def test_mrmime_evolution_distinction():
+    # 1. Kantonian Mr. Mime (ID 122) has no evolutions in pokedex.json (should not evolve to Mr. Rime)
+    result_normal = fe.evolution_readiness({
+        "id": 122,
+        "level": 50,
+        "attacks": ["Mimic"],
+        "everstone": False,
+        "evolution_rejected": False
+    }, now=datetime(2026, 1, 1, 12, 0))
+    assert result_normal["evolvable"] is False
+    assert result_normal["ready"] is False
+
+    # 2. Galarian Mr. Mime (actual_id 10168) has evo Mr. Rime (ID 866) in pokedex.json
+    # It should be ready at level 42+
+    result_galar = fe.evolution_readiness({
+        "id": 10168,
+        "level": 42,
+        "attacks": ["Mimic"],
+        "everstone": False,
+        "evolution_rejected": False
+    }, now=datetime(2026, 1, 1, 12, 0))
+    assert result_galar["evolvable"] is True
+    assert result_galar["ready"] is True
+    assert result_galar["evo_id"] == 866
+    assert "Mr. Rime" in result_galar["evo_name"]
+
+

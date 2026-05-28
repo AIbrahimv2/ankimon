@@ -118,7 +118,7 @@ class PokemonObject:
             if self.nickname:
                 # Check if the nickname is just a variation of the internal name or pretty name
                 def normalize(s):
-                    return str(s).lower().replace(" ", "").replace("-", "").replace("'", "")
+                    return str(s).lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
                 
                 norm_nick = normalize(self.nickname)
                 if norm_nick != normalize(self.name) and norm_nick != normalize(pretty_name):

@@ -1442,29 +1442,43 @@ function renderEvolution(p) {
     const formattedId = "#" + displayId.toString().padStart(4, "0");
     let evoCondition = "";
     if (node.prevo) {
-      if (node.evoLevel)
-        evoCondition = `<span class="evo-condition">Lv. ${node.evoLevel}</span>`;
-      else if (node.evoType) {
-        let text = "Special";
+      let conds = [];
+      if (node.evoLevel) {
+        conds.push(`Lv. ${node.evoLevel}`);
+      }
+      
+      if (node.evoType) {
         switch (node.evoType) {
           case "levelFriendship":
-            text = "Friendship";
+            conds.push("Friendship");
             break;
           case "useItem":
-            text = node.evoItem || "Item";
+            conds.push(node.evoItem || "Item");
             break;
           case "trade":
-            text = "Trade";
+            conds.push("Trade");
             break;
           case "levelMove":
-            text = "Move";
+            conds.push(node.evoMove ? `${node.evoMove}` : "Move");
             break;
           case "levelHold":
-            text = "Hold";
+            conds.push(node.evoItem ? `Hold ${node.evoItem}` : "Hold Item");
             break;
         }
-        evoCondition = `<span class="evo-condition" title="Special evolution">${text}</span>`;
-      } else evoCondition = `<span class="evo-condition">Special</span>`;
+      }
+      
+      if (node.evoCondition) {
+        conds.push(`(${node.evoCondition})`);
+      }
+      
+      if (node.evoRegion) {
+        conds.push(`in ${node.evoRegion}`);
+      }
+      
+      let text = conds.join(" ");
+      if (!text) text = "Special";
+      
+      evoCondition = `<span class="evo-condition" title="Evolution: ${text}">${text}</span>`;
     }
     let filter = "";
     if (visState === 0)

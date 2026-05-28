@@ -133,3 +133,91 @@ def test_evolve_pokemon_consumes_stone():
          )
          
          mock_db.update_item_quantity.assert_called_once_with("fire-stone", -1)
+
+def test_evolve_pokemon_nickname_update():
+    evo_win_module = sys.modules["Ankimon.pyobj.evolution_window"]
+    mock_db = MagicMock()
+    evo_win_module.mw.ankimon_db = mock_db
+    
+    with patch("Ankimon.pyobj.evolution_window.search_pokedex") as mock_search, \
+         patch("Ankimon.pyobj.evolution_window.get_random_moves_for_pokemon") as mock_moves, \
+         patch("Ankimon.pyobj.evolution_window.calculate_hp") as mock_hp, \
+         patch("Ankimon.pyobj.evolution_window.get_growth_rate") as mock_growth, \
+         patch("Ankimon.pyobj.evolution_window.get_base_experience") as mock_base_exp, \
+         patch("Ankimon.pyobj.evolution_window.calculate_cp_from_dict") as mock_cp, \
+         patch("Ankimon.pyobj.evolution_window.update_main_pokemon") as mock_update_main, \
+         patch("Ankimon.pyobj.evolution_window.check_for_badge") as mock_badge, \
+         patch("Ankimon.pyobj.evolution_window.is_alive", return_value=False):
+         
+         evo_win = MockEvoWindow()
+         evo_win.display_evo_complete = MagicMock()
+         
+         mock_search.side_effect = lambda name, key: ["Psychic"] if key == "types" else {"hp": 40} if key == "baseStats" else {}
+         mock_moves.return_value = []
+         mock_hp.return_value = 80
+         mock_growth.return_value = "medium"
+         mock_base_exp.return_value = 100
+         mock_cp.return_value = 400
+         mock_update_main.return_value = (None, None)
+         mock_badge.return_value = True
+         
+         # Mock pretty name translation function directly on pokedex_functions module
+         pokedex_funcs = sys.modules["Ankimon.functions.pokedex_functions"]
+         def get_pretty_name_mock(sid):
+             if sid == 439:
+                 return "Mime Jr."
+             if sid == 122:
+                 return "Mr. Mime"
+             return "Unknown"
+         pokedex_funcs.get_pretty_name_for_id = get_pretty_name_mock
+
+         # Case 1: Nickname matches pretty prevo name ("Mime Jr.") or CSV identifier ("mime-jr")
+         # Both should be evolved to the pretty name of the evolved form ("Mr. Mime")
+         pokemon_data = {
+             "id": 439,
+             "name": "Mime Jr.",
+             "nickname": "Mime Jr.",
+             "level": 32,
+             "attacks": ["Mimic"],
+             "iv": {},
+             "ev": {},
+             "xp": 100,
+         }
+         mock_db.get_pokemon.return_value = pokemon_data
+         
+         evo_win.evolve_pokemon(
+             individual_id="some-uuid",
+             prevo_id=439,
+             prevo_name="mime-jr",
+             evo_id=122,
+             evo_name="mr-mime",
+             main_pokemon=None
+         )
+         
+         # Should update nickname to the pretty name
+         mock_db.save_pokemon.assert_called_with(pokemon_data)
+         assert pokemon_data["nickname"] == "Mr. Mime"
+         
+         # Case 2: Custom Nickname ("Sparky") should be preserved
+         pokemon_data_custom = {
+             "id": 439,
+             "name": "Mime Jr.",
+             "nickname": "Sparky",
+             "level": 32,
+             "attacks": ["Mimic"],
+             "iv": {},
+             "ev": {},
+             "xp": 100,
+         }
+         mock_db.get_pokemon.return_value = pokemon_data_custom
+         
+         evo_win.evolve_pokemon(
+             individual_id="some-uuid",
+             prevo_id=439,
+             prevo_name="mime-jr",
+             evo_id=122,
+             evo_name="mr-mime",
+             main_pokemon=None
+         )
+         
+         assert pokemon_data_custom["nickname"] == "Sparky"
