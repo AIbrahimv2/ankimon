@@ -209,14 +209,16 @@
                 </svg>
             </div>
             <h3 id="confirm-title" class="confirm-title">Reroll Stock?</h3>
-            <p id="confirm-body" class="confirm-body">
-                This will spend <span id="confirm-cost" class="confirm-cost">100¥</span>
-                and replace today's items <em>and</em> TMs with a fresh roll.
-            </p>
-            <div id="confirm-balance" class="confirm-balance">
-                <span class="confirm-balance-label">Balance after</span>
+            <div id="confirm-balance" class="confirm-summary">
+                <span id="confirm-cost" class="confirm-cost">100¥</span>
+                <span class="confirm-summary-arrow">→</span>
                 <span id="confirm-balance-value" class="confirm-balance-value">0¥</span>
+                <span class="confirm-summary-suffix">left</span>
             </div>
+            <label class="confirm-skip">
+                <input id="confirm-skip" type="checkbox">
+                <span>Don't ask again today</span>
+            </label>
             <div class="confirm-actions">
                 <button id="confirm-cancel" class="confirm-btn cancel">Cancel</button>
                 <button id="confirm-ok" class="confirm-btn primary">Confirm Reroll</button>

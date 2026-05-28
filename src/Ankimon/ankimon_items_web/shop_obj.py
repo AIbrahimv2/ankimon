@@ -92,6 +92,10 @@ class ItemsBridge(QObject):
         self._w.push_screen_data()
         return result
 
+    @pyqtSlot(bool, result="QVariant")
+    def setSkipRerollConfirm(self, skip):
+        return self._w.handle_set_skip_reroll_confirm(bool(skip))
+
     @pyqtSlot(str, result="QVariant")
     def useItem(self, item_name):
         result = self._w.handle_use(item_name)
@@ -383,11 +387,36 @@ class AnkimonItemsWeb(QDialog):
         return {
             "cash": int(sm.get_callback("trainer.cash") or 0),
             "reroll_cost": int(sm.daily_items_reroll_cost or 0),
+            "skip_reroll_confirm": self._get_skip_reroll_today(),
             "items": items,
             # pokemon_choices intentionally NOT included — for players with
             # 10k+ captures the payload is multiple MB. JS lazy-fetches via
             # bridge.getPokemonChoices() on first picker open + caches.
         }
+
+    def _get_skip_reroll_today(self):
+        # Stored as {"date": "YYYY-MM-DD", "skip": bool}. Treated as False
+        # whenever the date doesn't match today, which gives the "reset every
+        # day" behavior without needing a separate cleanup pass.
+        try:
+            data = mw.ankimon_db.get_user_data("shop_skip_reroll_confirm")
+        except Exception:
+            return False
+        if not isinstance(data, dict):
+            return False
+        if data.get("date") != datetime.now().strftime("%Y-%m-%d"):
+            return False
+        return bool(data.get("skip"))
+
+    def handle_set_skip_reroll_confirm(self, skip):
+        try:
+            mw.ankimon_db.set_user_data(
+                "shop_skip_reroll_confirm",
+                {"date": datetime.now().strftime("%Y-%m-%d"), "skip": bool(skip)},
+            )
+        except Exception as e:
+            return {"ok": False, "message": str(e)}
+        return {"ok": True}
 
     def _serialize_item(
         self, name, is_tm, in_shop, shop_price, item_type, owned_quantity
