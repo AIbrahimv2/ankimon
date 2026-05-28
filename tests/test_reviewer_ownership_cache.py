@@ -318,7 +318,7 @@ def test_get_all_pokemon_ids_caching(temp_env):
     db.switch_database("ankimonDEV.db")
     assert db._all_pokemon_ids_cache is None
 
-def test_hotkey_0_updates_life_bar():
+def test_hotkey_0_triggers_new_encounter():
     # Setup mocks
     mock_singletons = sys.modules["Ankimon.singletons"]
     
@@ -361,11 +361,5 @@ def test_hotkey_0_updates_life_bar():
             ui_mod.ankimon_tracker_obj,
             ui_mod.reviewer_obj
         )
-        
-        # Verify update_life_bar got called
-        ui_mod.reviewer_obj.update_life_bar.assert_called_once()
-        args, kwargs = ui_mod.reviewer_obj.update_life_bar.call_args
-        assert args[1] == 0
-        assert args[2] == 0
 
 

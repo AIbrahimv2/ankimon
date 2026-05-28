@@ -260,10 +260,4 @@ def test_encounter_shortcut_function():
     """Testing hotkey: trigger a new pokemon encounter immediately"""
     if is_dev_mode():
         new_pokemon(enemy_pokemon, get_test_window(), ankimon_tracker_obj, reviewer_obj)
-        if reviewer_obj is not None:
-            class Container(object):
-                pass
-            reviewer = Container()
-            reviewer.web = mw.reviewer.web
-            reviewer_obj.update_life_bar(reviewer, 0, 0)
         tooltip("New encounter triggered (Test Hotkey 0)")

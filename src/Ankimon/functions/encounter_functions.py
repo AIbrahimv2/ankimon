@@ -999,8 +999,12 @@ def new_pokemon(
             test_window.display_first_encounter()
         except RuntimeError:
             pass
+    class Container(object):
+        pass
 
-
+    reviewer = Container()
+    reviewer.web = mw.reviewer.web
+    reviewer_obj.update_life_bar(reviewer, 0, 0)
 
     # Track as seen in Pokedex
     if hasattr(mw, 'ankimon_db'):
