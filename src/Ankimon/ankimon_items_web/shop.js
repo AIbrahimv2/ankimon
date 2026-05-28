@@ -32,6 +32,7 @@
             open: false,
             item: null,        // item being applied
             choices: null,     // null = not yet loaded, [] = empty team, [...] = cached
+            choicesContext: null, // Tracks item name or '__base__' to prevent stale stone data
             loading: false,
             search: '',
         },
@@ -791,6 +792,15 @@
     // for the lifetime of the items window. Invalidated after team-mutating
     // actions (useItemOnPokemon) so the next open reflects the change.
     function openPicker(item) {
+        const isEvo = item.category === 'evolution';
+        const targetContext = isEvo ? item.name : '__base__';
+        
+        // If the current cache doesn't match the required context (specific stone
+        // or base list), we must fetch fresh data.
+        if (state.picker.choicesContext !== targetContext) {
+            state.picker.choices = null;
+        }
+        
         state.picker.item = item;
         state.picker.search = '';
         state.picker.open = true;
@@ -802,30 +812,34 @@
 
         const searchEl = document.getElementById('picker-search');
         searchEl.value = '';
-        document.getElementById('picker-modal').classList.remove('hidden');
 
         if (state.picker.choices === null) {
-            loadPickerChoices(() => {
+            renderPickerLoading();
+            document.getElementById('picker-modal').classList.remove('hidden');
+            loadPickerChoices(item.name, targetContext, () => {
                 // Don't render if user closed the modal during fetch.
                 if (state.picker.open) renderPickerGrid();
             });
-            renderPickerLoading();
         } else {
+            // Render grid *before* showing the modal to avoid flicker
             renderPickerGrid();
+            document.getElementById('picker-modal').classList.remove('hidden');
         }
+        
         // Auto-focus the search box so the user can type to filter.
         setTimeout(() => searchEl.focus(), 0);
     }
 
-    function loadPickerChoices(done) {
+    function loadPickerChoices(itemName, context, done) {
         if (state.picker.loading || !bridge || !bridge.getPokemonChoices) {
             if (done) done();
             return;
         }
         state.picker.loading = true;
-        bridge.getPokemonChoices(function (result) {
+        bridge.getPokemonChoices(itemName || '', function (result) {
             state.picker.loading = false;
             state.picker.choices = (result && result.choices) || [];
+            state.picker.choicesContext = context;
             if (done) done();
         });
     }
@@ -860,11 +874,18 @@
         const grid = document.getElementById('picker-grid');
         const empty = document.getElementById('picker-empty');
         const countEl = document.getElementById('picker-count');
-        const choices = state.picker.choices || [];
+        let choices = state.picker.choices || [];
+
         if (state.picker.choices === null) {
             renderPickerLoading();
             return;
         }
+
+        // Only show eligible Pokémon for evolution items.
+        if (state.picker.item && state.picker.item.category === 'evolution') {
+            choices = choices.filter((c) => c.e === 1);
+        }
+
         const q = state.picker.search.trim().toLowerCase();
         // Compact field names from Python — see get_pokemon_choices:
         //   id=individual_id, p=pokedex_id, n=name, l=level,
@@ -920,12 +941,13 @@
     }
 
     function buildPickerCard(choice) {
-        // Compact fields from Python: id, p, n, l, s, m, h, nk.
+        // Compact fields from Python: id, p, b (base_id), n, l, cp, s, m, h, nk.
         // Match the Ankidex `.pokemon-card` shape so it picks up the same
         // hover/sprite/border treatment automatically. Team-specific bits
-        // (level, active/shiny marks, held item) layer on top.
+        // (level, CP, active/shiny marks, held item) layer on top.
         const isMain = !!choice.m;
         const isShiny = !!choice.s;
+        const isEligible = !!choice.e;
         const heldItem = choice.h || '';
         const nickname = choice.nk || '';
         const name = choice.n || '';
@@ -934,12 +956,20 @@
         const card = document.createElement('div');
         card.className = 'pokemon-card team-card state-caught';
         if (isMain) card.classList.add('is-main');
+        if (isEligible) card.classList.add('is-eligible');
 
         if (choice.l !== null && choice.l !== undefined) {
             const lvl = document.createElement('div');
             lvl.className = 'team-card-level';
             lvl.textContent = 'Lv ' + choice.l;
             card.appendChild(lvl);
+        }
+
+        if (choice.cp !== null && choice.cp !== undefined) {
+            const cp = document.createElement('div');
+            cp.className = 'team-card-cp';
+            cp.textContent = 'CP ' + choice.cp.toLocaleString();
+            card.appendChild(cp);
         }
 
         if (isMain || isShiny) {
@@ -975,9 +1005,17 @@
         img.src = `../user_files/sprites/front_default/${choice.p || 0}.png`;
         img.alt = displayName;
         img.onerror = () => {
-            // Fallback to placeholder, then dim if even that fails.
-            img.onerror = () => { img.style.opacity = '0.25'; };
-            img.src = '../user_files/sprites/front_default/0.png';
+            // Stage 1 Fallback: Try the base species ID (choice.b) if different from choice.p.
+            // This handles regional/mega forms that don't have their own sprites.
+            if (choice.b && choice.b !== choice.p) {
+                const baseId = choice.b;
+                choice.b = null; // Prevent infinite loop if baseId also fails
+                img.src = `../user_files/sprites/front_default/${baseId}.png`;
+            } else {
+                // Stage 2 Fallback: Placeholder, then dim if even that fails.
+                img.onerror = () => { img.style.opacity = '0.25'; };
+                img.src = '../user_files/sprites/front_default/0.png';
+            }
         };
         spriteWrap.appendChild(img);
         card.appendChild(spriteWrap);
