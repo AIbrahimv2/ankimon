@@ -936,6 +936,8 @@ def new_pokemon(
     # Force HUD update on next card/refresh
     if reviewer_obj is not None:
         reviewer_obj._last_state = None
+        if hasattr(reviewer_obj, "_ownership_cache"):
+            reviewer_obj._ownership_cache.clear()
     (
         name,
         pkmn_id,
@@ -998,12 +1000,7 @@ def new_pokemon(
         except RuntimeError:
             pass
 
-    class Container(object):
-        pass
 
-    reviewer = Container()
-    reviewer.web = mw.reviewer.web
-    reviewer_obj.update_life_bar(reviewer, 0, 0)
 
     # Track as seen in Pokedex
     if hasattr(mw, 'ankimon_db'):
@@ -1246,7 +1243,6 @@ def save_main_pokemon_progress(
 
         # Save to database (replaces JSON file I/O for performance)
         mw.ankimon_db.save_main_pokemon(mainpkmndata)
-        mw.ankimon_db.save_pokemon(mainpkmndata)  # Also update the captured pokemon collection
 
     return main_pokemon.level
 

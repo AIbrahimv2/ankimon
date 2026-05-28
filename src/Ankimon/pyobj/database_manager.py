@@ -24,6 +24,7 @@ class AnkimonDB:
         self.logger = logger
         self.db_path = user_path / self.DB_FILENAME
         self._connection: Optional[sqlite3.Connection] = None
+        self._all_pokemon_ids_cache = None
         self._setup_database()
 
     def _log(self, level: str, message: str):
@@ -216,6 +217,7 @@ class AnkimonDB:
             except Exception as e:
                 self._log("warning", f"Failed to mark pokemon as caught: {e}")
 
+        self._clear_reviewer_ownership_cache()
         return True
 
     def get_pokemon(self, individual_id: str) -> Optional[Dict[str, Any]]:
@@ -248,6 +250,14 @@ class AnkimonDB:
         cursor = self.execute("SELECT 1 FROM captured_pokemon WHERE LOWER(name) = LOWER(?) LIMIT 1", (name,))
         return cursor.fetchone() is not None
 
+    def _clear_reviewer_ownership_cache(self):
+        """Clears the Reviewer_Manager's ownership cache and the internal Pokémon ID cache when database changes."""
+        self._all_pokemon_ids_cache = None
+        from aqt import mw
+        if hasattr(mw, "reviewer_obj") and mw.reviewer_obj is not None:
+            if hasattr(mw.reviewer_obj, "_ownership_cache"):
+                mw.reviewer_obj._ownership_cache.clear()
+
     def delete_pokemon(self, individual_id: str) -> bool:
         """Deletes a pokemon from the captured collection."""
         cursor = self.execute(
@@ -255,6 +265,7 @@ class AnkimonDB:
             (individual_id,)
         )
         self._get_connection().commit()
+        self._clear_reviewer_ownership_cache()
         return cursor.rowcount > 0
 
     def replace_pokemon(self, pokemon_data: Dict[str, Any], old_individual_id: str) -> bool:
@@ -307,6 +318,7 @@ class AnkimonDB:
 
         conn.commit()
 
+        self._clear_reviewer_ownership_cache()
         return cursor.rowcount > 0
 
     def get_pokemon_count(self) -> int:
@@ -329,6 +341,7 @@ class AnkimonDB:
 
     def switch_database(self, db_filename: str):
         """Closes the current connection and opens a new database file."""
+        self._all_pokemon_ids_cache = None
         self.close()
         self.db_path = user_path / db_filename
         self._connection = None
@@ -350,6 +363,9 @@ class AnkimonDB:
 
     def get_all_pokemon_ids(self) -> set:
         """Returns a set of all captured pokemon's pokedex IDs using the virtual index, history, and explicit caught tracking."""
+        if hasattr(self, "_all_pokemon_ids_cache") and self._all_pokemon_ids_cache is not None:
+            return set(self._all_pokemon_ids_cache)
+
         # 1. Currently owned
         cursor = self.execute("SELECT pokedex_id FROM captured_pokemon WHERE pokedex_id IS NOT NULL")
         caught_ids = {int(row[0]) for row in cursor.fetchall() if row[0] is not None}
@@ -369,6 +385,7 @@ class AnkimonDB:
         except Exception:
             pass
 
+        self._all_pokemon_ids_cache = set(caught_ids)
         return caught_ids
 
     # --- Main Pokemon Operations ---
@@ -409,6 +426,7 @@ class AnkimonDB:
             except Exception as e:
                 self._log("warning", f"Failed to mark main pokemon as caught: {e}")
 
+        self._clear_reviewer_ownership_cache()
         return True
 
     def get_main_pokemon(self) -> Optional[Dict[str, Any]]:
@@ -649,6 +667,7 @@ class AnkimonDB:
 
     def add_to_history(self, pokemon_data: Dict[str, Any]):
         """Adds a released pokemon to history."""
+        self._all_pokemon_ids_cache = None
         # Ensure individual_id exists to avoid duplicates if possible, or just generate one
         individual_id = pokemon_data.get("individual_id") or str(uuid.uuid4())
         
@@ -736,6 +755,7 @@ class AnkimonDB:
 
     def mark_as_caught(self, pokedex_id: int):
         """Marks a Pokémon ID as caught in the user_data."""
+        self._all_pokemon_ids_cache = None
         caught_ids = self.get_caught_ids()
         if pokedex_id not in caught_ids:
             caught_ids.add(pokedex_id)
