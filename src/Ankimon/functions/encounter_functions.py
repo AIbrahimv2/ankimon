@@ -1018,11 +1018,12 @@ def new_pokemon(
             except: pass
 
     if update_hud and reviewer_obj is not None:
-        class Container(object):
-            pass
-        reviewer = Container()
-        reviewer.web = mw.reviewer.web
-        reviewer_obj.update_life_bar(reviewer, 0, 0)
+        if mw and getattr(mw, "reviewer", None) and getattr(mw.reviewer, "web", None):
+            class Container(object):
+                pass
+            reviewer = Container()
+            reviewer.web = mw.reviewer.web
+            reviewer_obj.update_life_bar(reviewer, 0, 0)
 
     return pokemon
 
