@@ -1722,9 +1722,10 @@ class PokemonPC(QDialog):
                         iv_dict = json.loads(row["iv_json"]) if row["iv_json"] else {}
                         ev_dict = json.loads(row["ev_json"]) if row["ev_json"] else {}
                         base_stats_dict = json.loads(row["base_stats_json"]) if row["base_stats_json"] else {}
+                        stats_dict = json.loads(row["stats_json"]) if row["stats_json"] else {}
                         
-                        # Use PokemonObject's calculation logic
-                        base_val = base_stats_dict.get(target_stat, 1)
+                        # Use PokemonObject's calculation logic (with fallback for legacy stats)
+                        base_val = (base_stats_dict or stats_dict).get(target_stat, 1)
                         iv_val = iv_dict.get(target_stat, 0)
                         ev_val = ev_dict.get(target_stat, 0)
                         
