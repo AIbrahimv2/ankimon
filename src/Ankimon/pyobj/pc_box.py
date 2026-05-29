@@ -1583,7 +1583,7 @@ class PokemonPC(QDialog):
             "json_extract(data, '$.friendship') as friendship, "
             "json_extract(data, '$.evolution_rejected') as evolution_rejected, "
             "json_extract(data, '$.iv') as iv_json, json_extract(data, '$.ev') as ev_json, "
-            "json_extract(data, '$.base_stats') as base_stats_json, json_extract(data, '$.nature') as nature, "
+            "json_extract(data, '$.base_stats') as base_stats_json, json_extract(data, '$.stats') as stats_json, json_extract(data, '$.nature') as nature, "
             "json_extract(data, '$.attacks') as attacks_json "
             "FROM captured_pokemon WHERE 1=1"
         ]
@@ -1734,13 +1734,19 @@ class PokemonPC(QDialog):
                         iv_dict = json.loads(row["iv_json"]) if row["iv_json"] else {}
                         ev_dict = json.loads(row["ev_json"]) if row["ev_json"] else {}
                         base_stats_dict = json.loads(row["base_stats_json"]) if row["base_stats_json"] else {}
+                        stats_dict = json.loads(row["stats_json"]) if row["stats_json"] else {}
                         
-                        p["_sort_value"] = calculate_cp_from_dict({
+                        # Mirror calculate_cp_from_dict's contract: prefer base_stats, else stats fallback
+                        cp_dict = {
                             "level": row["level"],
                             "iv": iv_dict,
-                            "ev": ev_dict,
-                            "base_stats": base_stats_dict
-                        })
+                            "ev": ev_dict
+                        }
+                        if base_stats_dict:
+                            cp_dict["base_stats"] = base_stats_dict
+                        else:
+                            cp_dict["stats"] = stats_dict
+                        p["_sort_value"] = calculate_cp_from_dict(cp_dict)
 
                 results.append(p)
                 
