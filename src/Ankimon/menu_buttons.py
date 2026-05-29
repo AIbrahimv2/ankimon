@@ -10,10 +10,6 @@ from aqt import mw  # The main window object
 from aqt.utils import qconnect
 
 
-from .gui_classes.choose_trainer_sprite_graphical import TrainerSpriteGraphicalDialog
-
-from .pyobj.trainer_card_window import TrainerCardGUI
-from .gui_classes.pokemon_team_window import PokemonTeamDialog
 from .gui_classes.check_files import FileCheckerApp
 from .pyobj.download_sprites import show_agreement_and_download_dialog
 from .pyobj.ankimon_leaderboard import show_api_key_dialog
@@ -114,12 +110,25 @@ def create_menu_actions(
 
     actions = []
 
-    def _open_shell_at(screen):
+    def _open_shell_at(screen, view=None, action=None):
+        # All five screens (Items, Ankidex, Profile, Team, Settings) live in
+        # the one unified shell window.
         w = get_items_window()
+        # `view` (Items only) forces the Mart vs Bag filter; `action` (Profile
+        # only) is a one-shot UI hint — 'sprite' opens the picker, 'badges'
+        # scrolls to the badge case. Both are consumed by the next push.
+        if view is not None:
+            w.pending_view = view
+        w._pending_profile_action = action
         if w.isMinimized():
             w.showNormal()
         if w.current_screen != screen:
             w.load_screen(screen)
+        elif (view is not None or action) and screen in w.ready_screens and w.isVisible():
+            # Already on this fully-loaded screen — re-push so the requested
+            # view/action applies immediately. Hidden/loading screens get it via
+            # the showEvent / loadFinished push.
+            w.push_screen_data()
         w.show()
         w.raise_()
         w.activateWindow()
@@ -147,28 +156,17 @@ def create_menu_actions(
 
         itembag_action = QAction(mw.translator.translate("itembag_button"), mw)
         itembag_action.setMenuRole(QAction.MenuRole.NoRole)
-        itembag_action.triggered.connect(lambda: _open_shell_at("items"))
+        itembag_action.triggered.connect(lambda: _open_shell_at("items", "owned"))
         collection_menu.addAction(itembag_action)
 
-        # Achievements
-        def show_achievements_window():
-            from .pyobj.achievements_dialog import AchievementsDialog
-
-            if (
-                not hasattr(mw, "_achievements_dialog")
-                or mw._achievements_dialog is None
-            ):
-                mw._achievements_dialog = AchievementsDialog(addon_dir, trainer_card)
-            mw._achievements_dialog.setWindowModality(Qt.WindowModality.NonModal)
-            mw._achievements_dialog.show()
-            mw._achievements_dialog.raise_()
-            mw._achievements_dialog.activateWindow()
-
+        # Achievements — badge case section of the Profile shell.
         achievement_bag_action = QAction(
             mw.translator.translate("achievements_button"), mw
         )
         achievement_bag_action.setMenuRole(QAction.MenuRole.NoRole)
-        achievement_bag_action.triggered.connect(show_achievements_window)
+        achievement_bag_action.triggered.connect(
+            lambda: _open_shell_at("profile", action="badges")
+        )
         profile_menu.addAction(achievement_bag_action)
 
         # Showdown Teambuilder
@@ -371,16 +369,17 @@ def create_menu_actions(
     )
     ankimon_trainer_card_action.setMenuRole(QAction.MenuRole.NoRole)
     ankimon_trainer_card_action.setShortcut(QKeySequence("Ctrl+Shift+Q"))
-    # Create the TrainerCard GUI and show it inside Anki's main window
+    # Open the Trainer Card screen of the web Profile shell.
     ankimon_trainer_card_action.triggered.connect(
-        lambda: TrainerCardGUI(trainer_card, settings_obj, parent=mw)
+        lambda: _open_shell_at("profile")
     )
     profile_menu.addAction(ankimon_trainer_card_action)
 
-    # Mart entry — opens the same unified Items window as the Item Bag entry.
+    # Mart entry — same unified Items window as Item Bag, but opens on the
+    # shop ("In Shop Today") view rather than the bag.
     shop_manager_action = QAction(mw.translator.translate("item_shop_button"), mw)
     shop_manager_action.setMenuRole(QAction.MenuRole.NoRole)
-    shop_manager_action.triggered.connect(lambda: _open_shell_at("items"))
+    shop_manager_action.triggered.connect(lambda: _open_shell_at("items", "in_shop"))
     game_menu.addAction(shop_manager_action)
 
     # Choose Trainer Sprite Action
@@ -389,7 +388,7 @@ def create_menu_actions(
     )
     choose_trainer_sprite_action.setMenuRole(QAction.MenuRole.NoRole)
     choose_trainer_sprite_action.triggered.connect(
-        lambda: TrainerSpriteGraphicalDialog(settings_obj=settings_obj).exec()
+        lambda: _open_shell_at("profile", action="sprite")
     )
     game_menu.addAction(choose_trainer_sprite_action)
 
@@ -398,7 +397,7 @@ def create_menu_actions(
     )
     pokemon_team_action.setMenuRole(QAction.MenuRole.NoRole)
     pokemon_team_action.triggered.connect(
-        lambda: PokemonTeamDialog(settings_obj, logger, trainer_card)
+        lambda: _open_shell_at("team")
     )
     game_menu.addAction(pokemon_team_action)
 

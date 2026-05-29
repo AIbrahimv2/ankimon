@@ -1,14 +1,25 @@
-// Cross-screen navigation switcher logic.
+// Dropdown nav switcher for the Profile shell.
 //
-// Tries to connect to the shell's QWebChannel. If a bridge is available we
-// flip body.shell-mode (which makes the dropdown affordances visible per
-// nav-switcher.css), wire the trigger click, and route menu clicks through
-// window.nav.openItems() / openAnkidex() / openSettings(). Standalone (no bridge) is a no-op.
+// IMPORTANT: this does NOT create its own QWebChannel. Creating a second
+// QWebChannel over the same transport overwrites the first's
+// `transport.onmessage`, so one of them never finishes initializing. Instead
+// the page's own script (profile.js / team.js) creates the single channel,
+// reads `nav` from it, and calls window.wireNavSwitcher(nav). This matches the
+// working Items shell (shop.js wires its own dropdown from its one channel).
 
 (function () {
     'use strict';
 
-    function bindSwitcher(nav) {
+    function methodFor(screen) {
+        if (!screen) return null;
+        return 'open' + screen.charAt(0).toUpperCase() + screen.slice(1);
+    }
+
+    // Wire the dropdown to a NavBridge. Safe to call with null (standalone /
+    // no bridge) — it just leaves the switcher hidden via the CSS
+    // body:not(.shell-mode) rule.
+    window.wireNavSwitcher = function (nav) {
+        if (!nav) return;
         document.body.classList.add('shell-mode');
 
         const trigger = document.getElementById('nav-trigger');
@@ -28,14 +39,12 @@
             e.stopPropagation();
             menu.classList.contains('hidden') ? open() : close();
         });
-
         document.addEventListener('click', (e) => {
             if (!menu.classList.contains('hidden') &&
                 !menu.contains(e.target) && e.target !== trigger) {
                 close();
             }
         });
-
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !menu.classList.contains('hidden')) close();
         });
@@ -45,26 +54,9 @@
                 const screen = item.dataset.screen;
                 close();
                 if (item.classList.contains('active')) return;
-                if (screen === 'items' && nav.openItems) nav.openItems();
-                else if (screen === 'ankidex' && nav.openAnkidex) nav.openAnkidex();
-                else if (screen === 'settings' && nav.openSettings) nav.openSettings();
-                else if (screen === 'profile' && nav.openProfile) nav.openProfile();
-                else if (screen === 'team' && nav.openTeam) nav.openTeam();
+                const fn = methodFor(screen);
+                if (fn && typeof nav[fn] === 'function') nav[fn]();
             });
         });
-    }
-
-    function init() {
-        if (typeof qt === 'undefined' || !qt.webChannelTransport) return;
-        new QWebChannel(qt.webChannelTransport, function (channel) {
-            const nav = channel.objects && channel.objects.nav;
-            if (nav) bindSwitcher(nav);
-        });
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    };
 })();

@@ -113,6 +113,14 @@ def on_review_card(*args):
         if total_reviews % cash_interval == 0:
             settings_obj.set("trainer.cash", settings_obj.get("trainer.cash") + cash_amount)
             trainer_card.cash = settings_obj.get("trainer.cash")
+            # Live-refresh the open shell screen's cash (best-effort; no-op
+            # unless a live screen is visible).
+            try:
+                from .singletons import notify_stats_changed
+
+                notify_stats_changed()
+            except Exception:
+                pass
 
         if battle_sounds == True and ankimon_tracker_obj.general_card_count_for_battle == 1:
             play_sound(enemy_pokemon.id, settings_obj)

@@ -74,9 +74,25 @@
         });
     }
 
+    // Switch the View filter (in_shop | owned) and sync the sidebar buttons.
+    // Used both by the nav clicks and by a Python-forced initial view.
+    function setView(filter) {
+        if (filter !== 'in_shop' && filter !== 'owned') return;
+        state.filter = filter;
+        document.querySelectorAll('.nav-item[data-filter]').forEach((b) => {
+            b.classList.toggle('active', b.dataset.filter === filter);
+        });
+    }
+
     // Entry from Python
     window.initializeItems = function (data) {
         state.data = data;
+        // A menu entry (Mart vs Item Bag) can request a starting view. This
+        // is a one-shot from Python — it's only present on the push that
+        // follows a menu click, so it won't override the user's own filtering.
+        if (data && data.initial_view) {
+            setView(data.initial_view);
+        }
         const urls = (data.items || []).map((i) => i.image_url).filter(Boolean);
         preloadImages(urls, function () {
             render();
@@ -669,10 +685,7 @@
     function bindUI() {
         document.querySelectorAll('.nav-item[data-filter]').forEach((btn) => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.nav-item[data-filter]').forEach((b) =>
-                    b.classList.remove('active'));
-                btn.classList.add('active');
-                state.filter = btn.dataset.filter;
+                setView(btn.dataset.filter);
                 render();
             });
         });
@@ -1083,6 +1096,8 @@
                 if (!router) return;
                 if (screen === 'ankidex' && router.openAnkidex) router.openAnkidex();
                 else if (screen === 'settings' && router.openSettings) router.openSettings();
+                else if (screen === 'profile' && router.openProfile) router.openProfile();
+                else if (screen === 'team' && router.openTeam) router.openTeam();
             });
         });
     }

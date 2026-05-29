@@ -1384,6 +1384,15 @@ def save_caught_pokemon(
     # Save to database (replaces JSON file I/O for performance)
     mw.ankimon_db.save_pokemon(caught_pokemon)
 
+    # Live-refresh the open shell screen (if any) after a catch — best-effort,
+    # must never break a catch. No-op unless a live screen is visible.
+    try:
+        from ..singletons import notify_stats_changed
+
+        notify_stats_changed()
+    except Exception:
+        pass
+
 
 def catch_pokemon(
     enemy_pokemon: PokemonObject,

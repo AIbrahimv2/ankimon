@@ -11,7 +11,7 @@ from datetime import datetime
 
 from aqt import QDialog, QVBoxLayout, QWebEngineView, mw
 from aqt.qt import Qt, QUrl, QFrame
-from PyQt6.QtCore import QObject, pyqtSlot
+from PyQt6.QtCore import QObject, pyqtSlot, QTimer
 from PyQt6.QtGui import QColor
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWidgets import QStackedWidget
@@ -21,11 +21,14 @@ import csv
 from ..utils import give_item, is_dev_mode
 from ..resources import items_path, csv_file_items_cost, csv_file_descriptions
 from ..functions.pokedex_functions import find_details_move
+from ..ankimon_profile_web.profile_data import ProfileData
 
 
 SCREEN_ITEMS = "items"
 SCREEN_ANKIDEX = "ankidex"
 SCREEN_SETTINGS = "settings"
+SCREEN_PROFILE = "profile"
+SCREEN_TEAM = "team"
 
 
 class NavBridge(QObject):
@@ -46,6 +49,72 @@ class NavBridge(QObject):
     @pyqtSlot()
     def openSettings(self):
         self._w.load_screen(SCREEN_SETTINGS)
+
+    @pyqtSlot()
+    def openProfile(self):
+        self._w.load_screen(SCREEN_PROFILE)
+
+    @pyqtSlot()
+    def openTeam(self):
+        self._w.load_screen(SCREEN_TEAM)
+
+
+class TrainerBridge(QObject):
+    """Profile-screen data + sprite-picker actions (delegates to ProfileData)."""
+
+    def __init__(self, window):
+        super().__init__()
+        self._w = window
+
+    @pyqtSlot(result="QVariant")
+    def getProfile(self):
+        return self._w.get_profile_payload()
+
+    @pyqtSlot(result="QVariant")
+    def getSprites(self):
+        return self._w.profile_data.get_sprite_data()
+
+    @pyqtSlot(str, result="QVariant")
+    def setSprite(self, name):
+        return self._w.profile_data.handle_set_sprite(name)
+
+    @pyqtSlot(str, result="QVariant")
+    def setName(self, name):
+        return self._w.profile_data.handle_set_name(name)
+
+
+class TeamBridge(QObject):
+    """Team-builder screen actions (delegates to ProfileData)."""
+
+    def __init__(self, window):
+        super().__init__()
+        self._w = window
+
+    @pyqtSlot(result="QVariant")
+    def getTeam(self):
+        return self._w.profile_data.get_team_data()
+
+    @pyqtSlot(result="QVariant")
+    def getRoster(self):
+        return self._w.profile_data.get_roster_data()
+
+    @pyqtSlot(str, result=int)
+    def getCp(self, individual_id):
+        return self._w.profile_data._calc_cp(individual_id)
+
+    @pyqtSlot(str, result="QVariant")
+    def getMemberStats(self, individual_id):
+        # {cp, types} for a Pokémon just added to a slot (roster stubs omit both).
+        return self._w.profile_data.get_member_stats(individual_id)
+
+    # JSON string in (PyQt QVariant-list unwrap is unreliable on first call).
+    @pyqtSlot(str, str, result="QVariant")
+    def saveTeam(self, team_json, xp_share_id):
+        try:
+            team_ids = json.loads(team_json) if team_json else []
+        except (TypeError, ValueError) as e:
+            return {"ok": False, "message": f"Invalid team payload: {e}"}
+        return self._w.profile_data.handle_save_team(team_ids, xp_share_id or None)
 
 
 class SettingsBridge(QObject):
@@ -123,14 +192,34 @@ class ItemsBridge(QObject):
 
 
 class AnkimonItemsWeb(QDialog):
-    def __init__(self, addon_dir, shop_manager, item_window, ankimon_tracker):
+    def __init__(self, addon_dir, shop_manager, item_window, ankimon_tracker,
+                 trainer_card=None, settings_obj=None, logger=None):
         super().__init__()
         self.addon_dir = addon_dir
         self.shop_manager = shop_manager
         self.item_window = item_window
         self.ankimon_tracker = ankimon_tracker
+        # Profile + Team are folded into this shell so all five screens share
+        # one window and one dropdown. Their data lives in ProfileData.
+        self.profile_data = ProfileData(addon_dir, trainer_card, settings_obj, logger)
+        self._pending_profile_action = None
+        # Live updates: map of screen -> bound method that pushes fresh data to
+        # that screen. Only screens listed here react to gameplay events. To add
+        # a new live screen (e.g. a Stats screen), add an entry here, a matching
+        # _push_*_live method, and a window.liveRefreshX receiver in its JS.
+        # See ankimon_items_web/LIVE_UPDATES.md.
+        self._live_refreshers = {SCREEN_PROFILE: self._push_profile_live}
+        self._live_refresh_pending = False
         self.current_screen = None
         self.setWindowTitle("Ankimon")
+
+        # Paint the shell dark from the first frame. The web views set their
+        # own page background, but the surrounding QDialog/QFrame/QStackedWidget
+        # would otherwise briefly show the light system palette while a screen
+        # loads — a visible flash on open.
+        self.setStyleSheet(
+            "QDialog, QFrame, QStackedWidget { background-color: #0d1117; }"
+        )
 
         # Disabled WA_TranslucentBackground to prevent heavy window-level repaint
         # flickering under Windows DWM when QWebEngineView re-composes or updates.
@@ -160,45 +249,52 @@ class AnkimonItemsWeb(QDialog):
         self.webview_items = QWebEngineView()
         self.webview_ankidex = QWebEngineView()
         self.webview_settings = QWebEngineView()
-
-        for w in (self.webview_items, self.webview_ankidex, self.webview_settings):
-            w.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
-            w.page().setBackgroundColor(QColor("#0d1117"))
-            self.stack.addWidget(w)
+        self.webview_profile = QWebEngineView()
+        self.webview_team = QWebEngineView()
+        self._views = {
+            SCREEN_ITEMS: self.webview_items,
+            SCREEN_ANKIDEX: self.webview_ankidex,
+            SCREEN_SETTINGS: self.webview_settings,
+            SCREEN_PROFILE: self.webview_profile,
+            SCREEN_TEAM: self.webview_team,
+        }
 
         self.bridge = ItemsBridge(self)
         self.nav = NavBridge(self)
         self.settings_bridge = SettingsBridge(self)
+        self.trainer_bridge = TrainerBridge(self)
+        self.team_bridge = TeamBridge(self)
 
-        self.channel_items = QWebChannel(self.webview_items)
-        self.channel_items.registerObject("bridge", self.bridge)
-        self.channel_items.registerObject("nav", self.nav)
-        self.channel_items.registerObject("settings", self.settings_bridge)
-        self.webview_items.page().setWebChannel(self.channel_items)
+        # Each screen gets its own channel, but every channel registers the
+        # same bridge objects so any page can navigate / call any action.
+        for screen, view in self._views.items():
+            view.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+            view.page().setBackgroundColor(QColor("#0d1117"))
+            self.stack.addWidget(view)
 
-        self.channel_ankidex = QWebChannel(self.webview_ankidex)
-        self.channel_ankidex.registerObject("bridge", self.bridge)
-        self.channel_ankidex.registerObject("nav", self.nav)
-        self.channel_ankidex.registerObject("settings", self.settings_bridge)
-        self.webview_ankidex.page().setWebChannel(self.channel_ankidex)
+            channel = QWebChannel(view)
+            channel.registerObject("bridge", self.bridge)
+            channel.registerObject("nav", self.nav)
+            channel.registerObject("settings", self.settings_bridge)
+            channel.registerObject("trainer", self.trainer_bridge)
+            channel.registerObject("team", self.team_bridge)
+            view.page().setWebChannel(channel)
 
-        self.channel_settings = QWebChannel(self.webview_settings)
-        self.channel_settings.registerObject("bridge", self.bridge)
-        self.channel_settings.registerObject("nav", self.nav)
-        self.channel_settings.registerObject("settings", self.settings_bridge)
-        self.webview_settings.page().setWebChannel(self.channel_settings)
-
-        self.webview_items.loadFinished.connect(
-            lambda ok, s=SCREEN_ITEMS: self._on_screen_load_finished(ok, s)
-        )
-        self.webview_ankidex.loadFinished.connect(
-            lambda ok, s=SCREEN_ANKIDEX: self._on_screen_load_finished(ok, s)
-        )
-        self.webview_settings.loadFinished.connect(
-            lambda ok, s=SCREEN_SETTINGS: self._on_screen_load_finished(ok, s)
-        )
+            view.loadFinished.connect(
+                lambda ok, s=screen: self._on_screen_load_finished(ok, s)
+            )
 
         self.loaded_screens = set()
+        # Screens whose first load has actually *finished* (loaded_screens
+        # only records that a load was kicked off). Used to decide whether a
+        # forced view can be pushed immediately or must wait for loadFinished.
+        self.ready_screens = set()
+        # One-shot Items View filter ('in_shop' | 'owned') requested by a menu
+        # entry (Mart vs Item Bag). Consumed by the next inventory push, then
+        # cleared so later pushes (buy/use/reroll) don't reset the user's view.
+        self.pending_view = None
+        # The first show() is fed by the open path; later re-shows refresh data.
+        self._shown_once = False
 
         # Boot with Items by default; menu entries can call load_screen()
         # before show() to pick a different initial screen.
@@ -223,6 +319,14 @@ class AnkimonItemsWeb(QDialog):
                 title = "Ankimon — Settings"
                 target_view = self.webview_settings
                 path = self.addon_dir / "ankimon_items_web" / "settings.html"
+            elif screen == SCREEN_PROFILE:
+                title = "Ankimon — Profile"
+                target_view = self.webview_profile
+                path = self.addon_dir / "ankimon_profile_web" / "profile.html"
+            elif screen == SCREEN_TEAM:
+                title = "Ankimon — Team"
+                target_view = self.webview_team
+                path = self.addon_dir / "ankimon_profile_web" / "team.html"
             else:
                 return
 
@@ -244,12 +348,25 @@ class AnkimonItemsWeb(QDialog):
     def _on_screen_load_finished(self, ok, screen):
         if not ok:
             return
+        self.ready_screens.add(screen)
         if self.current_screen == screen:
             self.push_screen_data()
 
     def push_screen_data(self):
+        # A screen can only receive data once its first load has finished.
+        # Pushing earlier is a no-op in JS and would wrongly consume one-shot
+        # state like pending_view — the loadFinished handler re-pushes once
+        # ready, so just skip here.
+        if self.current_screen not in self.ready_screens:
+            return
         if self.current_screen == SCREEN_ITEMS:
             data = self.get_inventory_data()
+            # Apply a menu-requested View filter exactly once, atomically with
+            # the render so it survives the async page load. Cleared after use
+            # so subsequent pushes don't clobber the user's own filter choice.
+            if self.pending_view is not None:
+                data["initial_view"] = self.pending_view
+                self.pending_view = None
             js = f"if (window.initializeItems) window.initializeItems({json.dumps(data)});"
             self.webview_items.page().runJavaScript(js)
         elif self.current_screen == SCREEN_ANKIDEX:
@@ -260,6 +377,78 @@ class AnkimonItemsWeb(QDialog):
             data = self.get_settings_data()
             js = f"if (window.initializeSettings) window.initializeSettings({json.dumps(data)});"
             self.webview_settings.page().runJavaScript(js)
+        elif self.current_screen == SCREEN_PROFILE:
+            data = self.get_profile_payload()
+            js = f"if (window.initializeProfile) window.initializeProfile({json.dumps(data)});"
+            self.webview_profile.page().runJavaScript(js)
+        elif self.current_screen == SCREEN_TEAM:
+            data = self.profile_data.get_team_data()
+            js = f"if (window.initializeTeam) window.initializeTeam({json.dumps(data)});"
+            self.webview_team.page().runJavaScript(js)
+
+    def get_profile_payload(self):
+        """Profile data + a one-shot UI action ('sprite' opens the picker,
+        'badges' scrolls to the badge case), set by the menu entry points."""
+        data = self.profile_data.get_profile_data()
+        data["action"] = self._consume_profile_action()
+        return data
+
+    def _consume_profile_action(self):
+        action = self._pending_profile_action
+        self._pending_profile_action = None
+        return action
+
+    # ------------------------------------------------------------------
+    # Live updates — keep the open screen current after a gameplay event
+    # (catch, XP, cash, ...). Full pattern + how to add a new live screen:
+    # ankimon_items_web/LIVE_UPDATES.md
+    # ------------------------------------------------------------------
+    def refresh_live_screen(self):
+        """Entry point called by ``singletons.notify_stats_changed()`` after a
+        gameplay event. Refreshes whichever screen is currently showing **iff**
+        it supports live updates.
+
+        Cheap and safe to call from anywhere on the GUI thread: a no-op unless
+        the window is visible, the current screen is fully loaded, and that
+        screen has a registered refresher. Several calls in the same event-loop
+        turn coalesce into a single refresh (so e.g. a defeat that grants XP and
+        a cash reward only triggers one re-render)."""
+        if not self.isVisible():
+            return
+        if self.current_screen not in self.ready_screens:
+            return
+        if self.current_screen not in self._live_refreshers:
+            return
+        if self._live_refresh_pending:
+            return
+        self._live_refresh_pending = True
+        # Defer to the next event-loop turn: coalesces bursts and lets the
+        # triggering gameplay logic finish (DB writes are already committed).
+        QTimer.singleShot(0, self._run_live_refresh)
+
+    def _run_live_refresh(self):
+        self._live_refresh_pending = False
+        # Re-check — state may have changed before this deferred call ran.
+        if not self.isVisible() or self.current_screen not in self.ready_screens:
+            return
+        refresher = self._live_refreshers.get(self.current_screen)
+        if refresher is None:
+            return
+        try:
+            refresher()
+        except Exception as e:
+            print(f"[Ankimon] live refresh failed ({self.current_screen}): {e}")
+
+    def _push_profile_live(self):
+        """Push a full Profile refresh (cash, caught, Pokédex, shinies, highest,
+        XP bar, team levels, recently caught). New catches animate into Recently
+        Caught; the JS diffs the list so stat-only changes don't re-render it."""
+        data = self.profile_data.get_profile_data()
+        js = (
+            "if (window.liveRefreshProfile) "
+            f"window.liveRefreshProfile({json.dumps(data)});"
+        )
+        self.webview_profile.page().runJavaScript(js)
 
     def _get_ankidex_data(self):
         # Reuse the existing Ankidex singleton's data getter — keeps the
@@ -323,9 +512,14 @@ class AnkimonItemsWeb(QDialog):
         super().hideEvent(event)
 
     def showEvent(self, event):
-        # Re-push fresh data on every show (e.g. after buy/use happened
-        # while the window was hidden).
-        self.push_screen_data()
+        # The first show is fed by the open path (which pushes once the page
+        # is ready), so skip the redundant push here — that double render
+        # during load is what caused the flash. On later re-shows, refresh in
+        # case buy/use changed data while the window was hidden.
+        if self._shown_once:
+            self.push_screen_data()
+        else:
+            self._shown_once = True
         super().showEvent(event)
 
     # Back-compat alias for the bridge methods that still call update_ui_data.

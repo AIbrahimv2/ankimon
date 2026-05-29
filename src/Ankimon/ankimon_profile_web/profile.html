@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ankimon Profile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <style>
+        html { background: #0d1117; }
+        .skeleton { background: #161b22; border: 1px solid #30363d; border-radius: 12px; animation: sk 1.5s ease-in-out infinite; }
+        @keyframes sk { 0%,100% { opacity: .35 } 50% { opacity: .6 } }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="profile.css?v=20260630">
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+<body class="dark-mode">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div id="nav-switcher" class="nav-switcher">
+                    <button id="nav-trigger" class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+                        <img src="../user_files/sprites/items/water-gem.png" class="app-logo icon-item-sprite" alt="">
+                        <h1>PROFILE</h1>
+                        <span class="nav-chevron">▾</span>
+                    </button>
+                    <div id="nav-menu" class="nav-menu hidden" role="menu">
+                        <button class="nav-menu-item" role="menuitem" data-screen="items">
+                            <span class="nav-menu-icon"><img src="../user_files/sprites/items/max-potion.png" class="icon-item-sprite" alt=""></span>
+                            <div class="nav-menu-text">
+                                <span class="nav-menu-title">Items</span>
+                                <span class="nav-menu-desc">Your inventory and today's Mart</span>
+                            </div>
+                        </button>
+                        <button class="nav-menu-item" role="menuitem" data-screen="ankidex">
+                            <span class="nav-menu-icon"><img src="../user_files/sprites/items/poke-ball.png" alt=""></span>
+                            <div class="nav-menu-text">
+                                <span class="nav-menu-title">Ankidex</span>
+                                <span class="nav-menu-desc">Browse caught Pokémon</span>
+                            </div>
+                        </button>
+                        <button class="nav-menu-item" role="menuitem" data-screen="team">
+                            <span class="nav-menu-icon"><img src="../user_files/sprites/items/great-ball.png" class="icon-item-sprite" alt=""></span>
+                            <div class="nav-menu-text">
+                                <span class="nav-menu-title">Team</span>
+                                <span class="nav-menu-desc">Your active 6 Pokémon</span>
+                            </div>
+                        </button>
+                        <button class="nav-menu-item active" role="menuitem" data-screen="profile">
+                            <span class="nav-menu-icon"><img src="../user_files/sprites/items/water-gem.png" class="icon-item-sprite" alt=""></span>
+                            <div class="nav-menu-text">
+                                <span class="nav-menu-title">Profile</span>
+                                <span class="nav-menu-desc">Card, badges &amp; avatar</span>
+                            </div>
+                        </button>
+                        <button class="nav-menu-item" role="menuitem" data-screen="settings">
+                            <span class="nav-menu-icon"><img src="../user_files/sprites/items/x-speed.png" class="icon-item-sprite" alt=""></span>
+                            <div class="nav-menu-text">
+                                <span class="nav-menu-title">Settings</span>
+                                <span class="nav-menu-desc">Configure Ankimon</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-body">
+                <div class="profile-rail">
+                    <div class="rail-avatar" id="avatar-btn" title="Change trainer sprite">
+                        <div class="skeleton" style="width:180px;height:180px;border-radius:16px;margin:0 auto;"></div>
+                    </div>
+                    <div class="rail-meta" id="rail-meta">
+                        <div class="skeleton" style="height:24px;width:130px;"></div>
+                        <div class="skeleton" style="height:80px;width:100%;"></div>
+                    </div>
+                    <div class="rail-xp" id="rail-xp"></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <!-- "PROFILE" is already named by the nav label, so instead of a
+                 redundant title the bar carries a friendly greeting that frames
+                 the stats below. The greeting text is set by profile.js. -->
+            <header class="top-bar">
+                <h2 id="pf-greeting">Welcome back</h2>
+                <span style="font-size:.8rem;color:var(--text-muted);">Here's your journey so far.</span>
+            </header>
+            <div class="content-scroll">
+                <div class="profile-page">
+                    <div class="stat-tiles" id="stat-tiles">
+                        <div class="skeleton" style="height:74px;"></div>
+                        <div class="skeleton" style="height:74px;"></div>
+                        <div class="skeleton" style="height:74px;"></div>
+                        <div class="skeleton" style="height:74px;"></div>
+                        <div class="skeleton" style="height:74px;"></div>
+                    </div>
+
+                    <section class="panel panel-fill">
+                        <div class="panel-title">
+                            Team
+                            <button class="manage-link" id="manage-team" type="button">Manage →</button>
+                        </div>
+                        <div class="team-showcase" id="team-showcase"></div>
+                    </section>
+
+                    <section class="panel panel-fill" id="recent-section">
+                        <div class="panel-title">Recently Caught</div>
+                        <div class="team-showcase" id="recent-grid"></div>
+                    </section>
+
+                    <section class="panel" id="badges-section">
+                        <div class="panel-title">Badges <span class="count" id="badge-summary"></span></div>
+                        <div class="badge-grid" id="badge-grid"></div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Sprite picker (opened by clicking the avatar) -->
+    <div id="sprite-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-head">
+                <h3>Choose Trainer Sprite</h3>
+                <button class="icon-btn" id="sprite-close" title="Close">×</button>
+            </div>
+            <div class="sprite-toolbar" id="sprite-toolbar">
+                <input type="text" id="sprite-search" class="modal-search" placeholder="Search sprites...">
+                <div class="filter-select" id="fs-cat"></div>
+                <div class="filter-select" id="fs-gen"></div>
+                <div class="filter-select" id="fs-sex"></div>
+                <span class="sprite-count" id="sprite-count"></span>
+            </div>
+            <div class="sprite-modal-body">
+                <div class="sprite-grid" id="sprite-grid"></div>
+                <div class="empty-state hidden" id="sprite-empty">
+                    <div class="empty-icon"></div>
+                    <h2>No sprites found</h2>
+                    <p>Try adjusting your search or filters.</p>
+                    <button class="btn btn-primary" id="sprite-clear-filters" type="button">Clear filters</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="profile-nav.js?v=20260528"></script>
+    <script src="profile.js?v=20260631"></script>
+</body>
+</html>

@@ -17,6 +17,8 @@ src/Ankimon/user_files/backups
 .vscode
 .gemini
 .agents
+.claude/
+__pycache__/
 debug_console.py
 src/Ankimon/user_files/todays_shop.json
 src/Ankimon/user_files/meta.json

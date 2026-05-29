@@ -582,6 +582,8 @@
                 if (screen === 'items' && nav.openItems) nav.openItems();
                 else if (screen === 'ankidex' && nav.openAnkidex) nav.openAnkidex();
                 else if (screen === 'settings' && nav.openSettings) nav.openSettings();
+                else if (screen === 'profile' && nav.openProfile) nav.openProfile();
+                else if (screen === 'team' && nav.openTeam) nav.openTeam();
             });
         });
     }

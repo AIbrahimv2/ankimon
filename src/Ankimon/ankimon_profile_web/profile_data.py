@@ -1,0 +1,809 @@
+"""Data layer for the Profile + Team screens.
+
+Plain (non-Qt) helper so the unified shell (``ankimon_items_web/shop_obj.py``)
+can host the Profile and Team screens without duplicating their data logic.
+Reads/writes the trainer card, captured-Pokémon DB and settings; builds the
+payloads the profile.js / team.js pages consume.
+"""
+
+import json
+import re
+
+from aqt import mw
+
+from ..utils import get_all_sprites
+from ..resources import trainer_sprites_path
+
+MAX_TEAM_SIZE = 6
+
+# Base species that legitimately end in "mega" / "max" and are NOT form names.
+_NOT_FORMS = {"yanmega"}
+
+
+def _capitalize_name(s):
+    """Capitalize the first letter of each word segment, preserving separators
+    (so "mr-mime" -> "Mr-Mime", "dragonite" -> "Dragonite")."""
+    return re.sub(r"(^|[\s\-/])([a-z])", lambda m: m.group(1) + m.group(2).upper(), str(s))
+
+
+def format_pokemon_name(raw):
+    """Display name for a Pokémon. Reformats stored form names like
+    "baxcaliburmega" -> "Mega Baxcalibur", "xgmax" -> "Gmax X". Plain species
+    are just capitalized. Yanmega (a real base species) is left alone."""
+    if not raw:
+        return ""
+    s = str(raw)
+    low = s.lower()
+    if low not in _NOT_FORMS:
+        m = re.match(r"^(.+?)mega([xy])$", low)
+        if m:
+            return "Mega " + _capitalize_name(m.group(1)) + " " + m.group(2).upper()
+        m = re.match(r"^(.+?)mega$", low)
+        if m:
+            return "Mega " + _capitalize_name(m.group(1))
+        m = re.match(r"^(.+?)gigantamax$", low)
+        if m:
+            return "Gigantamax " + _capitalize_name(m.group(1))
+        m = re.match(r"^(.+?)gmax$", low)
+        if m:
+            return "Gmax " + _capitalize_name(m.group(1))
+    return _capitalize_name(s)
+
+
+def _format_with_level(s):
+    """Reformat a "name (Level N)" string, leaving the level suffix intact."""
+    if not s:
+        return s
+    m = re.match(r"^(.*?)(\s*\(Level\s*\d+\))\s*$", str(s), re.IGNORECASE)
+    if m:
+        return format_pokemon_name(m.group(1).strip()) + " " + m.group(2).strip()
+    return format_pokemon_name(s)
+
+
+# ------------------------------------------------------------------
+# Trainer-sprite descriptions for the sprite-picker modal. ~1400 sprites are
+# named like "acetrainerf-gen6xy"; this turns each into a pretty label
+# ("Ace Trainer"), a generation/variant sublabel ("Gen 6 · XY"), a browsing
+# category and a gender ("m"/"f"/""). Gender is a FILTER only — it is never
+# shown in the label (both sexes read the same).
+# ------------------------------------------------------------------
+_SPRITE_GEN_RE = re.compile(r"^gen(\d+)([a-z0-9]*)$")
+
+_SPRITE_VARIANT = {
+    "rb": "RB", "rby": "RBY", "jp": "JP", "rs": "RS", "dp": "DP", "pt": "Pt",
+    "bw": "BW", "bw2": "BW2", "xy": "XY", "oras": "ORAS", "frlg": "FRLG",
+    "lgpe": "LGPE", "usum": "USUM", "sm": "SM", "hgss": "HGSS", "gs": "GS",
+    "champion": "Champion", "title": "Title", "kanto": "Kanto", "johto": "Johto",
+    "two": "II", "main": "Main", "c": "C", "masters": "Masters", "anime": "Anime",
+    "casual": "Casual", "s": "Scarlet", "v": "Violet", "pwt": "PWT",
+    "isekai": "Isekai", "shuffle": "Shuffle",
+}
+_SPRITE_VKEYS = sorted(_SPRITE_VARIANT, key=len, reverse=True)
+
+# Greedy word-split vocabulary: compound class names → spaced display form.
+# Longest match wins, so whole compounds ("acetrainer") beat their pieces; a
+# token is only split if the WHOLE thing is consumed, so single-word named
+# characters ("misty") fall back to plain capitalization and aren't mangled.
+_SPRITE_VOCAB = {
+    "acetrainer": "Ace Trainer", "cooltrainer": "Cool Trainer",
+    "blackbelt": "Black Belt", "birdkeeper": "Bird Keeper",
+    "bugcatcher": "Bug Catcher", "schoolkid": "School Kid", "richboy": "Rich Boy",
+    "supernerd": "Super Nerd", "youngcouple": "Young Couple",
+    "aromalady": "Aroma Lady", "parasollady": "Parasol Lady",
+    "dragontamer": "Dragon Tamer", "ruinmaniac": "Ruin Maniac",
+    "pokemaniac": "Poké Maniac", "pokefan": "Poké Fan",
+    "pokemonbreeder": "Pokémon Breeder", "pokemonranger": "Pokémon Ranger",
+    "battlegirl": "Battle Girl", "ltsurge": "Lt. Surge", "hexmaniac": "Hex Maniac",
+    "ninjaboy": "Ninja Boy", "kimonogirl": "Kimono Girl", "officeworker": "Office Worker",
+    "risingstar": "Rising Star", "rollerskater": "Roller Skater", "crushgirl": "Crush Girl",
+    "securitycorps": "Security Corps", "skytrainer": "Sky Trainer",
+    "rocketexecutive": "Rocket Executive", "aetherfoundation": "Aether Foundation",
+    "aetheremployee": "Aether Employee", "leaguestaff": "League Staff",
+    "scubadiver": "Scuba Diver", "streetthug": "Street Thug", "depotagent": "Depot Agent",
+    "firebreather": "Fire Breather", "nurseryaide": "Nursery Aide",
+    "furisodegirl": "Furisode Girl", "fairytalegirl": "Fairy Tale Girl",
+    "schoolgirl": "School Girl", "youngathlete": "Young Athlete", "poffincook": "Poffin Cook",
+    # multi-word named characters
+    "cedricjuniper": "Cedric Juniper", "crasherwake": "Crasher Wake",
+    "jessiejames": "Jessie & James", "tateandliza": "Tate & Liza",
+    "shadowtriad": "Shadow Triad", "pearlclanmember": "Pearl Clan Member",
+    "diamondclanmember": "Diamond Clan Member", "pokemoncenterlady": "Pokémon Center Lady",
+    # atomic pieces (compounds above win via longest-match)
+    "triathlete": "Triathlete", "biker": "Biker", "runner": "Runner", "swimmer": "Swimmer",
+    "trainer": "Trainer", "couple": "Couple", "grunt": "Grunt", "worker": "Worker",
+    "star": "Star", "snow": "Snow", "skater": "Skater", "team": "Team", "aqua": "Aqua",
+    "magma": "Magma", "rocket": "Rocket", "skull": "Skull", "flare": "Flare",
+    "galactic": "Galactic", "plasma": "Plasma", "yell": "Yell", "girl": "Girl",
+    "boy": "Boy", "jr": "Jr.",
+}
+_SPRITE_VKEYS_WORDS = sorted(_SPRITE_VOCAB, key=len, reverse=True)
+
+# Inherently single-gender classes that don't follow the …f / …m sibling
+# convention — supplements the data-driven gender detection below.
+_SPRITE_FEMALE_ROLES = {
+    "lass", "beauty", "madame", "lady", "nurse", "idol", "waitress", "kimonogirl",
+    "cowgirl", "showgirl", "crushgirl", "policewoman", "battlegirl", "aromalady",
+    "parasollady", "beautician", "furisodegirl", "fairytalegirl", "schoolgirl",
+    "picnicker",
+}
+_SPRITE_MALE_ROLES = {
+    "youngster", "gentleman", "blackbelt", "richboy", "cueball", "fisherman",
+    "policeman", "cameraman", "ninjaboy", "sailor", "biker", "bugcatcher",
+    "burglar", "gambler", "guitarist", "schoolboy",
+}
+
+# (category, keyword substrings) — first match wins; unmatched → "Characters"
+# (the big bucket of named people, browsed via search).
+_SPRITE_CATEGORIES = [
+    ("Medical", ("nurse", "doctor", "medic", "joy")),
+    ("Science", ("scientist", "supernerd", "nerd", "engineer", "researcher", "professor")),
+    ("Mystic", ("psychic", "hex", "medium", "channeler", "mystic", "fortune", "seer", "witch", "shaman", "sage", "monk", "cultist")),
+    ("Athletic", ("blackbelt", "battlegirl", "swimmer", "hiker", "fisherman", "sailor", "biker", "cyclist", "crusher", "karate", "wrestler", "jogger", "runner", "tuber", "skier", "roughneck", "cueball", "athlete", "boarder")),
+    ("Outdoors", ("bugcatcher", "birdkeeper", "camper", "picnicker", "ranger", "aromalady", "gardener", "worker", "ruinmaniac", "dragontamer", "hunter", "farmer", "breeder", "kindler", "backpacker", "collector")),
+    ("Performer", ("guitarist", "artist", "juggler", "dancer", "musician", "comedian", "idol", "singer", "painter", "actor", "actress", "entertainer", "performer", "magician", "clown", "poet")),
+    ("Youth", ("youngster", "lass", "schoolkid", "twins", "preschooler", "child", "student", "youngcouple", "schoolboy", "schoolgirl", "kindergarten")),
+    ("Elegant", ("lady", "madame", "gentleman", "richboy", "socialite", "butler", "maid", "parasollady", "aristocrat", "noble", "beauty", "waiter", "waitress", "rich")),
+    ("Official", ("policeman", "officer", "guard", "soldier", "grunt", "rocket", "aqua", "magma", "galactic", "plasma", "flare", "skull", "yell", "admin", "interviewer", "cameraman")),
+    ("Trainer", ("acetrainer", "cooltrainer", "pokefan", "pokemaniac", "veteran", "trainer", "expert", "tamer", "gambler", "gamer", "burglar", "tourist", "ninjaboy")),
+]
+_SPRITE_CATEGORY_ORDER = [
+    "Characters", "Trainer", "Athletic", "Outdoors", "Youth", "Elegant",
+    "Mystic", "Science", "Performer", "Official", "Medical",
+]
+
+
+def _split_sprite_variant(v):
+    """Unpack a run-together variant suffix like 'rbchampion' → 'RB Champion'."""
+    out = []
+    i = 0
+    while i < len(v):
+        for k in _SPRITE_VKEYS:
+            if v.startswith(k, i):
+                out.append(_SPRITE_VARIANT[k])
+                i += len(k)
+                break
+        else:
+            rest = v[i:]
+            out.append(rest.upper() if len(rest) <= 4 else rest.title())
+            break
+    return " ".join(out)
+
+
+def _categorize_sprite(name):
+    base = re.sub(r"gen\d+[a-z0-9]*", "", name)
+    base = " " + base.replace("-", " ") + " "
+    base = re.sub(r"\d+", " ", base).lower()
+    for cat, kws in _SPRITE_CATEGORIES:
+        for kw in kws:
+            if kw in base:
+                return cat
+    return "Characters"
+
+
+def _pretty_role(root):
+    """Greedy word-split a class root into spaced display form, else capitalize.
+    Only used when the WHOLE token is a chain of known words — named characters
+    (not in the vocab) fall back to plain capitalization."""
+    out = []
+    i = 0
+    while i < len(root):
+        for k in _SPRITE_VKEYS_WORDS:
+            if root.startswith(k, i):
+                out.append(_SPRITE_VOCAB[k])
+                i += len(k)
+                break
+        else:
+            return (root[:1].upper() + root[1:]) if root else root
+    return " ".join(out)
+
+
+def _parse_sprite_gender(role, roles):
+    """(gender, root) for a role segment — gender is 'm'/'f'/'' and root is the
+    role with any gender suffix stripped. Data-driven (a …f/…m sibling exists)
+    with a small curated fallback for inherently single-gender classes."""
+    if role.endswith("f") and (role[:-1] in roles or (role[:-1] + "m") in roles):
+        return "f", role[:-1]
+    if role.endswith("m") and (role[:-1] + "f") in roles:
+        return "m", role[:-1]
+    if (role + "f") in roles:
+        return "m", role
+    if role in _SPRITE_FEMALE_ROLES:
+        return "f", role
+    if role in _SPRITE_MALE_ROLES:
+        return "m", role
+    return "", role
+
+
+def _describe_sprite(name, roles):
+    """(label, sublabel, gen|None, category, gender) for one sprite filename
+    stem. ``roles`` is the set of all first segments. Gender is for filtering
+    only and is never appended to the label."""
+    parts = name.split("-")
+    role = parts[0]
+    gender, root = _parse_sprite_gender(role, roles)
+    label = _pretty_role(root)
+
+    gen = None
+    subs = []
+    for p in parts[1:]:
+        m = _SPRITE_GEN_RE.match(p)
+        if m:
+            gen = int(m.group(1))
+            var = m.group(2)
+            subs.append("Gen " + str(gen) + (" · " + _split_sprite_variant(var) if var else ""))
+        else:
+            mm = re.match(r"^([a-z]+)(\d*)$", p)
+            if mm:
+                txt = _split_sprite_variant(mm.group(1))
+                subs.append(txt + (" " + mm.group(2) if mm.group(2) else ""))
+            else:
+                subs.append(p.title())
+    return label, " · ".join(subs), gen, _categorize_sprite(name), gender
+
+
+class ProfileData:
+    def __init__(self, addon_dir, trainer_card, settings_obj, logger):
+        self.addon_dir = addon_dir
+        self.trainer_card = trainer_card
+        self.settings_obj = settings_obj
+        self.logger = logger
+        # Roster is parsed once on first picker open, then reused. Cleared by a
+        # successful team save (which can change levels/membership downstream).
+        self._roster_cache = None
+
+    # ------------------------------------------------------------------
+    # Profile (identity + badge case)
+    # ------------------------------------------------------------------
+    def get_profile_data(self):
+        tc = self.trainer_card
+        try:
+            tc.refresh()
+        except Exception as e:
+            print(f"[Ankimon] profile: trainer_card.refresh failed: {e}")
+
+        try:
+            sprite_name = self.settings_obj.get("trainer.sprite") or ""
+        except Exception:
+            sprite_name = ""
+
+        def _safe(getter, default=None):
+            try:
+                return getter()
+            except Exception:
+                return default
+
+        data = {
+            "name": getattr(tc, "trainer_name", "") or "Trainer",
+            "trainer_id": getattr(tc, "trainer_id", ""),
+            "sprite_url": (
+                f"../addon_sprites/trainers/{sprite_name}.png" if sprite_name else ""
+            ),
+            "level": _safe(lambda: int(tc.level), 1),
+            "xp": _safe(lambda: int(tc.xp), 0),
+            "total_xp": _safe(lambda: int(tc.total_xp), 0),
+            "xp_for_next_level": _safe(lambda: int(tc.xp_for_next_level()), 0),
+            "badges": _safe(lambda: int(tc.badge_count()), 0),
+            "cash": _safe(lambda: int(tc.cash), 0),
+            "favorite_pokemon": format_pokemon_name(
+                getattr(tc, "favorite_pokemon", "") or "None"
+            ),
+            "highest_level_pokemon": _format_with_level(
+                _safe(lambda: tc.get_highest_level_pokemon(), "None") or "None"
+            ),
+            "favorite": self._favorite_stub(),
+            "highest": self._highest_stub(),
+            "friendship": self._friendship_stub(),
+            "league": getattr(tc, "league", "") or "unranked",
+            "team": self._team_member_stubs(),
+            "recent": self._recent_catches(),
+            "badge_grid": self._badge_grid(),
+        }
+        data.update(self._collection_stats())
+        return data
+
+    def _collection_stats(self):
+        """Cheap COUNT/aggregate stats for the profile dashboard."""
+        db = mw.ankimon_db
+
+        def _q(fn, default=0):
+            try:
+                return int(fn() or 0)
+            except Exception:
+                return default
+
+        dex = _q(
+            lambda: db.execute(
+                "SELECT COUNT(DISTINCT pokedex_id) FROM captured_pokemon "
+                "WHERE pokedex_id IS NOT NULL"
+            ).fetchone()[0]
+        )
+        return {
+            "caught": _q(lambda: db.get_pokemon_count()),
+            "dex_seen": dex,
+            "shinies": _q(lambda: db.get_shiny_count()),
+            "highest_level": _q(lambda: self.trainer_card.highest_pokemon_level()),
+        }
+
+    def _favorite_stub(self):
+        """The trainer's main/favorite Pokémon as {n, sprite} (or None)."""
+        try:
+            row = mw.ankimon_db.execute(
+                "SELECT pokedex_id, name, shiny, json_extract(data, '$.gender') "
+                "FROM captured_pokemon WHERE is_main = 1 LIMIT 1"
+            ).fetchone()
+        except Exception:
+            row = None
+        if not row or not row[1]:
+            return None
+        p = {"id": row[0] or 0, "name": row[1], "shiny": bool(row[2]), "gender": row[3]}
+        return {"n": format_pokemon_name(row[1]), "sprite": self._sprite_url(p)}
+
+    def _highest_stub(self):
+        """The highest-level captured Pokémon as {n, l, sprite} (or None)."""
+        try:
+            row = mw.ankimon_db.execute(
+                "SELECT pokedex_id, name, level, shiny, json_extract(data, '$.gender') "
+                "FROM captured_pokemon WHERE level IS NOT NULL ORDER BY level DESC LIMIT 1"
+            ).fetchone()
+        except Exception:
+            row = None
+        if not row or not row[1]:
+            return None
+        p = {"id": row[0] or 0, "name": row[1], "shiny": bool(row[3]), "gender": row[4]}
+        return {
+            "n": format_pokemon_name(row[1]),
+            "l": int(row[2]) if row[2] is not None else 0,
+            "sprite": self._sprite_url(p),
+        }
+
+    def _friendship_stub(self):
+        """The highest-friendship captured Pokémon (the trainer's BFF) as
+        {n, fr, sprite} (or None). friendship lives in data.$.friendship."""
+        try:
+            row = mw.ankimon_db.execute(
+                "SELECT pokedex_id, name, shiny, json_extract(data, '$.gender'), "
+                "json_extract(data, '$.friendship') AS fr "
+                "FROM captured_pokemon WHERE name IS NOT NULL "
+                "ORDER BY fr DESC LIMIT 1"
+            ).fetchone()
+        except Exception:
+            row = None
+        if not row or not row[1]:
+            return None
+        p = {"id": row[0] or 0, "name": row[1], "shiny": bool(row[2]), "gender": row[3]}
+        return {
+            "n": format_pokemon_name(row[1]),
+            "fr": int(row[4]) if row[4] is not None else 0,
+            "sprite": self._sprite_url(p),
+        }
+
+    def _badge_grid(self):
+        """All badges as {id, name, unlocked} for the Profile badge case.
+
+        Badge definitions never change at runtime, so the badges.json read is
+        cached on the instance — the live refresh re-runs this per gameplay
+        event, and re-reading the file each time would be wasteful. Only the
+        unlocked set (cheap, from trainer_card) is recomputed."""
+        definitions = getattr(self, "_badge_defs_cache", None)
+        if definitions is None:
+            try:
+                badges_path = self.addon_dir / "addon_files" / "badges.json"
+                with open(badges_path, "r", encoding="utf-8") as f:
+                    definitions = json.load(f)
+            except Exception as e:
+                print(f"[Ankimon] profile: failed to load badges.json: {e}")
+                definitions = {}
+            self._badge_defs_cache = definitions
+
+        unlocked = set()
+        try:
+            for b in getattr(self.trainer_card, "badges", []) or []:
+                unlocked.add(int(b))
+        except (TypeError, ValueError):
+            pass
+
+        grid = []
+        for raw_id, name in definitions.items():
+            if not name or name.lower() in ("changed", "add"):
+                continue
+            try:
+                bid = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            grid.append({"id": bid, "name": name, "unlocked": bid in unlocked})
+        return grid
+
+    # ------------------------------------------------------------------
+    # Team data
+    # ------------------------------------------------------------------
+    def _team_member_stubs(self):
+        """Ordered current-team members as lightweight render stubs."""
+        try:
+            team_data = mw.ankimon_db.get_team() or []
+        except Exception:
+            return []
+
+        ordered_ids = [
+            str(t.get("individual_id"))
+            for t in team_data
+            if t.get("individual_id")
+        ]
+        if not ordered_ids:
+            return []
+
+        try:
+            rows = mw.ankimon_db.get_pokemons_by_individual_ids(ordered_ids) or []
+        except Exception:
+            return []
+        by_id = {str(p.get("individual_id")): p for p in rows}
+
+        stubs = []
+        for ind_id in ordered_ids:
+            p = by_id.get(ind_id)
+            if not p:
+                continue
+            stub = {
+                "id": ind_id,
+                "p": p.get("id") or 0,
+                "n": format_pokemon_name(p.get("name") or "?"),
+                "l": int(p.get("level") or 0),
+                "sprite": self._sprite_url(p),
+                "types": self._pokemon_types(p.get("name")),
+            }
+            if p.get("shiny"):
+                stub["s"] = 1
+            stubs.append(stub)
+        return stubs
+
+    def _pokemon_types(self, raw_name):
+        """Type list (title-cased) for a species — drives the team cards' type
+        badges + coverage. Uses the cached pokedex, so it's cheap per member."""
+        if not raw_name:
+            return []
+        try:
+            from ..functions.pokedex_functions import search_pokedex
+
+            t = search_pokedex(raw_name, "types")
+        except Exception:
+            return []
+        if not isinstance(t, list):
+            return []
+        return [str(x).title() for x in t if x]
+
+    def get_member_stats(self, individual_id):
+        """On-demand {cp, types} for a Pokémon just dropped into a slot — roster
+        stubs omit both to stay light for big collections, so the team card
+        fetches them when the Pokémon is added."""
+        cp = self._calc_cp(individual_id)
+        types = []
+        try:
+            p = mw.ankimon_db.get_pokemon(individual_id)
+            if p:
+                types = self._pokemon_types(p.get("name"))
+        except Exception:
+            pass
+        return {"cp": cp, "types": types}
+
+    def _sprite_url(self, p):
+        """Web URL for a Pokémon's front sprite, resolved by the addon's own
+        sprite logic (which handles Mega/Gmax/forms, shiny and gender — the
+        pokedex_id alone is NOT enough for megas). Only call this for small
+        sets (team, recent), never the whole collection."""
+        try:
+            from ..functions.sprite_functions import get_sprite_path
+
+            abs_path = str(get_sprite_path(
+                "front", "png", p.get("id"),
+                bool(p.get("shiny")), (p.get("gender") or "N"), p.get("name"),
+            ))
+            # Convert the absolute sprite path to a path relative to a web page
+            # (all pages live one level under addon_dir). Locate the known
+            # sprites root rather than relying on relative_to, which is fragile
+            # when addon_dir is a symlink.
+            norm = abs_path.replace("\\", "/")
+            marker = "user_files/sprites/"
+            idx = norm.find(marker)
+            return ("../" + norm[idx:]) if idx != -1 else None
+        except Exception as e:
+            print(f"[Ankimon] profile: sprite url failed: {e}")
+            return None
+
+    def _recent_catches(self):
+        """The 6 most recently caught Pokémon as render stubs with resolved
+        sprites. Ordered by rowid (row insertion order) DESC — individual_id is
+        a random key, so it can't be used for recency; rowid tracks capture
+        order since new catches INSERT a new row."""
+        try:
+            cursor = mw.ankimon_db.execute(
+                """
+                SELECT individual_id, name, level, pokedex_id, shiny,
+                       json_extract(data, '$.gender') AS gender
+                FROM captured_pokemon
+                ORDER BY rowid DESC
+                LIMIT 6
+                """
+            )
+            rows = cursor.fetchall()
+        except Exception as e:
+            print(f"[Ankimon] profile: recent catches query failed: {e}")
+            return []
+
+        out = []
+        for row in rows:
+            name = row[1]
+            if not name:
+                continue
+            p = {
+                "id": row[3] or 0,
+                "name": name,
+                "shiny": bool(row[4]),
+                "gender": row[5],
+            }
+            stub = {
+                "id": row[0],
+                "p": row[3] or 0,
+                "n": format_pokemon_name(name),
+                "l": int(row[2]) if row[2] is not None else 0,
+                "sprite": self._sprite_url(p),
+            }
+            if row[4]:
+                stub["s"] = 1
+            out.append(stub)
+        return out
+
+    def get_team_data(self):
+        members = self._team_member_stubs()
+        for m in members:
+            m["cp"] = self._calc_cp(m["id"])
+
+        try:
+            xp_share = self.settings_obj.get("trainer.xp_share") or None
+        except Exception:
+            xp_share = None
+
+        return {
+            "max_size": MAX_TEAM_SIZE,
+            "team": members,
+            "xp_share": str(xp_share) if xp_share else None,
+            "xp_share_info": self._resolve_stub(xp_share, members) if xp_share else None,
+        }
+
+    def _resolve_stub(self, individual_id, members=None):
+        """Render stub for one Pokémon by individual_id — reuses a team member
+        if present, otherwise does a single DB lookup."""
+        ind_id = str(individual_id)
+        for m in members or []:
+            if str(m.get("id")) == ind_id:
+                stub = {"id": m["id"], "p": m["p"], "n": m["n"], "l": m["l"]}
+                if m.get("s"):
+                    stub["s"] = 1
+                if m.get("sprite"):
+                    stub["sprite"] = m["sprite"]
+                return stub
+        try:
+            p = mw.ankimon_db.get_pokemon(ind_id)
+        except Exception:
+            p = None
+        if not p:
+            return None
+        stub = {
+            "id": ind_id,
+            "p": p.get("id") or 0,
+            "n": format_pokemon_name(p.get("name") or "?"),
+            "l": int(p.get("level") or 0),
+            "sprite": self._sprite_url(p),
+        }
+        if p.get("shiny"):
+            stub["s"] = 1
+        return stub
+
+    def get_roster_data(self):
+        """Every captured Pokémon as a pick stub (cached on instance). Carries
+        CP (read from the stored data JSON — cheap, no per-Pokémon recompute) and
+        types so the picker can show rich cards, filter by type, and sort by CP.
+        Default order is CP desc."""
+        if self._roster_cache is not None:
+            return self._roster_cache
+
+        try:
+            cursor = mw.ankimon_db.execute(
+                """
+                SELECT individual_id, name, level, pokedex_id, shiny,
+                       json_extract(data, '$.cp') AS cp
+                FROM captured_pokemon
+                ORDER BY COALESCE(json_extract(data, '$.cp'), 0) DESC,
+                         level DESC, name ASC
+                """
+            )
+            rows = cursor.fetchall()
+        except Exception as e:
+            print(f"[Ankimon] profile: get_roster_data query failed: {e}")
+            return {"choices": []}
+
+        choices = []
+        for row in rows:
+            ind_id = row[0]
+            name = row[1]
+            if not ind_id or not name:
+                continue
+            pid = row[3] or 0
+            shiny = bool(row[4])
+            entry = {
+                "id": ind_id,
+                "p": pid,
+                "n": format_pokemon_name(name),
+                "l": int(row[2]) if row[2] is not None else 0,
+                "cp": int(row[5]) if row[5] is not None else 0,
+                "types": self._pokemon_types(name),
+            }
+            if shiny:
+                entry["s"] = 1
+            # Mega/Gmax & other forme ids (>= 10000) have no sprite at
+            # front_default/<id>.png — the stored pokedex_id is a forme id. Resolve
+            # via the addon's own sprite logic (get_sprite_path), which falls back
+            # to the base species sprite, so the picker matches every other screen.
+            # Only a handful of owned Pokémon are formes, so these filesystem
+            # lookups are cheap and run once (the roster is cached on the instance).
+            nl = name.lower()
+            if pid >= 10000 or "mega" in nl or "gmax" in nl or "gigantamax" in nl:
+                sprite = self._sprite_url(
+                    {"id": pid, "name": name, "shiny": shiny, "gender": None}
+                )
+                if sprite:
+                    entry["sprite"] = sprite
+            choices.append(entry)
+
+        result = {"choices": choices}
+        self._roster_cache = result
+        return result
+
+    def _calc_cp(self, individual_id):
+        """Pokémon-GO-style CP for one Pokémon (team slots only).
+
+        Prefer the *stored* cp — the same value the roster picker and Ankidex
+        show — so every screen agrees. Recompute only when it's missing, and
+        recompute via calculate_cp_from_dict (which correctly falls back from
+        '$.base_stats' to '$.stats'): most Pokémon keep their base stats under
+        '$.stats' and have no '$.base_stats', so reading base_stats alone made
+        them compute a garbage (~min) CP."""
+        try:
+            data = mw.ankimon_db.get_pokemon(individual_id)
+            if not data:
+                return 0
+            cp = data.get("cp")
+            if cp is None:
+                from ..business import calculate_cp_from_dict
+                cp = calculate_cp_from_dict(data)
+            return int(cp or 0)
+        except Exception as e:
+            print(f"[Ankimon] profile: CP calc failed for {individual_id}: {e}")
+            return 0
+
+    def handle_save_team(self, team_ids, xp_share_id):
+        """Persist the chosen team + XP Share (any owned Pokémon)."""
+        seen = set()
+        clean_ids = []
+        for raw in team_ids or []:
+            ind_id = str(raw) if raw is not None else ""
+            if not ind_id or ind_id in seen:
+                continue
+            seen.add(ind_id)
+            clean_ids.append(ind_id)
+            if len(clean_ids) >= MAX_TEAM_SIZE:
+                break
+
+        team_data = [{"individual_id": ind_id} for ind_id in clean_ids]
+        xp_share_id = str(xp_share_id) if xp_share_id else None
+
+        try:
+            self.settings_obj.set("trainer.team", team_data)
+            self.settings_obj.set("trainer.xp_share", xp_share_id)
+            mw.ankimon_db.save_team(team_data)
+        except Exception as e:
+            return {"ok": False, "message": f"Failed to save team: {e}"}
+
+        try:
+            if self.trainer_card is not None:
+                self.trainer_card.reload_team()
+        except Exception:
+            pass
+
+        self._roster_cache = None
+        return {"ok": True, "message": "Team saved.", "count": len(team_data)}
+
+    # ------------------------------------------------------------------
+    # Trainer sprite picker
+    # ------------------------------------------------------------------
+    def get_sprite_data(self):
+        try:
+            names = sorted(get_all_sprites(trainer_sprites_path))
+        except Exception as e:
+            print(f"[Ankimon] profile: get_all_sprites failed: {e}")
+            names = []
+        try:
+            current = self.settings_obj.get("trainer.sprite") or ""
+        except Exception:
+            current = ""
+
+        # Set of role bases (first "-" segment) — lets _describe_sprite detect
+        # female ("…f") variants only when the base class is itself a sprite.
+        roles = {n.split("-")[0] for n in names}
+        sprites = []
+        present_gens = set()
+        present_cats = set()
+        present_sex = set()
+        for name in names:
+            label, sublabel, gen, category, gender = _describe_sprite(name, roles)
+            gen_key = str(gen) if gen else "other"
+            present_gens.add(gen_key)
+            present_cats.add(category)
+            if gender:
+                present_sex.add(gender)
+            sprites.append(
+                {
+                    "name": name,
+                    "label": label,
+                    "sublabel": sublabel,
+                    "gen": gen_key,
+                    "category": category,
+                    "gender": gender,
+                    "url": f"../addon_sprites/trainers/{name}.png",
+                }
+            )
+
+        # Filter chips, in a stable order, listing only what's actually present.
+        generations = [
+            {"key": str(i), "label": f"Gen {i}"}
+            for i in range(1, 10)
+            if str(i) in present_gens
+        ]
+        if "other" in present_gens:
+            generations.append({"key": "other", "label": "Other"})
+        categories = [c for c in _SPRITE_CATEGORY_ORDER if c in present_cats]
+        genders = []
+        if "m" in present_sex:
+            genders.append({"key": "m", "label": "♂ Male"})
+        if "f" in present_sex:
+            genders.append({"key": "f", "label": "♀ Female"})
+
+        return {
+            "sprites": sprites,
+            "generations": generations,
+            "categories": categories,
+            "genders": genders,
+            "current": current,
+        }
+
+    def handle_set_sprite(self, name):
+        if not name:
+            return {"ok": False, "message": "No sprite selected."}
+        try:
+            self.settings_obj.set("trainer.sprite", name)
+        except Exception as e:
+            return {"ok": False, "message": f"Failed to set sprite: {e}"}
+        try:
+            if self.trainer_card is not None:
+                self.trainer_card.refresh()
+        except Exception:
+            pass
+        return {"ok": True, "message": "Trainer sprite updated.", "current": name}
+
+    def handle_set_name(self, name):
+        """Persist a new trainer name (settings + trainer_card). Mirrors
+        handle_set_sprite: trims, rejects empty, caps length, refreshes the
+        trainer card so the in-memory name updates."""
+        name = (name or "").strip()
+        if not name:
+            return {"ok": False, "message": "Name can't be empty."}
+        if len(name) > 24:
+            name = name[:24]
+        try:
+            self.settings_obj.set("trainer.name", name)
+        except Exception as e:
+            return {"ok": False, "message": f"Failed to set name: {e}"}
+        try:
+            if self.trainer_card is not None:
+                self.trainer_card.refresh()
+        except Exception:
+            pass
+        return {"ok": True, "message": "Trainer name updated.", "name": name}

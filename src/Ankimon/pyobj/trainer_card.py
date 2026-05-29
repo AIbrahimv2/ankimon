@@ -213,6 +213,15 @@ class TrainerCard:
         print(f"Gained {xp_gained} XP from defeating a {tier} Pokémon!")
         self.check_level_up()
 
+        # Live-refresh the open shell screen's XP/level/Total XP (best-effort;
+        # no-op unless a live screen is visible).
+        try:
+            from ..singletons import notify_stats_changed
+
+            notify_stats_changed()
+        except Exception:
+            pass
+
     def check_level_up(self):
         """Update level based on XP."""
         xp_needed = self.xp_for_next_level()

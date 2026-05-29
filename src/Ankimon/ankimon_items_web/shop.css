@@ -3556,28 +3556,27 @@ body {
 }
 
 .nav-menu-icon {
-    width: 28px;
-    height: 28px;
+    width: 34px;
+    height: 34px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-darker);
-    border: 1px solid var(--border-main);
-    border-radius: 6px;
     color: var(--accent-blue);
-    font-size: 0.95rem;
     flex-shrink: 0;
 }
 
 .nav-menu-item.active .nav-menu-icon {
-    border-color: var(--accent-blue);
     color: var(--accent-blue);
-    box-shadow: 0 0 12px rgba(88, 166, 255, 0.25);
+}
+
+.nav-menu-icon svg {
+    width: 28px;
+    height: 28px;
 }
 
 .nav-menu-icon img {
-    width: 18px;
-    height: 18px;
+    width: 30px;
+    height: 30px;
     object-fit: contain;
 }
 

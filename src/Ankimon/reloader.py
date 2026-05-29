@@ -76,7 +76,11 @@ def teardown_ankimon(addon_package):
     # List of known singleton window attributes on mw
     windows_on_mw = [
         "test_window", "item_window", "pokemon_pc", "settings_ankimon",
-        "trainer_card", "ankimon_tracker_window", "reviewer_obj"
+        "trainer_card", "ankimon_tracker_window", "reviewer_obj",
+        # Unified Items/Mart/Ankidex shell. Must be torn down too, or a
+        # reload reuses the old QWebEngineView (and its already-loaded
+        # shop.js/shop.html), so web-asset changes never take effect.
+        "items_web_window",
     ]
     for attr in windows_on_mw:
         if hasattr(mw, attr):

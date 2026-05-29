@@ -243,7 +243,8 @@ def get_ankidex_window():
     return ankidex_window
 
 
-# Unified Ankimon shell window (Items + Ankidex in one web view)
+# Unified Ankimon shell window — Items, Ankidex, Profile, Team and Settings
+# all live in this one web shell (one window, one dropdown navigator).
 items_web_window = getattr(mw, "items_web_window", None)
 
 
@@ -257,9 +258,32 @@ def get_items_window():
             shop_manager=shop_manager,
             item_window=get_item_window(),
             ankimon_tracker=ankimon_tracker_obj,
+            trainer_card=trainer_card,
+            settings_obj=settings_obj,
+            logger=logger,
         )
         mw.items_web_window = items_web_window
     return items_web_window
+
+
+def notify_stats_changed():
+    """Tell the open Ankimon shell that gameplay stats changed (a catch, XP
+    gain, cash reward, level-up, ...) so it can live-refresh whichever screen is
+    showing — no manual reload. Screen-agnostic: the shell decides what (if
+    anything) to refresh based on its current screen (see
+    ``AnkimonItemsWeb.refresh_live_screen`` and ``LIVE_UPDATES.md``).
+
+    Pure best-effort and cheap: never creates the window, no-ops when no live
+    screen is visible, and swallows any error so a UI hiccup can't interfere
+    with gameplay. Call it from gameplay write chokepoints via a deferred
+    ``from .singletons import notify_stats_changed`` wrapped in try/except."""
+    win = getattr(mw, "items_web_window", None)
+    if not is_alive(win):
+        return
+    try:
+        win.refresh_live_screen()
+    except Exception as e:
+        print(f"[Ankimon] notify_stats_changed failed: {e}")
 
 
 evo_window = None
