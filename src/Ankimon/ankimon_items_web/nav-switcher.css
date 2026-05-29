@@ -1,5 +1,9 @@
-/* Cross-screen navigation switcher — also used by the Items page (shop.css
- * carries an inlined copy until Phase 2 extracts a shared web_shell). */
+/* Shared dropdown nav-switcher styles for the unified Ankimon shell.
+ *
+ * One stylesheet for all five screens (Items, Ankidex, Profile, Team,
+ * Settings) — paired with ankimon_items_web/nav-switcher.js. Each page also
+ * loads its own stylesheet, which defines the theme custom properties
+ * (--accent-blue, --bg-card, --text-main, …) these rules consume. */
 
 .nav-switcher {
     position: relative;
@@ -107,6 +111,11 @@
     color: var(--text-bright);
 }
 
+.nav-menu-item:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .nav-menu-icon {
     width: 34px;
     height: 34px;
@@ -152,9 +161,22 @@
     line-height: 1.2;
 }
 
-/* Standalone mode (no QWebChannel bridge) — hide the dropdown affordance
- * so users don't see a non-functional switcher. The switcher only makes
- * sense when hosted inside the shell. */
+.nav-menu-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--accent-blue);
+    background: rgba(88, 166, 255, 0.10);
+    border: 1px solid rgba(88, 166, 255, 0.35);
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+}
+
+/* Standalone mode (no QWebChannel bridge) — hide the dropdown affordance so
+ * users don't see a non-functional switcher. It only makes sense inside the
+ * shell, which adds body.shell-mode once a NavBridge is wired. */
 body:not(.shell-mode) .nav-chevron,
 body:not(.shell-mode) .nav-menu {
     display: none;
@@ -165,7 +187,8 @@ body:not(.shell-mode) .nav-trigger {
     pointer-events: none;
 }
 
-/* --- Gear icon (Settings entry in the nav dropdown) --- */
+/* Gear icon (nav dropdown / sidebar logo); 18px in the menu, 32px when it
+ * doubles as the trigger logo via the .app-logo combo. */
 .icon-gear {
     width: 18px;
     height: 18px;
@@ -173,7 +196,13 @@ body:not(.shell-mode) .nav-trigger {
     color: var(--accent-blue);
 }
 
-/* --- Items icon (hyper-potion sprite used as Items' identity). --- */
+.app-logo.icon-gear {
+    width: 32px;
+    height: 32px;
+}
+
+/* Pixel-art item sprite used as a screen's identity icon (Items potion,
+ * Team ball, …) — keep it crisp at the small icon scale. */
 .icon-item-sprite {
     image-rendering: pixelated;
     object-fit: contain;
