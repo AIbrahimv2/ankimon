@@ -644,9 +644,13 @@ class ProfileData:
         if not row or not row[1]:
             return None
         p = {"id": row[0] or 0, "name": row[1], "shiny": bool(row[2]), "gender": row[3]}
+        try:
+            fr_val = int(row[4]) if row[4] is not None else 0
+        except (ValueError, TypeError):
+            fr_val = 0
         return {
             "n": format_pokemon_name(row[1]),
-            "fr": int(row[4]) if row[4] is not None else 0,
+            "fr": fr_val,
             "sprite": self._sprite_url(p),
         }
 

@@ -112,6 +112,8 @@ class TeamBridge(QObject):
     def saveTeam(self, team_json, xp_share_id):
         try:
             team_ids = json.loads(team_json) if team_json else []
+            if not isinstance(team_ids, list):
+                raise ValueError("team payload must be a list")
         except (TypeError, ValueError) as e:
             return {"ok": False, "message": f"Invalid team payload: {e}"}
         return self._w.profile_data.handle_save_team(team_ids, xp_share_id or None)
@@ -439,7 +441,12 @@ class AnkimonItemsWeb(QDialog):
     def _run_live_refresh(self):
         self._live_refresh_pending = False
         # Re-check — state may have changed before this deferred call ran.
-        if not self.isVisible() or self.current_screen not in self.ready_screens:
+        # isVisible() raises RuntimeError if the dialog's C++ object was deleted
+        # (window closed) between scheduling this timer and it firing.
+        try:
+            if not self.isVisible() or self.current_screen not in self.ready_screens:
+                return
+        except RuntimeError:
             return
         refresher = self._live_refreshers.get(self.current_screen)
         if refresher is None:
