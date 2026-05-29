@@ -1060,52 +1060,13 @@
         });
     }
 
-    // Nav switcher
-    function bindNavSwitcher() {
-        const trigger = document.getElementById('nav-trigger');
-        const menu = document.getElementById('nav-menu');
-
-        function openMenu() {
-            menu.classList.remove('hidden');
-            trigger.setAttribute('aria-expanded', 'true');
-        }
-        function closeMenu() {
-            menu.classList.add('hidden');
-            trigger.setAttribute('aria-expanded', 'false');
-        }
-
-        trigger.addEventListener('click', (e) => {
-            e.stopPropagation();
-            menu.classList.contains('hidden') ? openMenu() : closeMenu();
-        });
-        document.addEventListener('click', (e) => {
-            if (!menu.classList.contains('hidden') &&
-                !menu.contains(e.target) && e.target !== trigger) {
-                closeMenu();
-            }
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !menu.classList.contains('hidden')) closeMenu();
-        });
-        menu.querySelectorAll('.nav-menu-item[data-screen]').forEach((item) => {
-            item.addEventListener('click', () => {
-                const screen = item.dataset.screen;
-                closeMenu();
-                if (screen === 'items') return;
-                const router = (window.nav) || bridge;
-                if (!router) return;
-                if (screen === 'ankidex' && router.openAnkidex) router.openAnkidex();
-                else if (screen === 'settings' && router.openSettings) router.openSettings();
-                else if (screen === 'profile' && router.openProfile) router.openProfile();
-                else if (screen === 'team' && router.openTeam) router.openTeam();
-            });
-        });
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
         bindUI();
         bindPickerUI();
-        bindNavSwitcher();
-        initChannel(() => {});
+        // Dropdown nav: wire from the shared switcher once the channel resolves
+        // so it has the live NavBridge. See ankimon_items_web/nav-switcher.js.
+        initChannel(() => {
+            if (window.wireNavSwitcher) window.wireNavSwitcher(window.nav);
+        });
     });
 })();

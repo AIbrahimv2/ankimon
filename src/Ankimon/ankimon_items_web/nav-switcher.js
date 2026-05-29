@@ -1,11 +1,15 @@
-// Dropdown nav switcher for the Profile shell.
+// Shared dropdown nav switcher for the unified Ankimon shell.
 //
-// IMPORTANT: this does NOT create its own QWebChannel. Creating a second
-// QWebChannel over the same transport overwrites the first's
-// `transport.onmessage`, so one of them never finishes initializing. Instead
-// the page's own script (profile.js / team.js) creates the single channel,
-// reads `nav` from it, and calls window.wireNavSwitcher(nav). This matches the
-// working Items shell (shop.js wires its own dropdown from its one channel).
+// One implementation for all five screens (Items, Ankidex, Profile, Team,
+// Settings) — open/close, click-outside, Escape, and routing menu clicks to
+// the NavBridge via nav.open<Screen>().
+//
+// IMPORTANT: this never creates its own QWebChannel when wireNavSwitcher() is
+// used. A page that already builds a channel must pass its `nav` to
+// wireNavSwitcher(nav) — creating a SECOND channel over the same transport
+// overwrites the first's `transport.onmessage`, so one of them never finishes
+// initializing. Pages with NO channel of their own (Ankidex) call
+// initNavSwitcher(), which builds the single channel and wires from it.
 
 (function () {
     'use strict';
@@ -15,9 +19,10 @@
         return 'open' + screen.charAt(0).toUpperCase() + screen.slice(1);
     }
 
-    // Wire the dropdown to a NavBridge. Safe to call with null (standalone /
-    // no bridge) — it just leaves the switcher hidden via the CSS
-    // body:not(.shell-mode) rule.
+    // Wire the dropdown to a NavBridge. Safe to call with a falsy nav
+    // (standalone / no bridge) — it just leaves the switcher hidden via the CSS
+    // body:not(.shell-mode) rule. The current screen's menu item carries the
+    // `active` class, so clicking it is a no-op (no needless reload).
     window.wireNavSwitcher = function (nav) {
         if (!nav) return;
         document.body.classList.add('shell-mode');
@@ -57,6 +62,16 @@
                 const fn = methodFor(screen);
                 if (fn && typeof nav[fn] === 'function') nav[fn]();
             });
+        });
+    };
+
+    // For pages that have NO QWebChannel of their own (e.g. Ankidex): build the
+    // single channel here and wire from it. Pages that create their own channel
+    // must NOT call this — they call wireNavSwitcher(nav) from their callback.
+    window.initNavSwitcher = function () {
+        if (typeof qt === 'undefined' || !qt.webChannelTransport) return;
+        new QWebChannel(qt.webChannelTransport, function (channel) {
+            window.wireNavSwitcher(channel.objects && channel.objects.nav);
         });
     };
 })();

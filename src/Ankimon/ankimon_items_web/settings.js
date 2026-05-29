@@ -555,41 +555,12 @@
         });
     }
 
-    function bindNavSwitcher() {
-        const trigger = document.getElementById('nav-trigger');
-        const menu = document.getElementById('nav-menu');
-        if (!trigger || !menu) return;
-
-        const open = () => { menu.classList.remove('hidden'); trigger.setAttribute('aria-expanded', 'true'); };
-        const close = () => { menu.classList.add('hidden'); trigger.setAttribute('aria-expanded', 'false'); };
-
-        trigger.addEventListener('click', (e) => {
-            e.stopPropagation();
-            menu.classList.contains('hidden') ? open() : close();
-        });
-        document.addEventListener('click', (e) => {
-            if (!menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== trigger) close();
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !menu.classList.contains('hidden')) close();
-        });
-        menu.querySelectorAll('.nav-menu-item[data-screen]').forEach((item) => {
-            item.addEventListener('click', () => {
-                const screen = item.dataset.screen;
-                close();
-                if (item.classList.contains('active')) return;
-                if (!nav) return;
-                if (screen === 'items' && nav.openItems) nav.openItems();
-                else if (screen === 'ankidex' && nav.openAnkidex) nav.openAnkidex();
-                else if (screen === 'settings' && nav.openSettings) nav.openSettings();
-                else if (screen === 'profile' && nav.openProfile) nav.openProfile();
-                else if (screen === 'team' && nav.openTeam) nav.openTeam();
-            });
-        });
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
         bindUI();
-        initChannel(() => bindNavSwitcher());
+        // Dropdown nav: wire from the shared switcher once the channel resolves
+        // so it has the live NavBridge. See ankimon_items_web/nav-switcher.js.
+        initChannel(() => {
+            if (window.wireNavSwitcher) window.wireNavSwitcher(nav);
+        });
     });
 })();

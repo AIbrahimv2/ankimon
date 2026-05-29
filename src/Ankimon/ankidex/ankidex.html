@@ -451,6 +451,9 @@
     </template>
 
     <script src="ankidex.js"></script>
-    <script src="nav-switcher.js"></script>
+    <!-- Ankidex has no QWebChannel of its own, so let the shared switcher build
+         the single channel and wire the dropdown from it. -->
+    <script src="../ankimon_items_web/nav-switcher.js?v=20260633"></script>
+    <script>window.initNavSwitcher && window.initNavSwitcher();</script>
 </body>
 </html>

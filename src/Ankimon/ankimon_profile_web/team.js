@@ -629,7 +629,7 @@
             const nav = channel.objects && channel.objects.nav;
             window.team = teamBridge;
             window.nav = nav;
-            // Wire the dropdown from THIS channel's nav — see profile-nav.js
+            // Wire the dropdown from THIS channel's nav — see ankimon_items_web/nav-switcher.js
             // for why we don't open a second channel.
             if (window.wireNavSwitcher) window.wireNavSwitcher(nav);
             if (teamBridge && teamBridge.getTeam) {
