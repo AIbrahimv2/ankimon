@@ -192,8 +192,16 @@ class ItemsBridge(QObject):
 
 
 class AnkimonItemsWeb(QDialog):
-    def __init__(self, addon_dir, shop_manager, item_window, ankimon_tracker,
-                 trainer_card=None, settings_obj=None, logger=None):
+    def __init__(
+        self,
+        addon_dir,
+        shop_manager,
+        item_window,
+        ankimon_tracker,
+        trainer_card=None,
+        settings_obj=None,
+        logger=None,
+    ):
         super().__init__()
         self.addon_dir = addon_dir
         self.shop_manager = shop_manager
@@ -383,7 +391,9 @@ class AnkimonItemsWeb(QDialog):
             self.webview_profile.page().runJavaScript(js)
         elif self.current_screen == SCREEN_TEAM:
             data = self.profile_data.get_team_data()
-            js = f"if (window.initializeTeam) window.initializeTeam({json.dumps(data)});"
+            js = (
+                f"if (window.initializeTeam) window.initializeTeam({json.dumps(data)});"
+            )
             self.webview_team.page().runJavaScript(js)
 
     def get_profile_payload(self):

@@ -23,7 +23,9 @@ _NOT_FORMS = {"yanmega"}
 def _capitalize_name(s):
     """Capitalize the first letter of each word segment, preserving separators
     (so "mr-mime" -> "Mr-Mime", "dragonite" -> "Dragonite")."""
-    return re.sub(r"(^|[\s\-/])([a-z])", lambda m: m.group(1) + m.group(2).upper(), str(s))
+    return re.sub(
+        r"(^|[\s\-/])([a-z])", lambda m: m.group(1) + m.group(2).upper(), str(s)
+    )
 
 
 def format_pokemon_name(raw):
@@ -70,13 +72,37 @@ def _format_with_level(s):
 _SPRITE_GEN_RE = re.compile(r"^gen(\d+)([a-z0-9]*)$")
 
 _SPRITE_VARIANT = {
-    "rb": "RB", "rby": "RBY", "jp": "JP", "rs": "RS", "dp": "DP", "pt": "Pt",
-    "bw": "BW", "bw2": "BW2", "xy": "XY", "oras": "ORAS", "frlg": "FRLG",
-    "lgpe": "LGPE", "usum": "USUM", "sm": "SM", "hgss": "HGSS", "gs": "GS",
-    "champion": "Champion", "title": "Title", "kanto": "Kanto", "johto": "Johto",
-    "two": "II", "main": "Main", "c": "C", "masters": "Masters", "anime": "Anime",
-    "casual": "Casual", "s": "Scarlet", "v": "Violet", "pwt": "PWT",
-    "isekai": "Isekai", "shuffle": "Shuffle",
+    "rb": "RB",
+    "rby": "RBY",
+    "jp": "JP",
+    "rs": "RS",
+    "dp": "DP",
+    "pt": "Pt",
+    "bw": "BW",
+    "bw2": "BW2",
+    "xy": "XY",
+    "oras": "ORAS",
+    "frlg": "FRLG",
+    "lgpe": "LGPE",
+    "usum": "USUM",
+    "sm": "SM",
+    "hgss": "HGSS",
+    "gs": "GS",
+    "champion": "Champion",
+    "title": "Title",
+    "kanto": "Kanto",
+    "johto": "Johto",
+    "two": "II",
+    "main": "Main",
+    "c": "C",
+    "masters": "Masters",
+    "anime": "Anime",
+    "casual": "Casual",
+    "s": "Scarlet",
+    "v": "Violet",
+    "pwt": "PWT",
+    "isekai": "Isekai",
+    "shuffle": "Shuffle",
 }
 _SPRITE_VKEYS = sorted(_SPRITE_VARIANT, key=len, reverse=True)
 
@@ -85,70 +111,305 @@ _SPRITE_VKEYS = sorted(_SPRITE_VARIANT, key=len, reverse=True)
 # token is only split if the WHOLE thing is consumed, so single-word named
 # characters ("misty") fall back to plain capitalization and aren't mangled.
 _SPRITE_VOCAB = {
-    "acetrainer": "Ace Trainer", "cooltrainer": "Cool Trainer",
-    "blackbelt": "Black Belt", "birdkeeper": "Bird Keeper",
-    "bugcatcher": "Bug Catcher", "schoolkid": "School Kid", "richboy": "Rich Boy",
-    "supernerd": "Super Nerd", "youngcouple": "Young Couple",
-    "aromalady": "Aroma Lady", "parasollady": "Parasol Lady",
-    "dragontamer": "Dragon Tamer", "ruinmaniac": "Ruin Maniac",
-    "pokemaniac": "Poké Maniac", "pokefan": "Poké Fan",
-    "pokemonbreeder": "Pokémon Breeder", "pokemonranger": "Pokémon Ranger",
-    "battlegirl": "Battle Girl", "ltsurge": "Lt. Surge", "hexmaniac": "Hex Maniac",
-    "ninjaboy": "Ninja Boy", "kimonogirl": "Kimono Girl", "officeworker": "Office Worker",
-    "risingstar": "Rising Star", "rollerskater": "Roller Skater", "crushgirl": "Crush Girl",
-    "securitycorps": "Security Corps", "skytrainer": "Sky Trainer",
-    "rocketexecutive": "Rocket Executive", "aetherfoundation": "Aether Foundation",
-    "aetheremployee": "Aether Employee", "leaguestaff": "League Staff",
-    "scubadiver": "Scuba Diver", "streetthug": "Street Thug", "depotagent": "Depot Agent",
-    "firebreather": "Fire Breather", "nurseryaide": "Nursery Aide",
-    "furisodegirl": "Furisode Girl", "fairytalegirl": "Fairy Tale Girl",
-    "schoolgirl": "School Girl", "youngathlete": "Young Athlete", "poffincook": "Poffin Cook",
+    "acetrainer": "Ace Trainer",
+    "cooltrainer": "Cool Trainer",
+    "blackbelt": "Black Belt",
+    "birdkeeper": "Bird Keeper",
+    "bugcatcher": "Bug Catcher",
+    "schoolkid": "School Kid",
+    "richboy": "Rich Boy",
+    "supernerd": "Super Nerd",
+    "youngcouple": "Young Couple",
+    "aromalady": "Aroma Lady",
+    "parasollady": "Parasol Lady",
+    "dragontamer": "Dragon Tamer",
+    "ruinmaniac": "Ruin Maniac",
+    "pokemaniac": "Poké Maniac",
+    "pokefan": "Poké Fan",
+    "pokemonbreeder": "Pokémon Breeder",
+    "pokemonranger": "Pokémon Ranger",
+    "battlegirl": "Battle Girl",
+    "ltsurge": "Lt. Surge",
+    "hexmaniac": "Hex Maniac",
+    "ninjaboy": "Ninja Boy",
+    "kimonogirl": "Kimono Girl",
+    "officeworker": "Office Worker",
+    "risingstar": "Rising Star",
+    "rollerskater": "Roller Skater",
+    "crushgirl": "Crush Girl",
+    "securitycorps": "Security Corps",
+    "skytrainer": "Sky Trainer",
+    "rocketexecutive": "Rocket Executive",
+    "aetherfoundation": "Aether Foundation",
+    "aetheremployee": "Aether Employee",
+    "leaguestaff": "League Staff",
+    "scubadiver": "Scuba Diver",
+    "streetthug": "Street Thug",
+    "depotagent": "Depot Agent",
+    "firebreather": "Fire Breather",
+    "nurseryaide": "Nursery Aide",
+    "furisodegirl": "Furisode Girl",
+    "fairytalegirl": "Fairy Tale Girl",
+    "schoolgirl": "School Girl",
+    "youngathlete": "Young Athlete",
+    "poffincook": "Poffin Cook",
     # multi-word named characters
-    "cedricjuniper": "Cedric Juniper", "crasherwake": "Crasher Wake",
-    "jessiejames": "Jessie & James", "tateandliza": "Tate & Liza",
-    "shadowtriad": "Shadow Triad", "pearlclanmember": "Pearl Clan Member",
-    "diamondclanmember": "Diamond Clan Member", "pokemoncenterlady": "Pokémon Center Lady",
+    "cedricjuniper": "Cedric Juniper",
+    "crasherwake": "Crasher Wake",
+    "jessiejames": "Jessie & James",
+    "tateandliza": "Tate & Liza",
+    "shadowtriad": "Shadow Triad",
+    "pearlclanmember": "Pearl Clan Member",
+    "diamondclanmember": "Diamond Clan Member",
+    "pokemoncenterlady": "Pokémon Center Lady",
     # atomic pieces (compounds above win via longest-match)
-    "triathlete": "Triathlete", "biker": "Biker", "runner": "Runner", "swimmer": "Swimmer",
-    "trainer": "Trainer", "couple": "Couple", "grunt": "Grunt", "worker": "Worker",
-    "star": "Star", "snow": "Snow", "skater": "Skater", "team": "Team", "aqua": "Aqua",
-    "magma": "Magma", "rocket": "Rocket", "skull": "Skull", "flare": "Flare",
-    "galactic": "Galactic", "plasma": "Plasma", "yell": "Yell", "girl": "Girl",
-    "boy": "Boy", "jr": "Jr.",
+    "triathlete": "Triathlete",
+    "biker": "Biker",
+    "runner": "Runner",
+    "swimmer": "Swimmer",
+    "trainer": "Trainer",
+    "couple": "Couple",
+    "grunt": "Grunt",
+    "worker": "Worker",
+    "star": "Star",
+    "snow": "Snow",
+    "skater": "Skater",
+    "team": "Team",
+    "aqua": "Aqua",
+    "magma": "Magma",
+    "rocket": "Rocket",
+    "skull": "Skull",
+    "flare": "Flare",
+    "galactic": "Galactic",
+    "plasma": "Plasma",
+    "yell": "Yell",
+    "girl": "Girl",
+    "boy": "Boy",
+    "jr": "Jr.",
 }
 _SPRITE_VKEYS_WORDS = sorted(_SPRITE_VOCAB, key=len, reverse=True)
 
 # Inherently single-gender classes that don't follow the …f / …m sibling
 # convention — supplements the data-driven gender detection below.
 _SPRITE_FEMALE_ROLES = {
-    "lass", "beauty", "madame", "lady", "nurse", "idol", "waitress", "kimonogirl",
-    "cowgirl", "showgirl", "crushgirl", "policewoman", "battlegirl", "aromalady",
-    "parasollady", "beautician", "furisodegirl", "fairytalegirl", "schoolgirl",
+    "lass",
+    "beauty",
+    "madame",
+    "lady",
+    "nurse",
+    "idol",
+    "waitress",
+    "kimonogirl",
+    "cowgirl",
+    "showgirl",
+    "crushgirl",
+    "policewoman",
+    "battlegirl",
+    "aromalady",
+    "parasollady",
+    "beautician",
+    "furisodegirl",
+    "fairytalegirl",
+    "schoolgirl",
     "picnicker",
 }
 _SPRITE_MALE_ROLES = {
-    "youngster", "gentleman", "blackbelt", "richboy", "cueball", "fisherman",
-    "policeman", "cameraman", "ninjaboy", "sailor", "biker", "bugcatcher",
-    "burglar", "gambler", "guitarist", "schoolboy",
+    "youngster",
+    "gentleman",
+    "blackbelt",
+    "richboy",
+    "cueball",
+    "fisherman",
+    "policeman",
+    "cameraman",
+    "ninjaboy",
+    "sailor",
+    "biker",
+    "bugcatcher",
+    "burglar",
+    "gambler",
+    "guitarist",
+    "schoolboy",
 }
 
 # (category, keyword substrings) — first match wins; unmatched → "Characters"
 # (the big bucket of named people, browsed via search).
 _SPRITE_CATEGORIES = [
     ("Medical", ("nurse", "doctor", "medic", "joy")),
-    ("Science", ("scientist", "supernerd", "nerd", "engineer", "researcher", "professor")),
-    ("Mystic", ("psychic", "hex", "medium", "channeler", "mystic", "fortune", "seer", "witch", "shaman", "sage", "monk", "cultist")),
-    ("Athletic", ("blackbelt", "battlegirl", "swimmer", "hiker", "fisherman", "sailor", "biker", "cyclist", "crusher", "karate", "wrestler", "jogger", "runner", "tuber", "skier", "roughneck", "cueball", "athlete", "boarder")),
-    ("Outdoors", ("bugcatcher", "birdkeeper", "camper", "picnicker", "ranger", "aromalady", "gardener", "worker", "ruinmaniac", "dragontamer", "hunter", "farmer", "breeder", "kindler", "backpacker", "collector")),
-    ("Performer", ("guitarist", "artist", "juggler", "dancer", "musician", "comedian", "idol", "singer", "painter", "actor", "actress", "entertainer", "performer", "magician", "clown", "poet")),
-    ("Youth", ("youngster", "lass", "schoolkid", "twins", "preschooler", "child", "student", "youngcouple", "schoolboy", "schoolgirl", "kindergarten")),
-    ("Elegant", ("lady", "madame", "gentleman", "richboy", "socialite", "butler", "maid", "parasollady", "aristocrat", "noble", "beauty", "waiter", "waitress", "rich")),
-    ("Official", ("policeman", "officer", "guard", "soldier", "grunt", "rocket", "aqua", "magma", "galactic", "plasma", "flare", "skull", "yell", "admin", "interviewer", "cameraman")),
-    ("Trainer", ("acetrainer", "cooltrainer", "pokefan", "pokemaniac", "veteran", "trainer", "expert", "tamer", "gambler", "gamer", "burglar", "tourist", "ninjaboy")),
+    (
+        "Science",
+        ("scientist", "supernerd", "nerd", "engineer", "researcher", "professor"),
+    ),
+    (
+        "Mystic",
+        (
+            "psychic",
+            "hex",
+            "medium",
+            "channeler",
+            "mystic",
+            "fortune",
+            "seer",
+            "witch",
+            "shaman",
+            "sage",
+            "monk",
+            "cultist",
+        ),
+    ),
+    (
+        "Athletic",
+        (
+            "blackbelt",
+            "battlegirl",
+            "swimmer",
+            "hiker",
+            "fisherman",
+            "sailor",
+            "biker",
+            "cyclist",
+            "crusher",
+            "karate",
+            "wrestler",
+            "jogger",
+            "runner",
+            "tuber",
+            "skier",
+            "roughneck",
+            "cueball",
+            "athlete",
+            "boarder",
+        ),
+    ),
+    (
+        "Outdoors",
+        (
+            "bugcatcher",
+            "birdkeeper",
+            "camper",
+            "picnicker",
+            "ranger",
+            "aromalady",
+            "gardener",
+            "worker",
+            "ruinmaniac",
+            "dragontamer",
+            "hunter",
+            "farmer",
+            "breeder",
+            "kindler",
+            "backpacker",
+            "collector",
+        ),
+    ),
+    (
+        "Performer",
+        (
+            "guitarist",
+            "artist",
+            "juggler",
+            "dancer",
+            "musician",
+            "comedian",
+            "idol",
+            "singer",
+            "painter",
+            "actor",
+            "actress",
+            "entertainer",
+            "performer",
+            "magician",
+            "clown",
+            "poet",
+        ),
+    ),
+    (
+        "Youth",
+        (
+            "youngster",
+            "lass",
+            "schoolkid",
+            "twins",
+            "preschooler",
+            "child",
+            "student",
+            "youngcouple",
+            "schoolboy",
+            "schoolgirl",
+            "kindergarten",
+        ),
+    ),
+    (
+        "Elegant",
+        (
+            "lady",
+            "madame",
+            "gentleman",
+            "richboy",
+            "socialite",
+            "butler",
+            "maid",
+            "parasollady",
+            "aristocrat",
+            "noble",
+            "beauty",
+            "waiter",
+            "waitress",
+            "rich",
+        ),
+    ),
+    (
+        "Official",
+        (
+            "policeman",
+            "officer",
+            "guard",
+            "soldier",
+            "grunt",
+            "rocket",
+            "aqua",
+            "magma",
+            "galactic",
+            "plasma",
+            "flare",
+            "skull",
+            "yell",
+            "admin",
+            "interviewer",
+            "cameraman",
+        ),
+    ),
+    (
+        "Trainer",
+        (
+            "acetrainer",
+            "cooltrainer",
+            "pokefan",
+            "pokemaniac",
+            "veteran",
+            "trainer",
+            "expert",
+            "tamer",
+            "gambler",
+            "gamer",
+            "burglar",
+            "tourist",
+            "ninjaboy",
+        ),
+    ),
 ]
 _SPRITE_CATEGORY_ORDER = [
-    "Characters", "Trainer", "Athletic", "Outdoors", "Youth", "Elegant",
-    "Mystic", "Science", "Performer", "Official", "Medical",
+    "Characters",
+    "Trainer",
+    "Athletic",
+    "Outdoors",
+    "Youth",
+    "Elegant",
+    "Mystic",
+    "Science",
+    "Performer",
+    "Official",
+    "Medical",
 ]
 
 
@@ -230,7 +491,9 @@ def _describe_sprite(name, roles):
         if m:
             gen = int(m.group(1))
             var = m.group(2)
-            subs.append("Gen " + str(gen) + (" · " + _split_sprite_variant(var) if var else ""))
+            subs.append(
+                "Gen " + str(gen) + (" · " + _split_sprite_variant(var) if var else "")
+            )
         else:
             mm = re.match(r"^([a-z]+)(\d*)$", p)
             if mm:
@@ -424,9 +687,7 @@ class ProfileData:
             return []
 
         ordered_ids = [
-            str(t.get("individual_id"))
-            for t in team_data
-            if t.get("individual_id")
+            str(t.get("individual_id")) for t in team_data if t.get("individual_id")
         ]
         if not ordered_ids:
             return []
@@ -492,10 +753,16 @@ class ProfileData:
         try:
             from ..functions.sprite_functions import get_sprite_path
 
-            abs_path = str(get_sprite_path(
-                "front", "png", p.get("id"),
-                bool(p.get("shiny")), (p.get("gender") or "N"), p.get("name"),
-            ))
+            abs_path = str(
+                get_sprite_path(
+                    "front",
+                    "png",
+                    p.get("id"),
+                    bool(p.get("shiny")),
+                    (p.get("gender") or "N"),
+                    p.get("name"),
+                )
+            )
             # Convert the absolute sprite path to a path relative to a web page
             # (all pages live one level under addon_dir). Locate the known
             # sprites root rather than relying on relative_to, which is fragile
@@ -565,7 +832,9 @@ class ProfileData:
             "max_size": MAX_TEAM_SIZE,
             "team": members,
             "xp_share": str(xp_share) if xp_share else None,
-            "xp_share_info": self._resolve_stub(xp_share, members) if xp_share else None,
+            "xp_share_info": self._resolve_stub(xp_share, members)
+            if xp_share
+            else None,
         }
 
     def _resolve_stub(self, individual_id, members=None):
@@ -673,6 +942,7 @@ class ProfileData:
             cp = data.get("cp")
             if cp is None:
                 from ..business import calculate_cp_from_dict
+
                 cp = calculate_cp_from_dict(data)
             return int(cp or 0)
         except Exception as e:
