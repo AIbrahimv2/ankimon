@@ -116,10 +116,13 @@ def create_menu_actions(
         w = get_items_window()
         # `view` (Items only) forces the Mart vs Bag filter; `action` (Profile
         # only) is a one-shot UI hint — 'sprite' opens the picker, 'badges'
-        # scrolls to the badge case. Both are consumed by the next push.
+        # scrolls to the badge case. Both are consumed by the next push. Only
+        # touch the profile action when actually opening Profile, so opening
+        # another screen can't clobber a queued action (or leave a stale one).
         if view is not None:
             w.pending_view = view
-        w._pending_profile_action = action
+        if screen == "profile":
+            w._pending_profile_action = action
         if w.isMinimized():
             w.showNormal()
         if w.current_screen != screen:

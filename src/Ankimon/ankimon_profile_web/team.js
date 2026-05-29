@@ -55,7 +55,11 @@
     }
 
     // Type effectiveness chart (attacking -> defending), only the non-1× cells.
-    // Used to compute the team's collective defensive weaknesses.
+    // Used to compute the team's collective defensive weaknesses. This is the
+    // modern (Gen 6+) chart and is intentionally INDEPENDENT of the battle
+    // engine's addon_files/eff_chart.json, which holds older/simplified values
+    // (e.g. Ghost→Psychic 0, Dark→Fighting 2×) for a rough Present-Power
+    // heuristic — do not "unify" them or the team analysis would regress.
     const ALL_TYPES = [
         'Normal', 'Fire', 'Water', 'Electric', 'Grass', 'Ice', 'Fighting', 'Poison',
         'Ground', 'Flying', 'Psychic', 'Bug', 'Rock', 'Ghost', 'Dragon', 'Dark', 'Steel', 'Fairy',
@@ -252,6 +256,7 @@
         // Copy so editing one slot can't alias another / the roster entry.
         const member = { id: stub.id, p: stub.p, n: stub.n, l: stub.l };
         if (stub.s) member.s = 1;
+        if (stub.sprite) member.sprite = stub.sprite;   // carry the resolved forme/mega sprite (else it'd 404 to 0.png)
         if (stub.types) member.types = stub.types;
         if (stub.cp != null) member.cp = stub.cp;   // stored CP from the roster (shown instantly)
         state.team[slot] = member;
@@ -262,7 +267,7 @@
             teamBridge.getMemberStats(String(stub.id)).then((res) => {
                 const cur = state.team[slot];
                 if (cur && String(cur.id) === String(stub.id) && res) {
-                    cur.cp = res.cp;
+                    if (res.cp != null) cur.cp = res.cp;   // don't clobber the shown CP with a missing value
                     cur.types = res.types || cur.types || [];
                     renderTeam();
                 }

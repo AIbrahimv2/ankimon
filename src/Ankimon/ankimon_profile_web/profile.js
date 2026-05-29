@@ -367,6 +367,7 @@
 
     function chooseSprite(sprite) {
         const prev = state.spriteCurrent;
+        const prevUrl = state.data ? state.data.sprite_url : null;
         state.spriteCurrent = sprite.name;
         // Optimistically update the avatar + close the modal.
         if (state.data) state.data.sprite_url = sprite.url;
@@ -377,7 +378,10 @@
                 if (res && res.ok) {
                     toast(res.message || 'Trainer sprite updated.', 'success');
                 } else {
+                    // Backend rejected it — roll the optimistic avatar back.
                     state.spriteCurrent = prev;
+                    if (state.data) state.data.sprite_url = prevUrl;
+                    render();
                     toast((res && res.message) || 'Failed to set sprite.', 'error');
                 }
             });
@@ -397,8 +401,9 @@
 
     // ---------------- Rename trainer ----------------
     // Inline edit on the rail name: click (or Enter/Space when focused) swaps it
-    // for an input; Enter/blur commits, Escape cancels. Mirrors the sprite flow —
-    // optimistic update + bridge call + toast, reverting on failure.
+    // for an input; Enter commits, Escape OR blur (clicking away) cancels — so
+    // clicking elsewhere never silently saves a half-typed name. Mirrors the
+    // sprite flow: optimistic update + bridge call + toast, reverting on failure.
     let renaming = false;
     function startRename() {
         if (renaming || !state.data) return;
@@ -428,7 +433,7 @@
             if (e.key === 'Enter') { e.preventDefault(); finish(true); }
             else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
         });
-        input.addEventListener('blur', () => finish(true));
+        input.addEventListener('blur', () => finish(false));
     }
     function saveName(name) {
         const prev = state.data.name;

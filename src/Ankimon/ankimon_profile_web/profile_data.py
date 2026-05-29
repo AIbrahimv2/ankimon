@@ -11,7 +11,7 @@ import re
 
 from aqt import mw
 
-from ..utils import get_all_sprites
+from ..utils import get_all_sprites, POKEMON_NAME_LOOKUP
 from ..resources import trainer_sprites_path
 
 MAX_TEAM_SIZE = 6
@@ -28,10 +28,20 @@ def _capitalize_name(s):
     )
 
 
+def _species_name(s):
+    """Canonical species display name via the shared utils.POKEMON_NAME_LOOKUP
+    (single source of truth — e.g. "mrmime" -> "Mr. Mime"), falling back to
+    segment-wise capitalization for names the lookup doesn't cover."""
+    s = str(s)
+    key = s.replace(" ", "").replace("-", "").replace("_", "").lower()
+    return POKEMON_NAME_LOOKUP.get(key) or _capitalize_name(s)
+
+
 def format_pokemon_name(raw):
     """Display name for a Pokémon. Reformats stored form names like
-    "baxcaliburmega" -> "Mega Baxcalibur", "xgmax" -> "Gmax X". Plain species
-    are just capitalized. Yanmega (a real base species) is left alone."""
+    "baxcaliburmega" -> "Mega Baxcalibur", "xgmax" -> "Gmax X"; the plain
+    species name is resolved through the shared canonical lookup
+    (utils.POKEMON_NAME_LOOKUP). Yanmega (a real base species) is left alone."""
     if not raw:
         return ""
     s = str(raw)
@@ -39,17 +49,17 @@ def format_pokemon_name(raw):
     if low not in _NOT_FORMS:
         m = re.match(r"^(.+?)mega([xy])$", low)
         if m:
-            return "Mega " + _capitalize_name(m.group(1)) + " " + m.group(2).upper()
+            return "Mega " + _species_name(m.group(1)) + " " + m.group(2).upper()
         m = re.match(r"^(.+?)mega$", low)
         if m:
-            return "Mega " + _capitalize_name(m.group(1))
+            return "Mega " + _species_name(m.group(1))
         m = re.match(r"^(.+?)gigantamax$", low)
         if m:
-            return "Gigantamax " + _capitalize_name(m.group(1))
+            return "Gigantamax " + _species_name(m.group(1))
         m = re.match(r"^(.+?)gmax$", low)
         if m:
-            return "Gmax " + _capitalize_name(m.group(1))
-    return _capitalize_name(s)
+            return "Gmax " + _species_name(m.group(1))
+    return _species_name(s)
 
 
 def _format_with_level(s):
@@ -930,17 +940,18 @@ class ProfileData:
         """Pokémon-GO-style CP for one Pokémon (team slots only).
 
         Prefer the *stored* cp — the same value the roster picker and Ankidex
-        show — so every screen agrees. Recompute only when it's missing, and
-        recompute via calculate_cp_from_dict (which correctly falls back from
-        '$.base_stats' to '$.stats'): most Pokémon keep their base stats under
-        '$.stats' and have no '$.base_stats', so reading base_stats alone made
-        them compute a garbage (~min) CP."""
+        show — so every screen agrees. Recompute when it's missing or zero
+        (a stored 0 is garbage — CP floors at 10), via calculate_cp_from_dict
+        (which correctly falls back from '$.base_stats' to '$.stats'): most
+        Pokémon keep their base stats under '$.stats' and have no
+        '$.base_stats', so reading base_stats alone made them compute a
+        garbage (~min) CP."""
         try:
             data = mw.ankimon_db.get_pokemon(individual_id)
             if not data:
                 return 0
             cp = data.get("cp")
-            if cp is None:
+            if not cp:
                 from ..business import calculate_cp_from_dict
 
                 cp = calculate_cp_from_dict(data)
