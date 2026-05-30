@@ -56,7 +56,6 @@
     "trainer.name": "Set the name of your trainer.",
     "trainer.cash_reward_amount": "How much cash you earn for each interval of cards reviewed. [Min: 10, Max: 2,000]. NOTE: To prevent exploits, the payout is capped at 100¥ per card (e.g., to earn 1,000¥, you must set the interval to at least 10 cards).",
     "trainer.cash_reward_interval": "Number of cards to review before earning cash. [Min: 5, Max: 250].",
-    "evolution.friendship_time_enabled": "Enable or disable Pokémon evolutions that depend on friendship level or specific times of day.",
     "evolution.timezone_auto": "Automatically detect your local time zone for time-based features.",
     "evolution.timezone_offset": "Manually set the UTC offset (in hours) for your time zone if auto-detection is disabled."
 }

@@ -59,7 +59,6 @@
     "trainer.cash_reward_amount": "Cash Reward Per Interval",
     "trainer.cash_reward_interval": "Cards Per Cash Reward",
 
-    "evolution.friendship_time_enabled": "Friendship & Time Evolution",
     "evolution.timezone_auto": "Auto-detect Time Zone",
     "evolution.timezone_offset": "Time Zone UTC Offset"
     }

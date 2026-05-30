@@ -202,6 +202,8 @@ class Settings:
         self.compute_gui_config()
 
     def get(self, key, default=None):
+        if key == "evolution.friendship_time_enabled":
+            return True
         value = self.config.get(key)
         if value is not None:
             return value

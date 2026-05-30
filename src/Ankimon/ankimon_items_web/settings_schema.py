@@ -48,7 +48,6 @@ GROUPS = [
             "Show Text Message Box in Reviewer",
             "Message Box Display Time",
             "Review Based Damage",
-            "Friendship & Time Evolution",
             "Auto-detect Time Zone",
             "Time Zone UTC Offset",
         ],
