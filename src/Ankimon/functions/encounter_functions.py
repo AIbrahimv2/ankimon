@@ -719,7 +719,7 @@ def generate_random_pokemon(
 
     # FALLBACK HIERARCHY
     # If a rolled tier fails, try the next one in the list.
-    TIER_ORDER = ["Mythical", "Mega", "Legendary", "Gmax", "Ultra", "Starter", "Normal", "Baby"]
+    TIER_ORDER = ["Mythical", "Mega", "Legendary", "Gmax", "Ultra", "Starter", "Baby", "Normal"]
     
     selected_pokemon_id = None
     selected_tier = None
