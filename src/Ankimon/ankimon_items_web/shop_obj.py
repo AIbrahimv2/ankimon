@@ -1003,6 +1003,16 @@ class AnkimonItemsWeb(QDialog):
 
         if key == "battle.auto_catch_wishlist":
             entry["type"] = "wishlist"
+            from ..functions.pokedex_functions import get_pretty_name_for_id
+            names_dict = {}
+            if isinstance(value, list):
+                for pid in value:
+                    try:
+                        pid_int = int(pid)
+                        names_dict[pid_int] = get_pretty_name_for_id(pid_int)
+                    except Exception:
+                        names_dict[pid] = f"#{pid}"
+            entry["names"] = names_dict
             return entry
         if key == "misc.active_region":
             entry["type"] = "select"

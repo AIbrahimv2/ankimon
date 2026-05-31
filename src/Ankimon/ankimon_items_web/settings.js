@@ -178,6 +178,13 @@
     }
 
     function buildWishlistControl(setting) {
+        if (setting.names) {
+            state._wishlistNames = state._wishlistNames || {};
+            for (const [id, name] of Object.entries(setting.names)) {
+                state._wishlistNames[Number(id)] = name;
+            }
+        }
+
         const wrap = document.createElement('div');
         wrap.className = 'setting-wishlist';
 
