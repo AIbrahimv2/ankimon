@@ -820,6 +820,10 @@ def generate_random_pokemon(
     pokemon_id = selected_pokemon_id
     tier = selected_tier
 
+    # --- Hardcode ID for debugging
+    # pokemon_id = 133
+    # tier = "Normal"
+
     # Update pity trackers if overhaul system is active
     if USE_OVERHAUL_ENCOUNTER_SYSTEM:
         try:
