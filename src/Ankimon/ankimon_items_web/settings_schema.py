@@ -37,18 +37,7 @@ GROUPS = [
     },
     {
         "label": "Battle",
-        "settings": [
-            "Cards per Round",
-            "Show Main Pokémon in Reviewer",
-            "Hide HUD on Reviewer Startup",
-            "Show Pokémon Buttons",
-            "Pop-Up on Defeat",
-            "Show Text Message Box in Reviewer",
-            "Message Box Display Time",
-            "Review Based Damage",
-            "Auto-detect Time Zone",
-            "Time Zone UTC Offset",
-        ],
+        "settings": [],
         "subgroups": [
             {
                 "label": "Auto-Battle Rules",
@@ -73,6 +62,21 @@ GROUPS = [
                         ("battle.auto_catch_regional",  "Regional Form"),
                     ],
                 },
+            },
+            {
+                "label": "HUD & Mechanics",
+                "settings": [
+                    "Cards per Round",
+                    "Show Main Pokémon in Reviewer",
+                    "Hide HUD on Reviewer Startup",
+                    "Show Pokémon Buttons",
+                    "Pop-Up on Defeat",
+                    "Show Text Message Box in Reviewer",
+                    "Message Box Display Time",
+                    "Review Based Damage",
+                    "Auto-detect Time Zone",
+                    "Time Zone UTC Offset",
+                ],
             },
             {
                 "label": "Fight Hotkeys",
