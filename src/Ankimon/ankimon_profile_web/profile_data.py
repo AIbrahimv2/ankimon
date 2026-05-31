@@ -592,10 +592,15 @@ class ProfileData:
             caught_ids = set()
 
         # 2. Map all caught IDs to their base species_id (deduplicating Megas, Gmax, and forms)
-        from ..functions.pokedex_functions import _load_pokedex_cache, search_pokedex_by_id, safe_int
+        from ..functions.pokedex_functions import (
+            _load_pokedex_cache,
+            search_pokedex_by_id,
+            safe_int,
+        )
+
         pokedex = _load_pokedex_cache()
         caught_species = set()
-        
+
         for pid in caught_ids:
             internal_name = search_pokedex_by_id(pid)
             if internal_name and internal_name in pokedex:

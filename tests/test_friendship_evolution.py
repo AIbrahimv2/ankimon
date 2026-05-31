@@ -662,6 +662,3 @@ def test_pichu_evolution_readiness():
     assert result["evolvable"] is True
     assert result["ready"] is True
     assert result["evo_name"] == "Pikachu"
-
-
-

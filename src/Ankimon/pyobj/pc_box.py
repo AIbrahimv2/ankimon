@@ -44,53 +44,99 @@ from ..pyobj.evolution_window import EvoWindow
 from ..pyobj.settings import Settings
 from ..functions.friendship_evolution import current_time_label, evolution_readiness
 from ..functions.sprite_functions import get_sprite_path
-from ..utils import load_custom_font, get_tier_by_id, is_alive, format_move_name, format_pokemon_name
-from ..resources import icon_path, items_path, csv_file_items_cost, poke_evo_path, pokemon_tm_learnset_path, addon_dir
+from ..utils import (
+    load_custom_font,
+    get_tier_by_id,
+    is_alive,
+    format_move_name,
+    format_pokemon_name,
+)
+from ..resources import (
+    icon_path,
+    items_path,
+    csv_file_items_cost,
+    poke_evo_path,
+    pokemon_tm_learnset_path,
+    addon_dir,
+)
 from ..business import calculate_cp_from_dict
-from ..functions.pokedex_functions import find_details_move, get_all_pokemon_moves, format_lore_name, get_pretty_name_for_name, search_pokedex_by_id
+from ..functions.pokedex_functions import (
+    find_details_move,
+    get_all_pokemon_moves,
+    format_lore_name,
+    get_pretty_name_for_name,
+    search_pokedex_by_id,
+)
 from ..functions.gui_functions import type_icon_path, move_category_path
 
 MOVE_TYPE_COLORS = {
-    "Normal":"#A8A878","Fire":"#F08030","Water":"#6890F0","Electric":"#F8D030",
-    "Grass":"#78C850","Ice":"#98D8D8","Fighting":"#C03028","Poison":"#A040A0",
-    "Ground":"#E0C068","Flying":"#A890F0","Psychic":"#F85888","Bug":"#A8B820",
-    "Rock":"#B8A038","Ghost":"#705898","Dragon":"#7038F8","Dark":"#705848",
-    "Steel":"#B8B8D0","Fairy":"#EE99AC",
+    "Normal": "#A8A878",
+    "Fire": "#F08030",
+    "Water": "#6890F0",
+    "Electric": "#F8D030",
+    "Grass": "#78C850",
+    "Ice": "#98D8D8",
+    "Fighting": "#C03028",
+    "Poison": "#A040A0",
+    "Ground": "#E0C068",
+    "Flying": "#A890F0",
+    "Psychic": "#F85888",
+    "Bug": "#A8B820",
+    "Rock": "#B8A038",
+    "Ghost": "#705898",
+    "Dragon": "#7038F8",
+    "Dark": "#705848",
+    "Steel": "#B8B8D0",
+    "Fairy": "#EE99AC",
 }
 
 NATURE_EFFECTS = {
-    "Hardy":    ("", ""),       "Docile":  ("", ""),
-    "Serious":  ("", ""),       "Bashful": ("", ""),
-    "Quirky":   ("", ""),       # neutral natures
-    "Lonely":   ("attack", "defense"),
-    "Brave":    ("attack", "speed"),
-    "Adamant":  ("attack", "special-attack"),
-    "Naughty":  ("attack", "special-defense"),
-    "Bold":     ("defense", "attack"),
-    "Relaxed":  ("defense", "speed"),
-    "Impish":   ("defense", "special-attack"),
-    "Lax":      ("defense", "special-defense"),
-    "Timid":    ("speed", "attack"),
-    "Hasty":    ("speed", "defense"),
-    "Jolly":    ("speed", "special-attack"),
-    "Naive":    ("speed", "special-defense"),
-    "Modest":   ("special-attack", "attack"),
-    "Mild":     ("special-attack", "defense"),
-    "Quiet":    ("special-attack", "speed"),
-    "Rash":     ("special-attack", "special-defense"),
-    "Calm":     ("special-defense", "attack"),
-    "Gentle":   ("special-defense", "defense"),
-    "Sassy":    ("special-defense", "speed"),
-    "Careful":  ("special-defense", "special-attack"),
+    "Hardy": ("", ""),
+    "Docile": ("", ""),
+    "Serious": ("", ""),
+    "Bashful": ("", ""),
+    "Quirky": ("", ""),  # neutral natures
+    "Lonely": ("attack", "defense"),
+    "Brave": ("attack", "speed"),
+    "Adamant": ("attack", "special-attack"),
+    "Naughty": ("attack", "special-defense"),
+    "Bold": ("defense", "attack"),
+    "Relaxed": ("defense", "speed"),
+    "Impish": ("defense", "special-attack"),
+    "Lax": ("defense", "special-defense"),
+    "Timid": ("speed", "attack"),
+    "Hasty": ("speed", "defense"),
+    "Jolly": ("speed", "special-attack"),
+    "Naive": ("speed", "special-defense"),
+    "Modest": ("special-attack", "attack"),
+    "Mild": ("special-attack", "defense"),
+    "Quiet": ("special-attack", "speed"),
+    "Rash": ("special-attack", "special-defense"),
+    "Calm": ("special-defense", "attack"),
+    "Gentle": ("special-defense", "defense"),
+    "Sassy": ("special-defense", "speed"),
+    "Careful": ("special-defense", "special-attack"),
 }
 
 STAT_KEY_TO_DISPLAY = {
-    "hp": "HP", "attack": "Attack", "defense": "Defense",
-    "special-attack": "Sp. Atk", "special-defense": "Sp. Def", "speed": "Speed",
+    "hp": "HP",
+    "attack": "Attack",
+    "defense": "Defense",
+    "special-attack": "Sp. Atk",
+    "special-defense": "Sp. Def",
+    "speed": "Speed",
 }
 DISPLAY_TO_STAT_KEY = {v: k for k, v in STAT_KEY_TO_DISPLAY.items()}
 
-from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QTabWidget
+from PyQt6.QtWidgets import (
+    QListWidget,
+    QListWidgetItem,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QAbstractItemView,
+    QTabWidget,
+)
 from PyQt6.QtGui import QColor
 
 
@@ -109,22 +155,26 @@ class MoveManagerWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setSpacing(6)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        
+
         self.header = QLabel("MOVES")
-        self.header.setStyleSheet("color: #94a3b8; font-size: 10px; font-weight: bold; letter-spacing: 1px;")
+        self.header.setStyleSheet(
+            "color: #94a3b8; font-size: 10px; font-weight: bold; letter-spacing: 1px;"
+        )
         self.layout.addWidget(self.header)
-        
+
         self.slots = []
         for i in range(4):
             slot_container = QWidget()
             slot_layout = QHBoxLayout(slot_container)
             slot_layout.setContentsMargins(0, 2, 0, 2)
-            
+
             type_chip = QLabel("---")
             type_chip.setFixedSize(42, 18)
             type_chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            type_chip.setStyleSheet("border-radius: 4px; font-size: 9px; font-weight: bold; color: white;")
-            
+            type_chip.setStyleSheet(
+                "border-radius: 4px; font-size: 9px; font-weight: bold; color: white;"
+            )
+
             name_label = QPushButton("— empty —")
             name_label.setFlat(True)
             name_label.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -142,35 +192,41 @@ class MoveManagerWidget(QWidget):
                     background-color: #1e293b;
                 }
             """)
-            
+
             forget_btn = QPushButton("✕")
             forget_btn.setFixedSize(24, 24)
             forget_btn.setFlat(True)
-            
+
             learn_btn = QPushButton("＋")
             learn_btn.setFixedSize(24, 24)
             learn_btn.setFlat(True)
-            
+
             slot_layout.addWidget(type_chip)
             slot_layout.addWidget(name_label)
             slot_layout.addStretch()
             slot_layout.addWidget(forget_btn)
             slot_layout.addWidget(learn_btn)
-            
+
             self.layout.addWidget(slot_container)
-            self.slots.append({
-                "container": slot_container,
-                "layout": slot_layout,
-                "type_chip": type_chip,
-                "name_label": name_label,
-                "forget_btn": forget_btn,
-                "learn_btn": learn_btn,
-                "move": None
-            })
-            
-            forget_btn.clicked.connect(lambda checked, idx=i: self.on_forget_clicked(idx))
+            self.slots.append(
+                {
+                    "container": slot_container,
+                    "layout": slot_layout,
+                    "type_chip": type_chip,
+                    "name_label": name_label,
+                    "forget_btn": forget_btn,
+                    "learn_btn": learn_btn,
+                    "move": None,
+                }
+            )
+
+            forget_btn.clicked.connect(
+                lambda checked, idx=i: self.on_forget_clicked(idx)
+            )
             learn_btn.clicked.connect(lambda checked, idx=i: self.on_learn_clicked(idx))
-            name_label.clicked.connect(lambda checked, idx=i: self.on_learn_clicked(idx))
+            name_label.clicked.connect(
+                lambda checked, idx=i: self.on_learn_clicked(idx)
+            )
 
         # Add TM button
         self.tm_btn = QPushButton(" LEARN FROM TMs")
@@ -178,7 +234,7 @@ class MoveManagerWidget(QWidget):
         if tm_icon_path.exists():
             self.tm_btn.setIcon(QIcon(str(tm_icon_path)))
             self.tm_btn.setIconSize(QSize(18, 18))
-            
+
         self.tm_btn.setMinimumHeight(32)
         self.tm_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.tm_btn.setStyleSheet("""
@@ -213,14 +269,20 @@ class MoveManagerWidget(QWidget):
 
     def _fetch_full(self, individual_id):
         try:
-            cursor = mw.ankimon_db.execute("SELECT data FROM captured_pokemon WHERE individual_id = ?", (individual_id,))
+            cursor = mw.ankimon_db.execute(
+                "SELECT data FROM captured_pokemon WHERE individual_id = ?",
+                (individual_id,),
+            )
             row = cursor.fetchone()
             if row:
                 data = json.loads(row[0])
                 # Ensure all_attacks is fetched
                 if "all_attacks" not in data:
                     from ..functions.pokedex_functions import get_all_pokemon_moves
-                    data["all_attacks"] = get_all_pokemon_moves(data.get("name"), data.get("level"))
+
+                    data["all_attacks"] = get_all_pokemon_moves(
+                        data.get("name"), data.get("level")
+                    )
                 return data
         except Exception:
             pass
@@ -229,8 +291,10 @@ class MoveManagerWidget(QWidget):
     def refresh(self):
         self.full_data = self._fetch_full(self.individual_id)
         attacks = self.full_data.get("attacks", [])
-        all_moves = self.full_data.get("all_attacks", []) or self.full_data.get("learnable_moves", [])
-        
+        all_moves = self.full_data.get("all_attacks", []) or self.full_data.get(
+            "learnable_moves", []
+        )
+
         for i in range(4):
             slot = self.slots[i]
             if i < len(attacks):
@@ -255,17 +319,21 @@ class MoveManagerWidget(QWidget):
                 slot["forget_btn"].setVisible(len(attacks) > 1)
                 slot["learn_btn"].setText("⤵")
                 slot["learn_btn"].setVisible(bool(all_moves))
-                
+
                 move_data = find_details_move(move)
                 m_type = move_data.get("type", "Normal")
                 color = MOVE_TYPE_COLORS.get(m_type, "#777")
                 slot["type_chip"].setText(m_type.upper())
-                slot["type_chip"].setStyleSheet(f"background-color: {color}; border-radius: 4px; font-size: 9px; font-weight: bold; color: white;")
+                slot["type_chip"].setStyleSheet(
+                    f"background-color: {color}; border-radius: 4px; font-size: 9px; font-weight: bold; color: white;"
+                )
                 slot["type_chip"].show()
             else:
                 slot["move"] = None
                 slot["name_label"].setText("— empty —")
-                slot["name_label"].setStyleSheet("QPushButton { text-align: left; font-size: 12px; color: #475569; font-style: italic; border: none; padding: 0; }")
+                slot["name_label"].setStyleSheet(
+                    "QPushButton { text-align: left; font-size: 12px; color: #475569; font-style: italic; border: none; padding: 0; }"
+                )
                 slot["forget_btn"].hide()
                 slot["learn_btn"].setText("＋")
                 slot["learn_btn"].setVisible(bool(all_moves))
@@ -274,7 +342,9 @@ class MoveManagerWidget(QWidget):
         if not all_moves:
             if not hasattr(self, "no_moves_label"):
                 self.no_moves_label = QLabel("No learnable moves data")
-                self.no_moves_label.setStyleSheet("color: #64748b; font-size: 11px; font-style: italic;")
+                self.no_moves_label.setStyleSheet(
+                    "color: #64748b; font-size: 11px; font-style: italic;"
+                )
                 self.layout.addWidget(self.no_moves_label)
         elif hasattr(self, "no_moves_label"):
             self.no_moves_label.setParent(None)
@@ -282,36 +352,37 @@ class MoveManagerWidget(QWidget):
 
     def on_forget_clicked(self, idx):
         move = self.slots[idx]["move"]
-        if not move: return
-        
+        if not move:
+            return
+
         # Confirmation UI
         slot_container = self.slots[idx]["container"]
         old_layout = self.slots[idx]["layout"]
-        
+
         conf_widget = QWidget()
         conf_layout = QHBoxLayout(conf_widget)
         conf_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         label = QLabel(f"Forget {move.capitalize()}?")
         label.setStyleSheet("font-size: 11px; font-weight: bold;")
-        
+
         yes_btn = QPushButton("Yes")
         yes_btn.setFixedSize(40, 22)
         yes_btn.setStyleSheet("font-size: 10px;")
-        
+
         no_btn = QPushButton("No")
         no_btn.setFixedSize(40, 22)
         no_btn.setStyleSheet("font-size: 10px;")
-        
+
         conf_layout.addWidget(label)
         conf_layout.addStretch()
         conf_layout.addWidget(yes_btn)
         conf_layout.addWidget(no_btn)
-        
+
         # Swap layouts
         slot_container.hide()
-        self.layout.insertWidget(idx + 1, conf_widget) # +1 because of header
-        
+        self.layout.insertWidget(idx + 1, conf_widget)  # +1 because of header
+
         def on_yes():
             attacks = self.full_data.get("attacks", [])
             if move in attacks:
@@ -321,36 +392,41 @@ class MoveManagerWidget(QWidget):
                 self.refresh()
             conf_widget.setParent(None)
             slot_container.show()
-            
+
         def on_no():
             conf_widget.setParent(None)
             slot_container.show()
-            
+
         yes_btn.clicked.connect(on_yes)
         no_btn.clicked.connect(on_no)
 
     def on_learn_clicked(self, idx):
-        all_moves = self.full_data.get("all_attacks", []) or self.full_data.get("learnable_moves", [])
+        all_moves = self.full_data.get("all_attacks", []) or self.full_data.get(
+            "learnable_moves", []
+        )
         current_moves = self.full_data.get("attacks", [])
-        
+
         nickname = self.full_data.get("nickname")
         raw_name = self.full_data.get("name")
         species_name = get_pretty_name_for_name(raw_name)
-        
+
         def normalize_n(s):
-            if not s: return ""
+            if not s:
+                return ""
             return "".join(c for c in str(s).lower() if c.isalnum())
-            
+
         is_redundant = (
-            not nickname or 
-            not str(nickname).strip() or 
-            normalize_n(nickname) == normalize_n(species_name) or
-            normalize_n(nickname) == normalize_n(raw_name)
+            not nickname
+            or not str(nickname).strip()
+            or normalize_n(nickname) == normalize_n(species_name)
+            or normalize_n(nickname) == normalize_n(raw_name)
         )
-        
+
         pretty_name = species_name if is_redundant else f"{nickname} ({species_name})"
-        
-        dialog = MovePickerDialog(pretty_name, all_moves, current_moves, self, force_show_current=True)
+
+        dialog = MovePickerDialog(
+            pretty_name, all_moves, current_moves, self, force_show_current=True
+        )
         if dialog.exec():
             new_move = dialog.get_selected_move()
             if new_move:
@@ -367,14 +443,16 @@ class MoveManagerWidget(QWidget):
         # 1. Get species/base name for TM lookup
         internal_name = search_pokedex_by_id(self.pkmn_id)
         if not internal_name:
-            self.logger.log_and_showinfo("error", f"Could not find Pokémon data for ID: {self.pkmn_id}")
+            self.logger.log_and_showinfo(
+                "error", f"Could not find Pokémon data for ID: {self.pkmn_id}"
+            )
             return
-            
+
         # Normalize: strip hyphens and everything after the first hyphen to try base species
         # e.g. "venusaur-mega" -> "venusaur"
         base_name = internal_name.split("-")[0].lower()
         internal_name = internal_name.lower()
-        
+
         # 2. Load TM learnsets
         try:
             with open(pokemon_tm_learnset_path, "r", encoding="utf-8") as f:
@@ -386,46 +464,51 @@ class MoveManagerWidget(QWidget):
         # 3. Get valid TMs for this species (check specific form then base species)
         valid_tms = tm_learnsets.get(internal_name) or tm_learnsets.get(base_name)
         if not valid_tms:
-            self.logger.log_and_showinfo("info", f"This Pokémon cannot learn any moves from TMs.")
+            self.logger.log_and_showinfo(
+                "info", f"This Pokémon cannot learn any moves from TMs."
+            )
             return
-            
+
         # 4. Get owned TMs from DB
         all_items = mw.ankimon_db.get_all_items()
         owned_tm_moves = [
-            item["item_name"] 
-            for item in all_items 
+            item["item_name"]
+            for item in all_items
             if (item.get("extra_data") or {}).get("type") == "TM"
         ]
-        
+
         # 5. Filter valid TMs by ownership
         learnable_tm_moves = [move for move in valid_tms if move in owned_tm_moves]
         if not learnable_tm_moves:
-            self.logger.log_and_showinfo("info", "You don't own any TMs that this Pokémon can learn.")
+            self.logger.log_and_showinfo(
+                "info", "You don't own any TMs that this Pokémon can learn."
+            )
             return
-            
+
         # 6. UI: Use MovePickerDialog
         nickname = self.full_data.get("nickname")
         raw_name = self.full_data.get("name")
         species_name = get_pretty_name_for_name(raw_name)
-        
+
         def normalize_n(s):
-            if not s: return ""
+            if not s:
+                return ""
             return "".join(c for c in str(s).lower() if c.isalnum())
-            
+
         is_redundant = (
-            not nickname or 
-            not str(nickname).strip() or 
-            normalize_n(nickname) == normalize_n(species_name) or
-            normalize_n(nickname) == normalize_n(raw_name)
+            not nickname
+            or not str(nickname).strip()
+            or normalize_n(nickname) == normalize_n(species_name)
+            or normalize_n(nickname) == normalize_n(raw_name)
         )
-        
+
         pretty_name = species_name if is_redundant else f"{nickname} ({species_name})"
         title = f"TM Learning: {pretty_name}"
-        
+
         current_moves = self.full_data.get("attacks", [])
         dialog = MovePickerDialog(title, learnable_tm_moves, current_moves, self)
         dialog.setWindowTitle("Learn from TMs")
-        
+
         if dialog.exec():
             new_move = dialog.get_selected_move()
             if new_move:
@@ -437,7 +520,9 @@ class MoveManagerWidget(QWidget):
             self.full_data.get("attacks", []),
             move_name,
             self.logger,
-            refresh_callback=lambda: self.save_fn(mw.ankimon_db.get_pokemon(self.individual_id))
+            refresh_callback=lambda: self.save_fn(
+                mw.ankimon_db.get_pokemon(self.individual_id)
+            ),
         )
 
 
@@ -548,7 +633,7 @@ class PokemonPC(QDialog):
         # PERFORMANCE: Database result caching
         self._pokemon_cache = None
         self._last_filter_state = None
-        
+
         # LIVE SEARCH: Timer for debouncing
         self.search_timer = QTimer()
         self.search_timer.setSingleShot(True)
@@ -576,14 +661,14 @@ class PokemonPC(QDialog):
         self.sort_combo = None
         self.desc_sort = None  # Sort by descending order
         self.current_stats_tab_index = 0  # Remember selected tab (Stats/IV/EV)
-        
+
         self._selected_individual_id = None
         self._total_pokemon_count = 0
-        
+
         self._bff_id = None
         self._bff_dirty = True
         self.time_label = None
-        
+
         # Splitter persistence keys
         self.GEOMETRY_KEY = "ankimon.pc_box.geometry"
         self.SPLITTER_KEY = "ankimon.pc_box.splitter"
@@ -600,11 +685,11 @@ class PokemonPC(QDialog):
         self.create_gui()
         self._restore_geometry()
         self.refresh_pokemon_grid()
-        
+
         # Real-time clock for friendship evolutions
         self.time_timer = QTimer(self)
         self.time_timer.timeout.connect(self._update_time_display)
-        self.time_timer.start(60000) # Every minute
+        self.time_timer.start(60000)  # Every minute
 
     def on_theme_change(self):
         """
@@ -638,9 +723,13 @@ class PokemonPC(QDialog):
             - Connects UI elements to their corresponding interaction handlers.
         """
         self.setWindowTitle("Pokémon PC")
-        
+
         # Make the window non-modal (floating) and add maximize/minimize buttons
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowMinimizeButtonHint)
+        self.setWindowFlags(
+            self.windowFlags()
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowMinimizeButtonHint
+        )
         self.setWindowModality(Qt.WindowModality.NonModal)
 
         # Determine theme based on Anki's night mode
@@ -654,7 +743,9 @@ class PokemonPC(QDialog):
             button_bg = "#3B4CCA"
             button_border = "#6A73D9"
             hover_color = "#6A73D9"
-            favorite_color = "#998A3D"  # Muted antique brass/gold (classy, low-luminance)
+            favorite_color = (
+                "#998A3D"  # Muted antique brass/gold (classy, low-luminance)
+            )
             favorite_hover_color = "#8A7C36"
             input_bg = "#002B5A"  # Slightly lighter than background for input fields
             slot_bg_color = "#002B5A"
@@ -745,12 +836,12 @@ class PokemonPC(QDialog):
             clear_layout(self.layout())
         else:
             self.main_layout = QHBoxLayout(self)
-        
+
         self.main_container = QWidget()
         self.main_container_layout = QHBoxLayout(self.main_container)
         self.main_container_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.addWidget(self.main_container)
-        
+
         pokemon_list = self.fetch_filtered_pokemon()
         max_box_idx = (len(pokemon_list) - 1) // (self.n_rows * self.n_cols)
 
@@ -831,20 +922,22 @@ class PokemonPC(QDialog):
         self.count_label.setObjectName("countLabel")
         self.count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         collection_layout.addWidget(self.count_label)
-        
+
         collection_layout.addWidget(self.scroll_area, 1)
         self.setup_filters_layout(collection_layout)
 
         collection_widget = QWidget()
         collection_widget.setLayout(collection_layout)
-        self.main_container_layout.addWidget(collection_widget, 3) # Grid takes 3/5
-        
+        self.main_container_layout.addWidget(collection_widget, 3)  # Grid takes 3/5
+
         self.setup_details_panel(background_color)
-        
+
         self._apply_qss()
 
     def _apply_qss(self):
-        self.setStyleSheet(self.styleSheet() + """
+        self.setStyleSheet(
+            self.styleSheet()
+            + """
             #countLabel {
                 font-size: 11px;
                 color: #94a3b8;
@@ -869,10 +962,12 @@ class PokemonPC(QDialog):
                 background: rgba(96, 165, 250, 0.20);
                 border-color: #93c5fd;
             }
-        """)
+        """
+        )
 
     def _restore_geometry(self):
         import base64
+
         try:
             geo = mw.pm.profile.get(self.GEOMETRY_KEY)
             if geo:
@@ -882,16 +977,19 @@ class PokemonPC(QDialog):
 
     def closeEvent(self, event: QCloseEvent):
         import base64
+
         try:
-            mw.pm.profile[self.GEOMETRY_KEY] = base64.b64encode(bytes(self.saveGeometry())).decode()
+            mw.pm.profile[self.GEOMETRY_KEY] = base64.b64encode(
+                bytes(self.saveGeometry())
+            ).decode()
         except Exception:
             pass
-        
+
         for attr in ("resize_timer", "search_timer"):
             t = getattr(self, attr, None)
             if t and t.isActive():
                 t.stop()
-        
+
         self.on_window_close()
         event.accept()
 
@@ -922,11 +1020,11 @@ class PokemonPC(QDialog):
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Search Pokémon (by nickname, name)")
         self.search_edit.setText(prev_text)
-        
+
         # LIVE SEARCH: Trigger refresh after 300ms of inactivity
         self.search_edit.textChanged.connect(lambda: self.search_timer.start(300))
         self.search_edit.returnPressed.connect(lambda: self.go_to_box(0))
-        
+
         search_button = QPushButton("Search")
         search_button.clicked.connect(lambda: self.go_to_box(0))
         # Type filtering
@@ -973,7 +1071,17 @@ class PokemonPC(QDialog):
         self.tier_combo = QComboBox()
         self.tier_combo.addItem("All tiers")
         self.tier_combo.addItems(
-            ["Normal", "Legendary", "Mythical", "Baby", "Ultra", "Fossil", "Starter", "Mega", "Gmax"]
+            [
+                "Normal",
+                "Legendary",
+                "Mythical",
+                "Baby",
+                "Ultra",
+                "Fossil",
+                "Starter",
+                "Mega",
+                "Gmax",
+            ]
         )
         self.tier_combo.setCurrentIndex(prev_idx)
         self.tier_combo.currentIndexChanged.connect(lambda: self.go_to_box(0))
@@ -1004,8 +1112,10 @@ class PokemonPC(QDialog):
         self.filter_shiny.stateChanged.connect(lambda: self.go_to_box(0))
         # Sorting options
         sort_label = QLabel("Sort by:")
-        
-        prev_sort = self.selected_sort_key if hasattr(self, 'selected_sort_key') else "Date"
+
+        prev_sort = (
+            self.selected_sort_key if hasattr(self, "selected_sort_key") else "Date"
+        )
         self.sort_combo = QComboBox()
         sort_options = [
             self.translator.translate("Date"),
@@ -1024,14 +1134,14 @@ class PokemonPC(QDialog):
             self.translator.translate("Speed"),
         ]
         self.sort_combo.addItems(sort_options)
-        
+
         # Set current index based on previous selection
         index = self.sort_combo.findText(prev_sort)
         if index >= 0:
             self.sort_combo.setCurrentIndex(index)
         else:
             self.sort_combo.setCurrentText("Date")
-            
+
         self.sort_combo.currentTextChanged.connect(self.on_sort_changed)
 
         sort_combo_layout = QHBoxLayout()
@@ -1068,42 +1178,43 @@ class PokemonPC(QDialog):
     def setup_details_panel(self, background_color):
         """Initializes the details panel with a persistent stack to avoid window flickering/resizing."""
         from PyQt6.QtWidgets import QStackedWidget
-        
+
         self.details_panel_stack = QStackedWidget()
         self.details_panel_stack.setMinimumWidth(470)
         self.main_container_layout.addWidget(self.details_panel_stack, 2)
-        
+
         # Index 0: Placeholder
         self._placeholder_widget = self._create_placeholder_widget()
         self.details_panel_stack.addWidget(self._placeholder_widget)
-        
+
         # Index 1: Actual Details View (Container for header/stats/footer stacks)
         self.details_widget = QWidget()
         self.details_widget.setObjectName("persistentDetails")
         self.details_container_layout = QVBoxLayout(self.details_widget)
         self.details_container_layout.setContentsMargins(0, 0, 0, 0)
         self.details_container_layout.setSpacing(0)
-        
+
         from PyQt6.QtWidgets import QGraphicsOpacityEffect
+
         self.header_stack = QStackedWidget()
         self.stats_stack = QStackedWidget()
         self.footer_stack = QStackedWidget()
-        
+
         # Lock the heights to prevent window jumping
         self.header_stack.setMinimumHeight(420)
         self.stats_stack.setFixedHeight(220)
         self.footer_stack.setMinimumHeight(90)
-        
+
         self.details_container_layout.addWidget(self.header_stack)
         self.details_container_layout.addWidget(self.stats_stack)
         self.details_container_layout.addWidget(self.footer_stack)
-        
+
         # Setup opacity effects for header
         self.header_opacity = QGraphicsOpacityEffect(self.header_stack)
         self.header_stack.setGraphicsEffect(self.header_opacity)
-        
+
         self.details_panel_stack.addWidget(self.details_widget)
-        
+
         # Initial state: Show placeholder
         self.details_panel_stack.setCurrentIndex(0)
 
@@ -1117,7 +1228,7 @@ class PokemonPC(QDialog):
         is_dark_mode = theme_manager.night_mode
         bg_color = "#002B5A" if is_dark_mode else "#CCE5FF"
         text_color = "#94a3b8" if is_dark_mode else "#003A70"
-            
+
         widget.setStyleSheet(f"""
             #detailsPlaceholder {{
                 background-color: {bg_color};
@@ -1126,31 +1237,40 @@ class PokemonPC(QDialog):
                 margin: 8px;
             }}
         """)
-        
+
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(40, 20, 40, 20)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+
         # Pokéball Icon
         icon_label = QLabel()
         pixmap = QPixmap(str(icon_path))
         if not pixmap.isNull():
-            scaled_pixmap = pixmap.scaled(180, 180, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            scaled_pixmap = pixmap.scaled(
+                180,
+                180,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
             icon_label.setPixmap(scaled_pixmap)
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+
         # Main Prompt
         prompt_label = QLabel("Choose a Pokémon to view its stats")
         prompt_label.setWordWrap(True)
         prompt_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        prompt_label.setStyleSheet(f"color: {text_color}; font-size: 20px; font-weight: 800; margin-top: 25px;")
-        
+        prompt_label.setStyleSheet(
+            f"color: {text_color}; font-size: 20px; font-weight: 800; margin-top: 25px;"
+        )
+
         # Subtext
         count = getattr(self, "_total_pokemon_count", 0)
         summary_label = QLabel(f"PC Inventory: {count} Pokémon")
         summary_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        summary_label.setStyleSheet("color: #64748b; font-size: 13px; font-style: italic; margin-top: 10px;")
-        
+        summary_label.setStyleSheet(
+            "color: #64748b; font-size: 13px; font-style: italic; margin-top: 10px;"
+        )
+
         layout.addStretch(1)
         layout.addWidget(icon_label)
         layout.addWidget(prompt_label)
@@ -1165,7 +1285,6 @@ class PokemonPC(QDialog):
         self._selected_individual_id = None
         self._refresh_slot_selection()
 
-
     def refresh_pokemon_grid(self, recompute_bff: bool = True):
         """
         Clears and rebuilds the grid.
@@ -1176,9 +1295,11 @@ class PokemonPC(QDialog):
         self._pokemon_cache = None  # Invalidate database cache
         clear_layout(self.pokemon_grid)
         self.gif_in_collection = self.settings.get("gui.gif_in_collection")
-        
+
         # The day/night clock and badges are part of the friendship/time feature
-        friendship_time_enabled = self.settings.get("evolution.friendship_time_enabled", True)
+        friendship_time_enabled = self.settings.get(
+            "evolution.friendship_time_enabled", True
+        )
 
         self._filtered_pokemon = self.fetch_filtered_pokemon()
         pokemon_list = self._filtered_pokemon
@@ -1195,7 +1316,7 @@ class PokemonPC(QDialog):
                     total=max_box_idx + 1,
                 )
             )
-        
+
         # Update day/night label
         if self.time_label is not None:
             if friendship_time_enabled:
@@ -1208,7 +1329,7 @@ class PokemonPC(QDialog):
         if recompute_bff or self._bff_dirty:
             self._update_bff()
         bff_id = self._bff_id
-        
+
         self._update_count_label()
 
         start_index = self.current_box_idx * self.n_rows * self.n_cols
@@ -1244,13 +1365,10 @@ class PokemonPC(QDialog):
                 pokemon_button.setFixedSize(self.slot_size, self.slot_size)
 
                 # BFF (highest friendship) takes visual precedence
-                is_bff = (
-                    bff_id is not None
-                    and pokemon.get("individual_id") == bff_id
-                )
-                
+                is_bff = bff_id is not None and pokemon.get("individual_id") == bff_id
+
                 if is_bff:
-                    bg = "#FF69B4" # Hot pink for BFF
+                    bg = "#FF69B4"  # Hot pink for BFF
                     h_bg = "#FF8DC7"
                 elif pokemon.get("is_favorite"):
                     bg = theme_vars["favorite_color"]
@@ -1286,7 +1404,10 @@ class PokemonPC(QDialog):
 
                 if self.gif_in_collection:
                     scaled_movie_label = ScaledMovieLabel(
-                        pkmn_image_path, self.slot_size - 10, self.slot_size - 10, self.grid_container
+                        pkmn_image_path,
+                        self.slot_size - 10,
+                        self.slot_size - 10,
+                        self.grid_container,
                     )
                     scaled_movie_label.setAttribute(
                         Qt.WidgetAttribute.WA_TransparentForMouseEvents
@@ -1306,10 +1427,12 @@ class PokemonPC(QDialog):
                 # Overlays (Heart for BFF, Star/Moon/Sun for Evolution)
                 badge_tooltips = []
                 readiness = evolution_readiness(pokemon)
-                
+
                 if is_bff:
                     heart_badge = QLabel("💖", self.grid_container)
-                    heart_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+                    heart_badge.setAttribute(
+                        Qt.WidgetAttribute.WA_TransparentForMouseEvents
+                    )
                     heart_badge.setStyleSheet(
                         "QLabel {"
                         "  margin-top: 5px;"
@@ -1318,27 +1441,39 @@ class PokemonPC(QDialog):
                         "}"
                     )
                     self.pokemon_grid.addWidget(
-                        heart_badge, row, col, 
-                        alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+                        heart_badge,
+                        row,
+                        col,
+                        alignment=Qt.AlignmentFlag.AlignTop
+                        | Qt.AlignmentFlag.AlignLeft,
                     )
                     badge_tooltips.append(self.translator.translate("bff_tooltip"))
 
-                if readiness["ready"] and (readiness["method"] == "level" or friendship_time_enabled):
+                if readiness["ready"] and (
+                    readiness["method"] == "level" or friendship_time_enabled
+                ):
                     evo_badge = QLabel(self.grid_container)
-                    evo_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-                    evo_badge.setFixedSize(23, 23) # Slightly larger size to accommodate margins cleanly
-                    
+                    evo_badge.setAttribute(
+                        Qt.WidgetAttribute.WA_TransparentForMouseEvents
+                    )
+                    evo_badge.setFixedSize(
+                        23, 23
+                    )  # Slightly larger size to accommodate margins cleanly
+
                     # Load the generated high-quality PNG asset
                     badge_path = addon_dir / "addon_sprites" / "evolution_indicator.png"
                     if badge_path.exists():
                         pixmap = QPixmap(str(badge_path))
                         scaled_pixmap = pixmap.scaled(
-                            18, 18, 
-                            Qt.AspectRatioMode.KeepAspectRatio, 
-                            Qt.TransformationMode.SmoothTransformation
+                            18,
+                            18,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation,
                         )
                         evo_badge.setPixmap(scaled_pixmap)
-                        evo_badge.setStyleSheet("margin-top: 2px; margin-right: 1px; background: transparent;")
+                        evo_badge.setStyleSheet(
+                            "margin-top: 2px; margin-right: 1px; background: transparent;"
+                        )
                     else:
                         # Fallback to plain text ⇈ if asset is not found
                         evo_badge.setText("⇈")
@@ -1351,11 +1486,14 @@ class PokemonPC(QDialog):
                             "  background: transparent;"
                             "}"
                         )
-                        
+
                     evo_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.pokemon_grid.addWidget(
-                        evo_badge, row, col,
-                        alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight
+                        evo_badge,
+                        row,
+                        col,
+                        alignment=Qt.AlignmentFlag.AlignTop
+                        | Qt.AlignmentFlag.AlignRight,
                     )
                     badge_tooltips.append(self.translator.translate("badge_ready"))
                 elif (
@@ -1367,7 +1505,9 @@ class PokemonPC(QDialog):
                 ):
                     wait_icon = "🌙" if readiness["required_time"] == "night" else "☀️"
                     wait_badge = QLabel(wait_icon, self.grid_container)
-                    wait_badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+                    wait_badge.setAttribute(
+                        Qt.WidgetAttribute.WA_TransparentForMouseEvents
+                    )
                     wait_badge.setStyleSheet(
                         "QLabel {"
                         "  margin-top: 5px;"
@@ -1376,10 +1516,17 @@ class PokemonPC(QDialog):
                         "}"
                     )
                     self.pokemon_grid.addWidget(
-                        wait_badge, row, col,
-                        alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight
+                        wait_badge,
+                        row,
+                        col,
+                        alignment=Qt.AlignmentFlag.AlignTop
+                        | Qt.AlignmentFlag.AlignRight,
                     )
-                    key = "badge_wait_night" if readiness["required_time"] == "night" else "badge_wait_day"
+                    key = (
+                        "badge_wait_night"
+                        if readiness["required_time"] == "night"
+                        else "badge_wait_day"
+                    )
                     badge_tooltips.append(self.translator.translate(key))
                 if badge_tooltips:
                     pokemon_button.setToolTip("\n".join(badge_tooltips))
@@ -1387,22 +1534,23 @@ class PokemonPC(QDialog):
         self._refresh_slot_selection()
 
     def _update_count_label(self):
-        shown = len(self._filtered_pokemon) if hasattr(self, '_filtered_pokemon') else 0
+        shown = len(self._filtered_pokemon) if hasattr(self, "_filtered_pokemon") else 0
         total = self._total_pokemon_count
-        if hasattr(self, 'count_label'):
+        if hasattr(self, "count_label"):
             self.count_label.setText(f"Showing {shown:,} / {total:,} Pokémon")
 
     def _refresh_slot_selection(self):
         for i in range(self.pokemon_grid.count()):
             item = self.pokemon_grid.itemAt(i)
-            if not item: continue
+            if not item:
+                continue
             widget = item.widget()
             if isinstance(widget, PokemonSlotButton):
                 pkmn_id = getattr(widget, "_individual_id", None)
-                is_selected = (pkmn_id == self._selected_individual_id)
-                bg     = getattr(widget, "_base_bg",  "transparent")
-                h_bg   = getattr(widget, "_hover_bg", "transparent")
-                border = getattr(widget, "_border",   "#888")
+                is_selected = pkmn_id == self._selected_individual_id
+                bg = getattr(widget, "_base_bg", "transparent")
+                h_bg = getattr(widget, "_hover_bg", "transparent")
+                border = getattr(widget, "_border", "#888")
                 if is_selected:
                     sheet = (
                         f"QPushButton {{ background-color: {bg}; border: 3px solid #ffffff;"
@@ -1560,14 +1708,20 @@ class PokemonPC(QDialog):
             "db": mw.ankimon_db.db_path.name,
             "search": self.search_edit.text() if self.search_edit else "",
             "type": self.type_combo.currentText() if self.type_combo else "All types",
-            "gen": self.generation_combo.currentText() if self.generation_combo else "All gens",
+            "gen": self.generation_combo.currentText()
+            if self.generation_combo
+            else "All gens",
             "tier": self.tier_combo.currentText() if self.tier_combo else "All tiers",
             "shiny": self.filter_shiny.isChecked() if self.filter_shiny else False,
-            "favorite": self.filter_favorites.isChecked() if self.filter_favorites else False,
-            "holding": self.filter_is_holding_item.isChecked() if self.filter_is_holding_item else False,
+            "favorite": self.filter_favorites.isChecked()
+            if self.filter_favorites
+            else False,
+            "holding": self.filter_is_holding_item.isChecked()
+            if self.filter_is_holding_item
+            else False,
             "sort": self.sort_combo.currentText() if self.sort_combo else "Date",
             "desc": self.desc_sort.isChecked() if self.desc_sort else False,
-            "count": self._total_pokemon_count # Force refresh if count changes
+            "count": self._total_pokemon_count,  # Force refresh if count changes
         }
 
         if self._pokemon_cache is not None and self._last_filter_state == current_state:
@@ -1592,7 +1746,9 @@ class PokemonPC(QDialog):
         # Name / Nickname filtering
         if self.search_edit is not None and self.search_edit.text():
             search_text = f"%{self.search_edit.text()}%"
-            query_parts.append("AND (name LIKE ? OR json_extract(data, '$.nickname') LIKE ?)")
+            query_parts.append(
+                "AND (name LIKE ? OR json_extract(data, '$.nickname') LIKE ?)"
+            )
             params.extend([search_text, search_text])
 
         # Type filtering
@@ -1611,7 +1767,10 @@ class PokemonPC(QDialog):
             query_parts.append("AND json_extract(data, '$.is_favorite') = 1")
 
         # Held item filtering
-        if self.filter_is_holding_item is not None and self.filter_is_holding_item.isChecked():
+        if (
+            self.filter_is_holding_item is not None
+            and self.filter_is_holding_item.isChecked()
+        ):
             query_parts.append("AND json_extract(data, '$.held_item') IS NOT NULL")
 
         # Shiny filtering
@@ -1631,7 +1790,7 @@ class PokemonPC(QDialog):
                     6: (650, 721),
                     7: (722, 809),
                     8: (810, 905),
-                    9: (906, 1025)
+                    9: (906, 1025),
                 }
                 if gen_idx in gen_ranges:
                     start_id, end_id = gen_ranges[gen_idx]
@@ -1639,7 +1798,9 @@ class PokemonPC(QDialog):
                     params.extend([start_id, end_id])
 
         # Sorting
-        sort_key_raw = self.selected_sort_key if hasattr(self, 'selected_sort_key') else "Date"
+        sort_key_raw = (
+            self.selected_sort_key if hasattr(self, "selected_sort_key") else "Date"
+        )
         sort_key_str = sort_key_raw.lower()
         reverse = self.desc_sort is not None and self.desc_sort.isChecked()
         direction = "DESC" if reverse else "ASC"
@@ -1652,9 +1813,9 @@ class PokemonPC(QDialog):
             "defense": "def",
             "sp. atk": "spa",
             "sp. def": "spd",
-            "speed": "spe"
+            "speed": "spe",
         }
-        
+
         target_stat = stat_map.get(sort_key_str)
 
         if sort_key_str == "date":
@@ -1681,7 +1842,6 @@ class PokemonPC(QDialog):
         else:
             # Default to Date
             order_clause = f"ORDER BY original_index {direction}"
-            
 
         query = " ".join(query_parts) + " " + order_clause
 
@@ -1702,9 +1862,11 @@ class PokemonPC(QDialog):
                     "held_item": row["held_item"],
                     "friendship": int(row["friendship"] or 0),
                     "evolution_rejected": bool(row["evolution_rejected"]),
-                    "attacks": json.loads(row["attacks_json"]) if row["attacks_json"] else [],
+                    "attacks": json.loads(row["attacks_json"])
+                    if row["attacks_json"]
+                    else [],
                 }
-                
+
                 # Pre-calculate sums/stats for sorting if needed
                 if use_python_sort:
                     if sort_key_str == "friendship":
@@ -1713,36 +1875,52 @@ class PokemonPC(QDialog):
                         key = "iv" if "iv" in sort_key_str else "ev"
                         stats_json = row[f"{key}_json"]
                         stats_dict = json.loads(stats_json) if stats_json else {}
-                        p["_sort_value"] = sum(stats_dict.values()) if isinstance(stats_dict, dict) else sum(stats_dict) if isinstance(stats_dict, list) else 0                
+                        p["_sort_value"] = (
+                            sum(stats_dict.values())
+                            if isinstance(stats_dict, dict)
+                            else sum(stats_dict)
+                            if isinstance(stats_dict, list)
+                            else 0
+                        )
                     elif target_stat:
                         # Individual Stat sorting
                         level = row["level"]
                         nature = row["nature"] or "serious"
-                        
+
                         iv_dict = json.loads(row["iv_json"]) if row["iv_json"] else {}
                         ev_dict = json.loads(row["ev_json"]) if row["ev_json"] else {}
-                        base_stats_dict = json.loads(row["base_stats_json"]) if row["base_stats_json"] else {}
-                        stats_dict = json.loads(row["stats_json"]) if row["stats_json"] else {}
-                        
+                        base_stats_dict = (
+                            json.loads(row["base_stats_json"])
+                            if row["base_stats_json"]
+                            else {}
+                        )
+                        stats_dict = (
+                            json.loads(row["stats_json"]) if row["stats_json"] else {}
+                        )
+
                         # Use PokemonObject's calculation logic (with fallback for legacy stats)
                         base_val = (base_stats_dict or stats_dict).get(target_stat, 1)
                         iv_val = iv_dict.get(target_stat, 0)
                         ev_val = ev_dict.get(target_stat, 0)
-                        
-                        p["_sort_value"] = PokemonObject.calc_stat(target_stat, base_val, level, iv_val, ev_val, nature)
+
+                        p["_sort_value"] = PokemonObject.calc_stat(
+                            target_stat, base_val, level, iv_val, ev_val, nature
+                        )
                     elif sort_key_str == "cp":
                         # Re-calculate CP for sorting to ensure it uses the new formula
                         iv_dict = json.loads(row["iv_json"]) if row["iv_json"] else {}
                         ev_dict = json.loads(row["ev_json"]) if row["ev_json"] else {}
-                        base_stats_dict = json.loads(row["base_stats_json"]) if row["base_stats_json"] else {}
-                        stats_dict = json.loads(row["stats_json"]) if row["stats_json"] else {}
-                        
+                        base_stats_dict = (
+                            json.loads(row["base_stats_json"])
+                            if row["base_stats_json"]
+                            else {}
+                        )
+                        stats_dict = (
+                            json.loads(row["stats_json"]) if row["stats_json"] else {}
+                        )
+
                         # Mirror calculate_cp_from_dict's contract: prefer base_stats, else stats fallback
-                        cp_dict = {
-                            "level": row["level"],
-                            "iv": iv_dict,
-                            "ev": ev_dict
-                        }
+                        cp_dict = {"level": row["level"], "iv": iv_dict, "ev": ev_dict}
                         if base_stats_dict:
                             cp_dict["base_stats"] = base_stats_dict
                         else:
@@ -1750,15 +1928,15 @@ class PokemonPC(QDialog):
                         p["_sort_value"] = calculate_cp_from_dict(cp_dict)
 
                 results.append(p)
-                
+
             # Perform Python sorting
             if use_python_sort:
                 results.sort(key=lambda x: x.get("_sort_value", 0), reverse=reverse)
-            
+
             # Cache the result
             self._pokemon_cache = results
             self._last_filter_state = current_state
-            
+
             return results
         except Exception as e:
             if self.logger:
@@ -1814,8 +1992,14 @@ class PokemonPC(QDialog):
         give_held_item = QAction("Give a held item", self)
 
         # Connect actions to methods or lambda functions
-        pokemon_details_action.triggered.connect(lambda: self.show_pokemon_details(pokemon))
-        main_pokemon_action.triggered.connect(lambda: self.main_pokemon_function_callback(mw.ankimon_db.get_pokemon(pokemon['individual_id'])))
+        pokemon_details_action.triggered.connect(
+            lambda: self.show_pokemon_details(pokemon)
+        )
+        main_pokemon_action.triggered.connect(
+            lambda: self.main_pokemon_function_callback(
+                mw.ankimon_db.get_pokemon(pokemon["individual_id"])
+            )
+        )
         make_favorite_action.triggered.connect(lambda: self.toggle_favorite(pokemon))
         give_held_item.triggered.connect(lambda: self.give_held_item(pokemon))
 
@@ -1838,17 +2022,19 @@ class PokemonPC(QDialog):
         Displays detailed information about a specific Pokémon in the right-hand details panel.
         Only the header and footer parts animate; the stats box stays persistent for smooth bar sliding.
         """
-        individual_id = pokemon_stub.get('individual_id')
-        is_same_pokemon = (individual_id is not None and individual_id == getattr(self, "_selected_individual_id", None))
-        
+        individual_id = pokemon_stub.get("individual_id")
+        is_same_pokemon = individual_id is not None and individual_id == getattr(
+            self, "_selected_individual_id", None
+        )
+
         pokemon = mw.ankimon_db.get_pokemon(individual_id)
         if not pokemon:
             return
 
-        if pokemon.get('base_stats'):
-            detail_stats = {**pokemon['base_stats'], "xp": pokemon.get("xp", 0)}
-        elif pokemon.get('stats'):
-            detail_stats = {**pokemon['stats'], "xp": pokemon.get("xp", 0)}
+        if pokemon.get("base_stats"):
+            detail_stats = {**pokemon["base_stats"], "xp": pokemon.get("xp", 0)}
+        elif pokemon.get("stats"):
+            detail_stats = {**pokemon["stats"], "xp": pokemon.get("xp", 0)}
         else:
             raise ValueError("Could not get the stats information of the Pokémon")
 
@@ -1900,7 +2086,10 @@ class PokemonPC(QDialog):
             gif_in_collection=self.gif_in_collection,
             remove_levelcap=self.settings.get("misc.remove_level_cap"),
             logger=self.logger,
-            refresh_callback=lambda: (self.refresh_gui(), self.show_pokemon_details(pokemon_stub)),
+            refresh_callback=lambda: (
+                self.refresh_gui(),
+                self.show_pokemon_details(pokemon_stub),
+            ),
             initial_tab_index=self.current_stats_tab_index,
             tab_changed_callback=self.on_stats_tab_changed,
             nature=pokemon.get("nature", "serious"),
@@ -1910,9 +2099,9 @@ class PokemonPC(QDialog):
             evolution_rejected=pokemon.get("evolution_rejected", False),
             trigger_evo_callback=trigger_evo,
         )
-        
+
         self._last_pokemon_stats = current_stats
-        
+
         # Update Stacks (Zero Flicker Swap)
         def swap_stack_widget(stack, new_widget):
             old_widget = stack.currentWidget()
@@ -1924,23 +2113,23 @@ class PokemonPC(QDialog):
 
         # 1. Update Header
         swap_stack_widget(self.header_stack, h_widget)
-        
+
         # 2. Update Stats (No fade)
         swap_stack_widget(self.stats_stack, stats_tabs)
-        
+
         # 3. Update Footer
         swap_stack_widget(self.footer_stack, f_widget)
-        
+
         # --- Post-processing: Move Manager (Improvement B) ---
         self._integrate_move_manager(pokemon)
-        
+
         # --- Post-processing: Nature Indicators (Improvement G) ---
         self._apply_nature_indicators(pokemon)
 
         # Set initial state for animation
         if not is_same_pokemon:
             self.header_opacity.setOpacity(0.0)
-            
+
         self.details_widget.show()
 
         # Force layout recalculation
@@ -1948,7 +2137,7 @@ class PokemonPC(QDialog):
 
         # Animation Handling
         from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
-        
+
         if not is_same_pokemon:
             # Header Animation
             self.header_fade = QPropertyAnimation(self.header_opacity, b"opacity")
@@ -1960,7 +2149,6 @@ class PokemonPC(QDialog):
         else:
             self.header_opacity.setOpacity(1.0)
 
-            
         # Selection indicator
         self._selected_individual_id = pokemon.get("individual_id")
         self._refresh_slot_selection()
@@ -1982,7 +2170,6 @@ class PokemonPC(QDialog):
                         if top_r_item and top_r_item.widget():
                             top_r_layout = top_r_item.widget().layout()
 
-                    
                     # Add new Move Manager
                     def _save_pokemon(data):
                         mw.ankimon_db.save_pokemon(data)
@@ -1994,7 +2181,7 @@ class PokemonPC(QDialog):
                         pkmn_id=pokemon["id"],
                         logger=self.logger,
                         save_fn=_save_pokemon,
-                        parent=self.details_widget
+                        parent=self.details_widget,
                     )
                     self.move_manager = new_move_manager
 
@@ -2007,7 +2194,7 @@ class PokemonPC(QDialog):
                                 evo_btn = item.widget()
                                 continue
                             item.widget().hide()
-                    
+
                     top_r_layout.addWidget(self.move_manager)
                     if evo_btn:
                         top_r_layout.addWidget(evo_btn)
@@ -2034,16 +2221,21 @@ class PokemonPC(QDialog):
                 for label in labels:
                     # Strip any previously applied indicators before matching
                     raw_text = label.text()
-                    clean_text = raw_text.replace(" ▲", "").replace(" ▼", "").replace(":", "").strip()
+                    clean_text = (
+                        raw_text.replace(" ▲", "")
+                        .replace(" ▼", "")
+                        .replace(":", "")
+                        .strip()
+                    )
                     clean_text_lower = clean_text.lower()
-                    
+
                     stat_key = None
                     # First try exact match in lower case
                     for k, v in DISPLAY_TO_STAT_KEY.items():
                         if k.lower() == clean_text_lower:
                             stat_key = v
                             break
-                    
+
                     if not stat_key:
                         # Fallback for substring match (e.g. "Sp. Atk" in "Special-attack" or vice versa)
                         for k, v in DISPLAY_TO_STAT_KEY.items():
@@ -2051,7 +2243,6 @@ class PokemonPC(QDialog):
                             if kl in clean_text_lower or clean_text_lower in kl:
                                 stat_key = v
                                 break
-
 
                     if stat_key:
                         if stat_key == boosted:
@@ -2062,20 +2253,20 @@ class PokemonPC(QDialog):
                             label.setStyleSheet("color: #f87171; font-weight: bold;")
         except Exception as e:
             self.logger.log("error", f"Error applying nature indicators: {e}")
-            
+
     def _update_count_label(self):
         if not hasattr(self, "count_label") or not is_alive(self.count_label):
             return
-        
+
         shown = len(self._filtered_pokemon) if hasattr(self, "_filtered_pokemon") else 0
-        
+
         # Get total count
         try:
             cursor = mw.ankimon_db.execute("SELECT COUNT(*) FROM captured_pokemon")
             total = cursor.fetchone()[0]
         except Exception:
             total = shown
-            
+
         self.count_label.setText(f"Showing {shown} / {total} Pokémon")
 
     def on_stats_tab_changed(self, index: int):
@@ -2155,7 +2346,7 @@ class PokemonPC(QDialog):
             - Logs and displays an info message using `ShowInfoLogger`.
             - Refreshes the GUI via `self.refresh_gui()`.
         """
-        pokemon = mw.ankimon_db.get_pokemon(pokemon_stub['individual_id'])
+        pokemon = mw.ankimon_db.get_pokemon(pokemon_stub["individual_id"])
         if not pokemon:
             return
 
@@ -2206,10 +2397,10 @@ class PokemonPC(QDialog):
             - Logs and displays an info message using `ShowInfoLogger`.
             - Refreshes the GUI via `self.refresh_gui()`.
         """
-        pokemon = mw.ankimon_db.get_pokemon(pokemon_stub['individual_id'])
+        pokemon = mw.ankimon_db.get_pokemon(pokemon_stub["individual_id"])
         if not pokemon:
             return
-            
+
         pokemon_obj = PokemonObject.from_dict(pokemon)
         if pokemon.get("held_item") is None:
             raise ValueError("The pokemon does not hold an item.")
@@ -2259,7 +2450,6 @@ class PokemonPC(QDialog):
 
         is_migration_needed = any(
             key not in pokemon
-
             for pokemon in pokemon_list
             if isinstance(pokemon, dict)
             for key in default_keys

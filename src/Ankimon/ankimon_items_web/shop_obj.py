@@ -594,7 +594,11 @@ class AnkimonItemsWeb(QDialog):
     def handle_get_caught_pokemon(self):
         """Get the list of caught/collected Pokémon for the quick-add panel."""
         from ..utils import load_collected_pokemon_ids
-        from ..functions.pokedex_functions import _load_pokedex_cache, search_pokedex_by_id, get_pretty_name_for_id
+        from ..functions.pokedex_functions import (
+            _load_pokedex_cache,
+            search_pokedex_by_id,
+            get_pretty_name_for_id,
+        )
 
         caught_ids = load_collected_pokemon_ids()
         results = []
@@ -604,10 +608,12 @@ class AnkimonItemsWeb(QDialog):
             internal_name = search_pokedex_by_id(pid)
             if internal_name and internal_name != "Pokémon not found":
                 pretty_name = get_pretty_name_for_id(pid)
-                results.append({
-                    "id": int(pid),
-                    "name": pretty_name,
-                })
+                results.append(
+                    {
+                        "id": int(pid),
+                        "name": pretty_name,
+                    }
+                )
         # Sort by name alphabetically
         results.sort(key=lambda r: r["name"].lower())
         return {"results": results}
@@ -935,7 +941,7 @@ class AnkimonItemsWeb(QDialog):
         is_evo_item = False
         if item_name:
             # We assume non-TM here; if it was a TM, useItemOnPokemon wouldn't be called.
-            is_evo_item = (self._categorize(item_name, False) == "evolution")
+            is_evo_item = self._categorize(item_name, False) == "evolution"
 
         cached = getattr(self, "_pokemon_choices_cache", None)
         # If not an evolution item, we can safely return the base cache (if it exists).
@@ -1012,27 +1018,68 @@ class AnkimonItemsWeb(QDialog):
                 evo_list = p_details.get("evos")
                 if evo_list:
                     for target_evo_name in evo_list:
-                        normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
-                        target_data = pokedex_data.get(normalized_target) or pokedex_data.get(target_evo_name.lower())
+                        normalized_target = (
+                            target_evo_name.lower()
+                            .replace(" ", "")
+                            .replace("-", "")
+                            .replace("'", "")
+                            .replace(".", "")
+                            .replace(":", "")
+                        )
+                        target_data = pokedex_data.get(
+                            normalized_target
+                        ) or pokedex_data.get(target_evo_name.lower())
 
                         if target_data and target_data.get("evoType") == "useItem":
                             # required_item is normalized to match the input item_name (e.g. "Fire Stone" -> "fire-stone")
-                            required_item = (target_data.get("evoItem") or "").lower().replace(" ", "-")
+                            required_item = (
+                                (target_data.get("evoItem") or "")
+                                .lower()
+                                .replace(" ", "-")
+                            )
                             if required_item == item_name:
                                 target_region = target_data.get("evoRegion")
 
                                 if target_region:
-                                    if active_region and active_region.lower() == target_region.lower():
+                                    if (
+                                        active_region
+                                        and active_region.lower()
+                                        == target_region.lower()
+                                    ):
                                         entry["e"] = 1
                                         break
                                 else:
                                     # Standard form is only allowed if there is no regional sibling for this region/method
                                     has_matching_regional_sibling = False
                                     for sibling_name in evo_list:
-                                        sib_norm = sibling_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
-                                        sib_data = pokedex_data.get(sib_norm) or pokedex_data.get(sibling_name.lower())
-                                        if sib_data and sib_data.get("evoRegion") and active_region and sib_data.get("evoRegion").lower() == active_region.lower():
-                                            if sib_data.get("evoType") == target_data.get("evoType") and (sib_data.get("evoItem") or "").lower() == (target_data.get("evoItem") or "").lower():
+                                        sib_norm = (
+                                            sibling_name.lower()
+                                            .replace(" ", "")
+                                            .replace("-", "")
+                                            .replace("'", "")
+                                            .replace(".", "")
+                                            .replace(":", "")
+                                        )
+                                        sib_data = pokedex_data.get(
+                                            sib_norm
+                                        ) or pokedex_data.get(sibling_name.lower())
+                                        if (
+                                            sib_data
+                                            and sib_data.get("evoRegion")
+                                            and active_region
+                                            and sib_data.get("evoRegion").lower()
+                                            == active_region.lower()
+                                        ):
+                                            if (
+                                                sib_data.get("evoType")
+                                                == target_data.get("evoType")
+                                                and (
+                                                    sib_data.get("evoItem") or ""
+                                                ).lower()
+                                                == (
+                                                    target_data.get("evoItem") or ""
+                                                ).lower()
+                                            ):
                                                 has_matching_regional_sibling = True
                                                 break
                                     if not has_matching_regional_sibling:
@@ -1055,6 +1102,7 @@ class AnkimonItemsWeb(QDialog):
         if not is_evo_item:
             self._pokemon_choices_cache = result
         return result
+
     def handle_use_with_target(self, item_name, individual_id):
         """Apply an item to a specific Pokémon (chosen via the in-shell
         picker). Bypasses dispatch_use's QInputDialog branches by calling
@@ -1153,7 +1201,9 @@ class AnkimonItemsWeb(QDialog):
                 )
                 sub_chip_def = sub.get("chip_group")
                 if sub_chip_def:
-                    sub_settings.append(self._serialize_chip_group(sub_chip_def, config))
+                    sub_settings.append(
+                        self._serialize_chip_group(sub_chip_def, config)
+                    )
                 group["subgroups"].append(
                     {
                         "label": sub["label"],
@@ -1215,6 +1265,7 @@ class AnkimonItemsWeb(QDialog):
         if key == "battle.auto_catch_wishlist":
             entry["type"] = "wishlist"
             from ..functions.pokedex_functions import get_pretty_name_for_id
+
             names_dict = {}
             if isinstance(value, list):
                 for pid in value:
@@ -1316,7 +1367,7 @@ class AnkimonItemsWeb(QDialog):
         if isinstance(existing, list):
             if isinstance(incoming, list):
                 # Accept only integer IDs; silently drop anything non-numeric.
-                return [int(x) for x in incoming if str(x).lstrip('-').isdigit()]
+                return [int(x) for x in incoming if str(x).lstrip("-").isdigit()]
             return existing  # reject non-list payloads silently
         if isinstance(existing, bool):
             return bool(incoming)

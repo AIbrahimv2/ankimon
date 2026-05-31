@@ -793,7 +793,16 @@ def generate_random_pokemon(
 
     # FALLBACK HIERARCHY
     # If a rolled tier fails, try the next one in the list.
-    TIER_ORDER = ["Mythical", "Mega", "Legendary", "Gmax", "Ultra", "Starter", "Baby", "Normal"]
+    TIER_ORDER = [
+        "Mythical",
+        "Mega",
+        "Legendary",
+        "Gmax",
+        "Ultra",
+        "Starter",
+        "Baby",
+        "Normal",
+    ]
     selected_pokemon_id = None
     selected_tier = None
 
@@ -1582,22 +1591,22 @@ def handle_enemy_faint(
 
     name_lower = enemy_pokemon.name.lower()
     forme = search_pokedex(name_lower, "forme")
-    is_mega = (enemy_pokemon.id in encounter_data.MEGA)
-    is_gmax = (enemy_pokemon.id in encounter_data.GMAX)
-    is_regional = (enemy_pokemon.id in encounter_data.REGIONAL_FORM_REGION)
-    is_legendary = (enemy_pokemon.tier == "Legendary")
-    is_mythical  = (enemy_pokemon.tier == "Mythical")
-    is_ultra     = (enemy_pokemon.tier == "Ultra")
-    is_starter   = (enemy_pokemon.tier == "Starter")
-    
+    is_mega = enemy_pokemon.id in encounter_data.MEGA
+    is_gmax = enemy_pokemon.id in encounter_data.GMAX
+    is_regional = enemy_pokemon.id in encounter_data.REGIONAL_FORM_REGION
+    is_legendary = enemy_pokemon.tier == "Legendary"
+    is_mythical = enemy_pokemon.tier == "Mythical"
+    is_ultra = enemy_pokemon.tier == "Ultra"
+    is_starter = enemy_pokemon.tier == "Starter"
+
     should_catch_always = (
-        (is_legendary and settings_obj.get("battle.auto_catch_legendary", True)) or
-        (is_mythical  and settings_obj.get("battle.auto_catch_mythical",  True)) or
-        (is_ultra     and settings_obj.get("battle.auto_catch_ultra",     True)) or
-        (is_starter   and settings_obj.get("battle.auto_catch_starter",   True)) or
-        (is_mega      and settings_obj.get("battle.auto_catch_mega",      True)) or
-        (is_gmax      and settings_obj.get("battle.auto_catch_gmax",      True)) or
-        (is_regional  and settings_obj.get("battle.auto_catch_regional",  True))
+        (is_legendary and settings_obj.get("battle.auto_catch_legendary", True))
+        or (is_mythical and settings_obj.get("battle.auto_catch_mythical", True))
+        or (is_ultra and settings_obj.get("battle.auto_catch_ultra", True))
+        or (is_starter and settings_obj.get("battle.auto_catch_starter", True))
+        or (is_mega and settings_obj.get("battle.auto_catch_mega", True))
+        or (is_gmax and settings_obj.get("battle.auto_catch_gmax", True))
+        or (is_regional and settings_obj.get("battle.auto_catch_regional", True))
     )
 
     if auto_battle_setting == 3:  # Catch if uncollected
