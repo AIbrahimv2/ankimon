@@ -81,11 +81,11 @@ def run_startup_background_checks():
 
     if database_complete:
         enemy_info = _init_first_enemy_background()
-
+        
         # Check if starter is needed
         if ankimon_db.get_pokemon_count() == 0:
             needs_starter = True
-
+            
         # Check if rating prompt is needed
         badge_list = get_achieved_badges()
         if len(badge_list) > 1:
@@ -117,35 +117,19 @@ def run_startup_ui_callbacks(results):
 
     # Show backup error if any occurred
     if results.get("backup_error"):
-        show_warning_with_traceback(
-            parent=mw, exception=results["backup_error"], message="Backup error:"
-        )
+        show_warning_with_traceback(parent=mw, exception=results["backup_error"], message="Backup error:")
 
     # Database migration
     if not results["is_migrated"]:
         from .pyobj.migration_dialog import show_migration_dialog_if_needed
         from .resources import (
-            mypokemon_path,
-            mainpokemon_path,
-            itembag_path,
-            badgebag_path,
-            team_pokemon_path,
-            pokemon_history_path,
-            user_path_credentials,
-            rate_path,
+            mypokemon_path, mainpokemon_path, itembag_path, badgebag_path,
+            team_pokemon_path, pokemon_history_path, user_path_credentials,
+            rate_path
         )
-
         show_migration_dialog_if_needed(
-            ankimon_db,
-            mypokemon_path,
-            mainpokemon_path,
-            itembag_path,
-            badgebag_path,
-            mw,
-            team_pokemon_path,
-            pokemon_history_path,
-            user_path_credentials,
-            rate_path,
+            ankimon_db, mypokemon_path, mainpokemon_path, itembag_path, badgebag_path, mw,
+            team_pokemon_path, pokemon_history_path, user_path_credentials, rate_path
         )
 
     # Assets download check
@@ -158,45 +142,17 @@ def run_startup_ui_callbacks(results):
     # Initializing first enemy stats on the main thread (thread-safety for GUI bindings/updates)
     if results["database_complete"] and results["enemy_info"]:
         (
-            name,
-            id,
-            level,
-            ability,
-            type,
-            base_stats,
-            enemy_attacks,
-            base_experience,
-            growth_rate,
-            ev,
-            iv,
-            gender,
-            battle_status,
-            battle_stats,
-            tier,
-            ev_yield,
-            shiny,
-            nature,
+            name, id, level, ability, type, base_stats, enemy_attacks,
+            base_experience, growth_rate, ev, iv, gender,
+            battle_status, battle_stats, tier, ev_yield, shiny, nature,
         ) = results["enemy_info"]
 
         enemy_pokemon.update_stats(
-            name=name,
-            id=id,
-            level=level,
-            ability=ability,
-            type=type,
-            base_stats=base_stats,
-            attacks=enemy_attacks,
-            base_experience=base_experience,
-            growth_rate=growth_rate,
-            ev=ev,
-            iv=iv,
-            gender=gender,
-            nature=nature,
-            battle_status=battle_status,
-            battle_stats=battle_stats,
-            tier=tier,
-            ev_yield=ev_yield,
-            shiny=shiny,
+            name=name, id=id, level=level, ability=ability, type=type,
+            base_stats=base_stats, attacks=enemy_attacks,
+            base_experience=base_experience, growth_rate=growth_rate,
+            ev=ev, iv=iv, gender=gender, nature=nature, battle_status=battle_status,
+            battle_stats=battle_stats, tier=tier, ev_yield=ev_yield, shiny=shiny,
         )
         max_hp = enemy_pokemon.calculate_max_hp()
         enemy_pokemon.current_hp = max_hp
@@ -207,7 +163,6 @@ def run_startup_ui_callbacks(results):
     # Check starter
     if results["database_complete"] and results["needs_starter"]:
         from .singletons import get_starter_window
-
         get_starter_window().display_starter_pokemon()
 
     # Rate dialog
@@ -228,16 +183,14 @@ def _check_assets_background():
     item_sprites = check_folders_exist(pkmnimgfolder, "items")
     badges_sprites = check_folders_exist(pkmnimgfolder, "badges")
 
-    return all(
-        [
-            back_sprites,
-            front_sprites,
-            front_default_gif,
-            back_default_gif,
-            item_sprites,
-            badges_sprites,
-        ]
-    )
+    return all([
+        back_sprites,
+        front_sprites,
+        front_default_gif,
+        back_default_gif,
+        item_sprites,
+        badges_sprites,
+    ])
 
 
 def _init_first_enemy_background():
@@ -256,3 +209,4 @@ def _init_first_enemy_background():
     except Exception as e:
         print(f"Error in _init_first_enemy_background: {e}")
         return None
+

@@ -24,7 +24,7 @@ GROWTH_RATES = {
     3: "fast",
     4: "medium-slow",
     5: "slow-then-very-fast",
-    6: "fast-then-very-slow",
+    6: "fast-then-very-slow"
 }
 
 STATS = {
@@ -39,7 +39,6 @@ STATS = {
 # === PERFORMANCE FIX: Cache pokedex data ===
 _pokedex_cache = None
 _poke_species_cache = None
-
 
 def safe_int(value, default=0):
     """Safely convert a value to an integer, returning a default if conversion fails."""
@@ -56,7 +55,6 @@ def safe_int(value, default=0):
     except (ValueError, TypeError):
         return default
 
-
 def _load_pokedex_cache():
     """Load pokedex JSON once and cache it in memory"""
     global _pokedex_cache
@@ -64,47 +62,40 @@ def _load_pokedex_cache():
         try:
             with open(str(pokedex_path), "r", encoding="utf-8") as json_file:
                 _pokedex_cache = json.load(json_file)
-
+                
                 # Dynamic enrichment for location-based Hisuian forms
                 hisuian_forms = [
-                    "decidueyehisui",
-                    "typhlosionhisui",
-                    "samurotthisui",
-                    "sliggoohisui",
-                    "braviaryhisui",
-                    "avalugghisui",
-                    "lilliganthisui",
+                    "decidueyehisui", "typhlosionhisui", "samurotthisui",
+                    "sliggoohisui", "braviaryhisui", "avalugghisui", "lilliganthisui"
                 ]
                 for form in hisuian_forms:
                     if form in _pokedex_cache:
                         _pokedex_cache[form]["evoRegion"] = "Hisui"
-
+                
                 # Kleavor
                 if "kleavor" in _pokedex_cache:
                     _pokedex_cache["kleavor"]["evoRegion"] = "Hisui"
                     _pokedex_cache["kleavor"]["evoItem"] = "Black Augurite"
-
+                
                 # Ursaluna
                 if "ursaluna" in _pokedex_cache:
                     _pokedex_cache["ursaluna"]["evoRegion"] = "Hisui"
                     _pokedex_cache["ursaluna"]["evoType"] = "useItem"
                     _pokedex_cache["ursaluna"]["evoItem"] = "Peat Block"
-
+                
                 # Wyrdeer
                 if "wyrdeer" in _pokedex_cache:
                     _pokedex_cache["wyrdeer"]["evoRegion"] = "Hisui"
                     _pokedex_cache["wyrdeer"]["evoType"] = "levelMove"
                     _pokedex_cache["wyrdeer"]["evoMove"] = "Psyshield Bash"
-
+                    
         except Exception as e:
             print(f"Error loading pokedex cache: {e}")
             _pokedex_cache = {}
     return _pokedex_cache
 
-
 # === ID INDEX CACHE: Fast O(1) lookups by species_id ===
 _pokedex_id_index = None
-
 
 def _load_pokedex_id_index():
     """Build a reverse index: species_id -> pokemon_name for O(1) lookups"""
@@ -113,13 +104,13 @@ def _load_pokedex_id_index():
         try:
             pokedex_data = _load_pokedex_cache()
             _pokedex_id_index = {}
-
+            
             # Pass 1: Set actual_ids (specific forms)
             for entry_name, attributes in pokedex_data.items():
                 actual_id = safe_int(attributes.get("actual_id"))
                 if actual_id is not None:
                     _pokedex_id_index[actual_id] = entry_name
-
+            
             # Pass 2: Set base species_ids, prioritizing standard keys where actual_id == species_id or actual_id is None
             for entry_name, attributes in pokedex_data.items():
                 species_id = safe_int(attributes.get("species_id"))
@@ -128,15 +119,14 @@ def _load_pokedex_id_index():
                     # Avoid treating form variants (which have a 'baseSpecies' attribute) as the base form.
                     actual_id = safe_int(attributes.get("actual_id"))
                     has_base_species = attributes.get("baseSpecies") is not None
-                    is_base_form = (
-                        actual_id is None or actual_id == species_id
-                    ) and not has_base_species
+                    is_base_form = (actual_id is None or actual_id == species_id) and not has_base_species
                     if is_base_form or species_id not in _pokedex_id_index:
                         _pokedex_id_index[species_id] = entry_name
         except Exception as e:
             print(f"Error building pokedex ID index: {e}")
             _pokedex_id_index = {}
     return _pokedex_id_index
+
 
 
 def _load_poke_species_cache():
@@ -155,13 +145,11 @@ def _load_poke_species_cache():
             _poke_species_cache = {}
     return _poke_species_cache
 
-
 # === ADDITIONAL CACHES ===
 _pokemon_csv_cache = None
 _stats_csv_cache = None
 _poke_evo_cache = None
 _moves_cache = None
-
 
 def _load_pokemon_csv_cache():
     """Cache pokemon.csv to avoid repeated file I/O"""
@@ -178,7 +166,6 @@ def _load_pokemon_csv_cache():
             print(f"Error loading pokemon CSV cache: {e}")
             _pokemon_csv_cache = {}
     return _pokemon_csv_cache
-
 
 def _load_stats_csv_cache():
     """Cache stats.csv to avoid repeated file I/O. Keyed by pokemon_id."""
@@ -200,7 +187,6 @@ def _load_stats_csv_cache():
             _stats_csv_cache = {}
     return _stats_csv_cache
 
-
 def _load_poke_evo_cache():
     """Cache pokemon evolution data to avoid repeated file I/O"""
     global _poke_evo_cache
@@ -215,7 +201,6 @@ def _load_poke_evo_cache():
             _poke_evo_cache = []
     return _poke_evo_cache
 
-
 def _load_moves_cache():
     """Cache moves.json to avoid repeated file I/O"""
     global _moves_cache
@@ -228,11 +213,9 @@ def _load_moves_cache():
             _moves_cache = {}
     return _moves_cache
 
-
 # === POKEMON NAME & DESCRIPTION CACHES ===
 _pokemon_names_cache = {}  # {(pokemon_id, language): name}
 _pokemon_descriptions_cache = {}  # {(species_id, language): description}
-
 
 def _load_pokemon_names_csv():
     """Load all pokemon names into cache on first access"""
@@ -250,7 +233,6 @@ def _load_pokemon_names_csv():
             print(f"Error loading pokemon names cache: {e}")
     return _pokemon_names_cache
 
-
 def _load_pokemon_descriptions_csv():
     """Load all pokemon descriptions into cache on first access"""
     global _pokemon_descriptions_cache
@@ -262,7 +244,7 @@ def _load_pokemon_descriptions_csv():
                     species_id = safe_int(row.get("species_id"))
                     lang_id = safe_int(row.get("language_id"))
                     flavor_text = row.get("flavor_text", "").replace("\x0c", " ")
-
+                    
                     # Store all descriptions for this (species_id, lang_id) pair
                     key = (species_id, lang_id)
                     if key not in _pokemon_descriptions_cache:
@@ -272,19 +254,9 @@ def _load_pokemon_descriptions_csv():
             print(f"Error loading pokemon descriptions cache: {e}")
     return _pokemon_descriptions_cache
 
-
 def clear_pokedex_caches():
     """Call this when pokedex data is updated or session ends"""
-    global \
-        _pokedex_cache, \
-        _poke_species_cache, \
-        _pokemon_csv_cache, \
-        _stats_csv_cache, \
-        _poke_evo_cache, \
-        _moves_cache, \
-        _pokedex_id_index, \
-        _pokemon_names_cache, \
-        _pokemon_descriptions_cache
+    global _pokedex_cache, _poke_species_cache, _pokemon_csv_cache, _stats_csv_cache, _poke_evo_cache, _moves_cache, _pokedex_id_index, _pokemon_names_cache, _pokemon_descriptions_cache
     _pokedex_cache = None
     _poke_species_cache = None
     _pokemon_csv_cache = None
@@ -294,7 +266,6 @@ def clear_pokedex_caches():
     _pokedex_id_index = None
     _pokemon_names_cache = {}
     _pokemon_descriptions_cache = {}
-
 
 def _normalize_language_id(language):
     """Map unsupported language IDs to a fallback that exists in data files."""
@@ -382,7 +353,7 @@ def search_pokedex(pokemon_name, variable):
     try:
         if isinstance(pokemon_name, str):
             pokemon_name = pokemon_name.lower()
-
+            
         pokemon_name = special_pokemon_names_for_min_level(pokemon_name)
         pokedex_data = _load_pokedex_cache()  # Use cache instead of file I/O
 
@@ -396,16 +367,10 @@ def search_pokedex(pokemon_name, variable):
                 var = pokemon_info.get(variable)
                 if var is not None:
                     return var
-
+            
             # 2. Try normalized version (no spaces, hyphens, or apostrophes)
             # This handles cases like "Venusaur-Mega" matching "venusaurmega"
-            normalized_name = (
-                current_name.replace(" ", "")
-                .replace("-", "")
-                .replace("'", "")
-                .replace(".", "")
-                .replace(":", "")
-            )
+            normalized_name = current_name.replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
             if normalized_name in pokedex_data:
                 pokemon_info = pokedex_data[normalized_name]
                 var = pokemon_info.get(variable)
@@ -441,17 +406,15 @@ def search_pokedex(pokemon_name, variable):
         )
         return []
 
-
 def search_pokedex_by_id(species_id):
     id_index = _load_pokedex_id_index()  # Use index for O(1) lookup instead of O(n)
     return id_index.get(safe_int(species_id), "Pokémon not found")
-
 
 def format_lore_name(name: str) -> str:
     """Transform internal hyphenated names into lore-accurate ones (e.g. Venusaur-Mega -> Mega Venusaur)."""
     if not name or not isinstance(name, str):
         return name
-
+        
     # Order matters: check more specific ones first
     if "-Mega-X" in name:
         return "Mega " + name.replace("-Mega-X", " X")
@@ -459,7 +422,7 @@ def format_lore_name(name: str) -> str:
         return "Mega " + name.replace("-Mega-Y", " Y")
     if "-Mega-Z" in name:
         return "Mega " + name.replace("-Mega-Z", " Z")
-
+    
     replacements = {
         "-Mega": "Mega ",
         "-Gmax": "Gigantamax ",
@@ -471,14 +434,13 @@ def format_lore_name(name: str) -> str:
         "-Origin": "Origin ",
         "-Therian": "Therian ",
     }
-
+    
     for suffix, prefix in replacements.items():
         if suffix in name:
             base = name.replace(suffix, "")
             return prefix + base
-
+            
     return name
-
 
 def get_pretty_name_for_id(species_id):
     """Get the official pretty name (e.g. Mega Venusaur) for an ID."""
@@ -486,14 +448,11 @@ def get_pretty_name_for_id(species_id):
         pokedex_data = _load_pokedex_cache()
         internal_name = search_pokedex_by_id(species_id)
         if internal_name in pokedex_data:
-            raw_name = pokedex_data[internal_name].get(
-                "name", internal_name.capitalize()
-            )
+            raw_name = pokedex_data[internal_name].get("name", internal_name.capitalize())
             return format_lore_name(raw_name)
     except:
         pass
     return "Pokémon not found"
-
 
 def get_pretty_name_for_name(pokemon_name):
     """Get the official pretty name (e.g. Mega Venusaur) from an internal name."""
@@ -501,24 +460,21 @@ def get_pretty_name_for_name(pokemon_name):
         pokedex_data = _load_pokedex_cache()
         # Use aggressive normalization (isalnum) to match cache keys
         internal_name = "".join(c for c in str(pokemon_name).lower() if c.isalnum())
-
+        
         if internal_name in pokedex_data:
             raw_name = pokedex_data[internal_name].get("name", pokemon_name.title())
             return format_lore_name(raw_name)
-
+            
         # Fallback: try removing common suffixes if direct match fails
         for suffix in ["-mega", "-gmax", "-alola", "-galar", "-hisui", "-paldea"]:
             if suffix in pokemon_name.lower():
                 base_name = pokemon_name.lower().replace(suffix, "").replace("-", "")
                 if base_name in pokedex_data:
-                    raw_base = pokedex_data[base_name].get(
-                        "name", base_name.capitalize()
-                    )
+                    raw_base = pokedex_data[base_name].get("name", base_name.capitalize())
                     return format_lore_name(pokemon_name.title())
     except:
         pass
     return format_lore_name(str(pokemon_name).replace("-", " ").title())
-
 
 def get_mainpokemon_evo(pokemon_name):
     pokedex_data = _load_pokedex_cache()  # Use cache instead of file I/O
@@ -528,18 +484,16 @@ def get_mainpokemon_evo(pokemon_name):
     evolutions = pokemon_info.get("evos", [])
     return evolutions
 
-
 def get_base_experience(actual_id: int) -> int:
     pokemon_data = _load_pokemon_csv_cache()  # Use cache instead of file I/O
     if actual_id in pokemon_data:
         return safe_int(pokemon_data[actual_id].get("base_experience"))
     raise ValueError(actual_id)
 
-
 def get_effort_values(actual_id: int) -> dict[str, int]:
     evs = {}
     stats_data = _load_stats_csv_cache()  # Use cache instead of file I/O
-
+    
     pokemon_stats = stats_data.get(actual_id, {})
     for stat_id, effort in pokemon_stats.items():
         if stat_id in STATS:
@@ -554,7 +508,6 @@ def get_effort_values(actual_id: int) -> dict[str, int]:
         "speed": evs.get("speed", 0),
     }
 
-
 def get_growth_rate(species_id: int) -> str:
     """Get the growth rate for a pokemon species"""
     # Coerce string callers to int so they match the integer CSV ids; a
@@ -565,23 +518,20 @@ def get_growth_rate(species_id: int) -> str:
         raise ValueError(species_id)
     poke_species_data = _load_poke_species_cache()  # Use cache instead of file I/O
     if species_id in poke_species_data:
-        growth_rate_id = safe_int(
-            poke_species_data[species_id].get("growth_rate_id", 2)
-        )
+        growth_rate_id = safe_int(poke_species_data[species_id].get("growth_rate_id", 2))
         return GROWTH_RATES.get(growth_rate_id, "medium")
     return "medium"  # Default fallback
-
 
 def get_pokemon_descriptions(species_id, language):
     """Get pokemon descriptions from cache. Returns a random description if multiple exist."""
     language = _normalize_language_id(language)
-
+    
     # Load all descriptions into cache
     all_descriptions = _load_pokemon_descriptions_csv()
-
+    
     # Get descriptions for this species and language
     descriptions = all_descriptions.get((species_id, language), [])
-
+    
     if descriptions:
         if len(descriptions) > 1:
             return random.choice(descriptions)
@@ -594,15 +544,15 @@ def get_pokemon_descriptions(species_id, language):
 def get_pokemon_diff_lang_name(pokemon_id: int, language: int):
     """Get pokemon name in specified language from cache."""
     language = _normalize_language_id(language)
-
+    
     # Load all names into cache
     names_cache = _load_pokemon_names_csv()
-
+    
     # Look up the name
     name = names_cache.get((pokemon_id, language))
     if name:
         return format_lore_name(name)
-
+        
     # If not found and it's a form ID (>= 10000), fall back to species ID
     if pokemon_id >= 10000:
         internal_name = search_pokedex_by_id(pokemon_id)
@@ -610,19 +560,18 @@ def get_pokemon_diff_lang_name(pokemon_id: int, language: int):
         pokedex_data = _load_pokedex_cache()
         info = pokedex_data.get(internal_name, {})
         raw_pokedex_name = info.get("name", "")
-
+        
         species_id = safe_int(info.get("species_id"))
         if species_id:
             base_lang_name = names_cache.get((species_id, language))
             if base_lang_name:
                 # If we have a hyphenated name, reconstruct with translated base
                 if "-" in raw_pokedex_name:
-                    suffix = raw_pokedex_name[raw_pokedex_name.find("-") :]
+                    suffix = raw_pokedex_name[raw_pokedex_name.find("-"):]
                     return format_lore_name(base_lang_name + suffix)
                 return format_lore_name(base_lang_name)
 
     return "No Translation in this language"
-
 
 def extract_ids_from_file():
     try:
@@ -658,19 +607,16 @@ def find_details_move(move_name: str) -> dict:
             return move
         else:
             move = moves_data.get("tackle")
-            showWarning(
-                f"Move '{move_name}' not found. Returning default move 'tackle'."
-            )
+            showWarning(f"Move '{move_name}' not found. Returning default move 'tackle'.")
             return move
-
+                
     except Exception as e:
         show_warning_with_traceback(
             parent=mw,
             exception=e,
-            message=f"There is an issue in find_details_move for move: {move_name}. Returning to default move 'tackle'.",
+            message=f"There is an issue in find_details_move for move: {move_name}. Returning to default move 'tackle'."
         )
         return moves_data.get("tackle") if moves_data else None
-
 
 def return_identifier_for_item_id(item_id):
     """
@@ -686,7 +632,6 @@ def return_identifier_for_item_id(item_id):
         pass
     return None
 
-
 def check_evolution_by_item(pokemon_id, item_id, file_path=poke_evo_path):
     """
     Check if a Pokémon evolves using a specific item.
@@ -695,11 +640,11 @@ def check_evolution_by_item(pokemon_id, item_id, file_path=poke_evo_path):
     try:
         pokedex_data = _load_pokedex_cache()
         internal_name = search_pokedex_by_id(pokemon_id)
-
+        
         if internal_name in pokedex_data:
             details = pokedex_data[internal_name]
             evo_list = details.get("evos")
-
+            
             if evo_list:
                 item_name = return_identifier_for_item_id(item_id)
                 if item_name:
@@ -708,85 +653,41 @@ def check_evolution_by_item(pokemon_id, item_id, file_path=poke_evo_path):
                         active_region = mw.settings_obj.get("misc.active_region")
                         if active_region:
                             active_region = active_region.strip()
-
+                    
                     if active_region in ("No Region", ""):
                         active_region = None
 
                     eligible_evos = []
-
+                    
                     for target_evo_name in evo_list:
-                        normalized_target = (
-                            target_evo_name.lower()
-                            .replace(" ", "")
-                            .replace("-", "")
-                            .replace("'", "")
-                            .replace(".", "")
-                            .replace(":", "")
-                        )
-                        target_data = pokedex_data.get(
-                            normalized_target
-                        ) or pokedex_data.get(target_evo_name.lower())
-
+                        normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
+                        target_data = pokedex_data.get(normalized_target) or pokedex_data.get(target_evo_name.lower())
+                        
                         if target_data and target_data.get("evoType") == "useItem":
-                            required_item = (
-                                (target_data.get("evoItem") or "")
-                                .lower()
-                                .replace(" ", "-")
-                            )
+                            required_item = (target_data.get("evoItem") or "").lower().replace(" ", "-")
                             if required_item == item_name:
                                 target_region = target_data.get("evoRegion")
-
+                                
                                 if target_region:
-                                    if (
-                                        active_region
-                                        and active_region.lower()
-                                        == target_region.lower()
-                                    ):
+                                    if active_region and active_region.lower() == target_region.lower():
                                         eligible_evos.append(target_data)
                                 else:
                                     # Standard form is only allowed if there is no regional sibling for this region/method
                                     has_matching_regional_sibling = False
                                     for sibling_name in evo_list:
-                                        sib_norm = (
-                                            sibling_name.lower()
-                                            .replace(" ", "")
-                                            .replace("-", "")
-                                            .replace("'", "")
-                                            .replace(".", "")
-                                            .replace(":", "")
-                                        )
-                                        sib_data = pokedex_data.get(
-                                            sib_norm
-                                        ) or pokedex_data.get(sibling_name.lower())
-                                        if (
-                                            sib_data
-                                            and sib_data.get("evoRegion")
-                                            and active_region
-                                            and sib_data.get("evoRegion").lower()
-                                            == active_region.lower()
-                                        ):
-                                            if (
-                                                sib_data.get("evoType")
-                                                == target_data.get("evoType")
-                                                and (
-                                                    sib_data.get("evoItem") or ""
-                                                ).lower()
-                                                == (
-                                                    target_data.get("evoItem") or ""
-                                                ).lower()
-                                            ):
+                                        sib_norm = sibling_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
+                                        sib_data = pokedex_data.get(sib_norm) or pokedex_data.get(sibling_name.lower())
+                                        if sib_data and sib_data.get("evoRegion") and active_region and sib_data.get("evoRegion").lower() == active_region.lower():
+                                            if sib_data.get("evoType") == target_data.get("evoType") and (sib_data.get("evoItem") or "").lower() == (target_data.get("evoItem") or "").lower():
                                                 has_matching_regional_sibling = True
                                                 break
                                     if not has_matching_regional_sibling:
                                         eligible_evos.append(target_data)
-
+                                        
                     if eligible_evos:
                         eligible_evos.sort(key=lambda x: 0 if x.get("evoRegion") else 1)
                         target_data = eligible_evos[0]
-                        evo_id = safe_int(
-                            target_data.get("actual_id")
-                            or target_data.get("species_id")
-                        )
+                        evo_id = safe_int(target_data.get("actual_id") or target_data.get("species_id"))
                         if evo_id > 0:
                             return evo_id
         return None
@@ -800,22 +701,15 @@ def check_evolution_by_item(pokemon_id, item_id, file_path=poke_evo_path):
 
 
 def check_evolution_for_pokemon(
-    individual_id,
-    pokemon_id,
-    level,
-    evo_window,
-    everstone=False,
-    evolution_rejected=False,
+    individual_id, pokemon_id, level, evo_window, everstone=False, evolution_rejected=False
 ):
     """
     Check if a Pokémon evolves using level condition.
     Relying exclusively on pokedex.json.
     """
     from ..utils import is_alive
-
     if not is_alive(evo_window):
         from ..singletons import get_evo_window
-
         evo_window = get_evo_window()
 
     if evolution_rejected or everstone:
@@ -823,71 +717,50 @@ def check_evolution_for_pokemon(
 
     try:
         from .friendship_evolution import get_time_of_day
-
         current_time = get_time_of_day()
 
         pokedex_data = _load_pokedex_cache()
         internal_name = search_pokedex_by_id(pokemon_id)
-
+        
         if internal_name in pokedex_data:
             details = pokedex_data[internal_name]
             evo_list = details.get("evos")
-
+            
             if evo_list:
                 active_region = None
                 if hasattr(mw, "settings_obj") and mw.settings_obj:
                     active_region = mw.settings_obj.get("misc.active_region")
                     if active_region:
                         active_region = active_region.strip()
-
+                
                 if active_region in ("No Region", ""):
                     active_region = None
 
                 eligible_evos = []
 
                 for target_evo_name in evo_list:
-                    normalized_target = (
-                        target_evo_name.lower()
-                        .replace(" ", "")
-                        .replace("-", "")
-                        .replace("'", "")
-                        .replace(".", "")
-                        .replace(":", "")
-                    )
-                    target_data = pokedex_data.get(
-                        normalized_target
-                    ) or pokedex_data.get(target_evo_name.lower())
-
+                    normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
+                    target_data = pokedex_data.get(normalized_target) or pokedex_data.get(target_evo_name.lower())
+                    
                     if target_data:
                         min_level = safe_int(target_data.get("evoLevel"))
-                        is_level_evo = (
-                            min_level > 0
-                            and level >= min_level
-                            and target_data.get("evoType")
-                            not in ("useItem", "trade", "levelFriendship")
-                        )
-
+                        is_level_evo = min_level > 0 and level >= min_level and target_data.get("evoType") not in ("useItem", "trade", "levelFriendship")
+                        
                         # Handle move-based level-up evolution (e.g. Wyrdeer, Mr. Mime-Galar)
                         if target_data.get("evoType") == "levelMove":
                             required_move = target_data.get("evoMove")
                             knows_move = False
-
+                            
                             db = mw.ankimon_db if hasattr(mw, "ankimon_db") else None
                             pkmn_data = db.get_pokemon(individual_id) if db else None
                             if pkmn_data and "attacks" in pkmn_data:
                                 p_attacks = pkmn_data["attacks"]
-                                if required_move and any(
-                                    a.lower().replace(" ", "").replace("-", "")
-                                    == required_move.lower()
-                                    .replace(" ", "")
-                                    .replace("-", "")
-                                    for a in p_attacks
-                                ):
+                                if required_move and any(a.lower().replace(" ", "").replace("-", "") == required_move.lower().replace(" ", "").replace("-", "") for a in p_attacks):
                                     knows_move = True
                             else:
                                 # Fallback under test environments
                                 knows_move = True
-
+                                
                             if knows_move:
                                 is_level_evo = True
 
@@ -901,40 +774,17 @@ def check_evolution_for_pokemon(
 
                             if time_of_day is None or time_of_day == current_time:
                                 target_region = target_data.get("evoRegion")
-
+                                
                                 if target_region:
-                                    if (
-                                        active_region
-                                        and active_region.lower()
-                                        == target_region.lower()
-                                    ):
+                                    if active_region and active_region.lower() == target_region.lower():
                                         eligible_evos.append(target_data)
                                 else:
                                     has_matching_regional_sibling = False
                                     for sibling_name in evo_list:
-                                        sib_norm = (
-                                            sibling_name.lower()
-                                            .replace(" ", "")
-                                            .replace("-", "")
-                                            .replace("'", "")
-                                            .replace(".", "")
-                                            .replace(":", "")
-                                        )
-                                        sib_data = pokedex_data.get(
-                                            sib_norm
-                                        ) or pokedex_data.get(sibling_name.lower())
-                                        if (
-                                            sib_data
-                                            and sib_data.get("evoRegion")
-                                            and active_region
-                                            and sib_data.get("evoRegion").lower()
-                                            == active_region.lower()
-                                        ):
-                                            if sib_data.get("evoType") not in (
-                                                "useItem",
-                                                "trade",
-                                                "levelFriendship",
-                                            ):
+                                        sib_norm = sibling_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
+                                        sib_data = pokedex_data.get(sib_norm) or pokedex_data.get(sibling_name.lower())
+                                        if sib_data and sib_data.get("evoRegion") and active_region and sib_data.get("evoRegion").lower() == active_region.lower():
+                                            if sib_data.get("evoType") not in ("useItem", "trade", "levelFriendship"):
                                                 has_matching_regional_sibling = True
                                                 break
                                     if not has_matching_regional_sibling:
@@ -943,15 +793,13 @@ def check_evolution_for_pokemon(
                 if eligible_evos:
                     eligible_evos.sort(key=lambda x: 0 if x.get("evoRegion") else 1)
                     target_data = eligible_evos[0]
-                    evo_id = safe_int(
-                        target_data.get("actual_id") or target_data.get("species_id")
-                    )
+                    evo_id = safe_int(target_data.get("actual_id") or target_data.get("species_id"))
                     if evo_id > 0:
                         evo_window.ask_pokemon_evo(individual_id, pokemon_id, evo_id)
                         return evo_id
 
         return None
-
+        
     except Exception as e:
         show_warning_with_traceback(
             parent=mw,
@@ -1100,9 +948,7 @@ def return_name_for_id(pokemon_id):
                 if safe_int(row.get("id")) == safe_int(
                     pokemon_id
                 ):  # Convert CSV id to integer for comparison
-                    return row.get(
-                        "identifier"
-                    )  # Return the identifier from the CSV row
+                    return row.get("identifier")  # Return the identifier from the CSV row
 
         # Log a message if the item is not found
         showWarning(f"Name for Pokemon with ID '{pokemon_id}' not found in the CSV.")

@@ -127,9 +127,7 @@ def create_menu_actions(
             w.showNormal()
         if w.current_screen != screen:
             w.load_screen(screen)
-        elif (
-            (view is not None or action) and screen in w.ready_screens and w.isVisible()
-        ):
+        elif (view is not None or action) and screen in w.ready_screens and w.isVisible():
             # Already on this fully-loaded screen — re-push so the requested
             # view/action applies immediately. Hidden/loading screens get it via
             # the showEvent / loadFinished push.
@@ -334,12 +332,9 @@ def create_menu_actions(
 
     # Encounter Rate Simulator
     from .pyobj.encounter_simulator_dialog import EncounterSimulatorDialog
-
     simulator_action = QAction("Encounter Rate Simulator", mw)
     simulator_action.setMenuRole(QAction.MenuRole.NoRole)
-    simulator_action.triggered.connect(
-        lambda: EncounterSimulatorDialog(addon_dir).show()
-    )
+    simulator_action.triggered.connect(lambda: EncounterSimulatorDialog(addon_dir).show())
     help_menu.addAction(simulator_action)
 
     # Hide/show developer actions dynamically
@@ -378,7 +373,9 @@ def create_menu_actions(
     ankimon_trainer_card_action.setMenuRole(QAction.MenuRole.NoRole)
     ankimon_trainer_card_action.setShortcut(QKeySequence("Ctrl+Shift+Q"))
     # Open the Trainer Card screen of the web Profile shell.
-    ankimon_trainer_card_action.triggered.connect(lambda: _open_shell_at("profile"))
+    ankimon_trainer_card_action.triggered.connect(
+        lambda: _open_shell_at("profile")
+    )
     profile_menu.addAction(ankimon_trainer_card_action)
 
     # Mart entry — same unified Items window as Item Bag, but opens on the
@@ -402,7 +399,9 @@ def create_menu_actions(
         mw.translator.translate("choose_pokemon_team_button"), mw
     )
     pokemon_team_action.setMenuRole(QAction.MenuRole.NoRole)
-    pokemon_team_action.triggered.connect(lambda: _open_shell_at("team"))
+    pokemon_team_action.triggered.connect(
+        lambda: _open_shell_at("team")
+    )
     game_menu.addAction(pokemon_team_action)
 
     file_check_action = QAction(

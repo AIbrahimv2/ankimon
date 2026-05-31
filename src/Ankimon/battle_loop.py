@@ -79,12 +79,8 @@ def on_review_card(*args):
 
     try:
         multiplier = ankimon_tracker_obj.multiplier
-        user_attack = (
-            random.choice(main_pokemon.attacks) if main_pokemon.attacks else "splash"
-        )
-        enemy_attack = (
-            random.choice(enemy_pokemon.attacks) if enemy_pokemon.attacks else "splash"
-        )
+        user_attack = random.choice(main_pokemon.attacks) if main_pokemon.attacks else "splash"
+        enemy_attack = random.choice(enemy_pokemon.attacks) if enemy_pokemon.attacks else "splash"
 
         battle_sounds = settings_obj.get("audio.battle_sounds")
 
@@ -115,9 +111,7 @@ def on_review_card(*args):
         cash_interval = int(settings_obj.get("trainer.cash_reward_interval"))
         cash_amount = int(settings_obj.get("trainer.cash_reward_amount"))
         if total_reviews % cash_interval == 0:
-            settings_obj.set(
-                "trainer.cash", settings_obj.get("trainer.cash") + cash_amount
-            )
+            settings_obj.set("trainer.cash", settings_obj.get("trainer.cash") + cash_amount)
             trainer_card.cash = settings_obj.get("trainer.cash")
             # Live-refresh the open shell screen's cash (best-effort; no-op
             # unless a live screen is visible).
@@ -128,10 +122,7 @@ def on_review_card(*args):
             except Exception:
                 pass
 
-        if (
-            battle_sounds == True
-            and ankimon_tracker_obj.general_card_count_for_battle == 1
-        ):
+        if battle_sounds == True and ankimon_tracker_obj.general_card_count_for_battle == 1:
             play_sound(enemy_pokemon.id, settings_obj)
 
         if ankimon_tracker_obj.cards_battle_round >= _get_cards_per_round():
@@ -244,18 +235,12 @@ def on_review_card(*args):
             tooltipWithColour(formatted_battle_log, color)
 
             if true_dmg_from_enemy_move > 0 and multiplier < 1:
-                reviewer_obj.myseconds = settings_obj.compute_special_variable(
-                    "animate_time"
-                )
-                tooltipWithColour(
-                    f" -{true_dmg_from_enemy_move} HP ", "#F06060", x=-200
-                )
+                reviewer_obj.myseconds = settings_obj.compute_special_variable("animate_time")
+                tooltipWithColour(f" -{true_dmg_from_enemy_move} HP ", "#F06060", x=-200)
                 play_effect_sound(settings_obj, "HurtNormal")
 
             if true_dmg_from_user_move > 0:
-                reviewer_obj.seconds = settings_obj.compute_special_variable(
-                    "animate_time"
-                )
+                reviewer_obj.seconds = settings_obj.compute_special_variable("animate_time")
                 tooltipWithColour(f" -{true_dmg_from_user_move} HP ", "#F06060", x=200)
                 if multiplier == 1:
                     play_effect_sound(settings_obj, "HurtNormal")
@@ -269,16 +254,12 @@ def on_review_card(*args):
             if int(heals_to_user) != 0:
                 heal_color = "#68FA94" if heals_to_user > 0 else "#F06060"
                 sign = "+" if heals_to_user > 0 else ""
-                tooltipWithColour(
-                    f" {sign}{int(heals_to_user)} HP ", heal_color, x=-250
-                )
+                tooltipWithColour(f" {sign}{int(heals_to_user)} HP ", heal_color, x=-250)
 
             if int(heals_to_opponent) != 0:
                 heal_color = "#68FA94" if heals_to_opponent > 0 else "#F06060"
                 sign = "+" if heals_to_opponent > 0 else ""
-                tooltipWithColour(
-                    f" {sign}{int(heals_to_opponent)} HP ", heal_color, x=250
-                )
+                tooltipWithColour(f" {sign}{int(heals_to_opponent)} HP ", heal_color, x=250)
 
             if enemy_pokemon.hp < 1:
                 enemy_pokemon.hp = 0
@@ -301,11 +282,11 @@ def on_review_card(*args):
         if main_pokemon.hp < 1:
             win = getattr(mw, "test_window", None)
             handle_main_pokemon_faint(
-                main_pokemon,
-                enemy_pokemon,
-                win if is_alive(win) else None,
-                reviewer_obj,
-                translator,
+                main_pokemon, 
+                enemy_pokemon, 
+                win if is_alive(win) else None, 
+                reviewer_obj, 
+                translator
             )
             s.mutator_full_reset = 1
 
