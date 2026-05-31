@@ -295,22 +295,23 @@ def modify_percentages(total_reviews, daily_average, trainer_level):
 
     # Legacy System
     # Check if cache is valid
-    if (_percentages_cache['percentages'] is not None and
-        _percentages_cache['total_reviews'] == total_reviews and
-        _percentages_cache['trainer_level'] == trainer_level and
-        _percentages_cache['main_pokemon_level'] == main_pokemon.level):
-        return _percentages_cache['percentages']
-        
+    if (
+        _percentages_cache["percentages"] is not None
+        and _percentages_cache["total_reviews"] == total_reviews
+        and _percentages_cache["trainer_level"] == trainer_level
+        and _percentages_cache["main_pokemon_level"] == main_pokemon.level
+    ):
+        return _percentages_cache["percentages"]
 
     # Start with the base percentages
     percentages = {
         "Baby": 2,
         "Legendary": 0.5,
         "Mythical": 0.2,
-        "Normal": 88.6,
-        "Starter": 2.5,
-        "Ultra": 5,
-        "Mega": 0.7,
+        "Normal": 93.3,
+        "Starter": 0.5,
+        "Ultra": 2.5,
+        "Mega": 0.5,
         "Gmax": 0.5,
     }
     # Adjust percentages based on total reviews relative to the daily average
@@ -324,52 +325,54 @@ def modify_percentages(total_reviews, daily_average, trainer_level):
             + percentages.pop("Ultra", 0)
             + percentages.pop("Mega", 0)
             + percentages.pop("Gmax", 0)
+            + percentages.pop("Starter", 0)
         )
     elif review_ratio < 0.6:
-        percentages["Baby"] += 2
-        percentages["Normal"] -= 2
+        percentages["Baby"] += 1.5
+        percentages["Normal"] -= 1.5
     elif review_ratio < 0.8:
-        percentages["Ultra"] += 3
-        percentages["Normal"] -= 3
+        percentages["Ultra"] += 2
+        percentages["Normal"] -= 2
     else:
-        percentages["Legendary"] += 2
+        percentages["Legendary"] += 1
         percentages["Ultra"] += 3
-        percentages["Mega"] += 2
-        percentages["Gmax"] += 1.5
-        percentages["Normal"] -= 8.5
+        percentages["Mega"] += 1
+        percentages["Gmax"] += 1
+        percentages["Starter"] += 1
+        percentages["Normal"] -= 7
     # Restrict access to certain tiers based on main Pokémon level
     if main_pokemon.level:
         # Define level thresholds for each tier
         level_thresholds = {
-            "Starter": 30,
+            "Starter": 80,
             "Ultra": 30,
             "Legendary": 50,
             "Mega": 60,
             "Gmax": 65,
             "Mythical": 75,
         }
-        
+
         # Example modification based on trainer level
-        if trainer_level:
+        """ if trainer_level:
             adjustment = 5
             if trainer_level > 10:
                 for tier in percentages:
                     if tier == "Normal":
                         percentages[tier] = max(percentages[tier] - adjustment, 0)
                     else:
-                        percentages[tier] = percentages.get(tier, 0) + adjustment
+                        percentages[tier] = percentages.get(tier, 0) + adjustment """
 
         for tier in ["Starter", "Ultra", "Legendary", "Mythical", "Mega", "Gmax"]:
-                if main_pokemon.level < level_thresholds.get(tier, float("inf")):
-                    percentages[tier] = 0
+            if main_pokemon.level < level_thresholds.get(tier, float("inf")):
+                percentages[tier] = 0
 
     # Force starter probability to 0 and normalize
-    percentages["Starter"] = 0 #Comment to activate starters
+    percentages["Starter"] = 0  # Comment to activate starters
     total = sum(percentages.values())
     for tier in percentages:
         percentages[tier] = (percentages[tier] / total) * 100 if total > 0 else 0
 
-    #MODIFIED FOR TESTING: Fixed percentages, review restrictions.
+    # MODIFIED FOR TESTING: Fixed percentages, review restrictions.
     """percentages = {
                 "Baby": 0,
                 "Normal": 1,
@@ -382,11 +385,11 @@ def modify_percentages(total_reviews, daily_average, trainer_level):
             }"""
 
     # Cache the result
-    _percentages_cache['percentages'] = percentages
-    _percentages_cache['total_reviews'] = total_reviews
-    _percentages_cache['trainer_level'] = trainer_level
-    _percentages_cache['main_pokemon_level'] = main_pokemon.level
-    
+    _percentages_cache["percentages"] = percentages
+    _percentages_cache["total_reviews"] = total_reviews
+    _percentages_cache["trainer_level"] = trainer_level
+    _percentages_cache["main_pokemon_level"] = main_pokemon.level
+
     return percentages
 
 def clear_encounter_cache():
