@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
     "battle.auto_catch_mega":      True,
     "battle.auto_catch_gmax":      True,
     "battle.auto_catch_regional":  True,
-    "battle.auto_catch_wishlist": [],
+    "battle.auto_catch_wishlist": [25, 133],
     "battle.cards_per_round": 2,
     "battle.daily_average": 100,
     "battle.card_max_time": 60,
