@@ -20,7 +20,13 @@ import csv
 
 from ..utils import give_item, is_dev_mode
 from ..resources import items_path, csv_file_items_cost, csv_file_descriptions
-from ..functions.pokedex_functions import find_details_move
+from ..functions.pokedex_functions import (
+    find_details_move,
+    _load_pokedex_cache,
+    check_evolution_by_item,
+    return_id_for_item_name,
+)
+from ..business import calculate_cp_from_dict
 from ..ankimon_profile_web.profile_data import ProfileData
 
 
@@ -143,6 +149,16 @@ class SettingsBridge(QObject):
             return {"ok": False, "message": f"Invalid payload JSON: {e}"}
         return self._w.handle_save_settings(payload)
 
+    @pyqtSlot(str, result="QVariant")
+    def searchPokemon(self, query):
+        """Return up to 20 Pokédex entries whose name contains `query`."""
+        return self._w.handle_pokemon_search(query)
+
+    @pyqtSlot(result="QVariant")
+    def getCaughtPokemon(self):
+        """Return list of [{id, name, sprite_url}] for all caught/collected Pokémon."""
+        return self._w.handle_get_caught_pokemon()
+
 
 class ItemsBridge(QObject):
     """Items-screen actions — only meaningful when Items is loaded."""
@@ -176,9 +192,9 @@ class ItemsBridge(QObject):
     # In-shell Pokémon picker — replaces the legacy QInputDialog flow for
     # evolution items + held items. JS calls getPokemonChoices() to populate
     # the modal, then useItemOnPokemon() with the chosen individual_id.
-    @pyqtSlot(result="QVariant")
-    def getPokemonChoices(self):
-        return self._w.get_pokemon_choices()
+    @pyqtSlot(str, result="QVariant")
+    def getPokemonChoices(self, item_name=None):
+        return self._w.get_pokemon_choices(item_name)
 
     @pyqtSlot(str, str, result="QVariant")
     def useItemOnPokemon(self, item_name, individual_id):
@@ -543,6 +559,59 @@ class AnkimonItemsWeb(QDialog):
     def update_ui_data(self):
         self.push_screen_data()
 
+    def handle_pokemon_search(self, query: str):
+        """Search the Pokédex by name substring. Returns {results: [{id, name}]}."""
+        from ..functions.pokedex_functions import _load_pokedex_cache, format_lore_name
+        from ..functions import encounter_data
+
+        query = (query or "").strip().lower()
+        if len(query) < 2:
+            return {"results": []}
+        pokedex = _load_pokedex_cache()
+        results = []
+        for internal_name, data in pokedex.items():
+            # Exclude alternate sub-forms of plate/drive/memory switching species to avoid redundancy
+            if internal_name.startswith("arceus") and internal_name != "arceus":
+                continue
+            if internal_name.startswith("silvally") and internal_name != "silvally":
+                continue
+            if internal_name.startswith("genesect") and internal_name != "genesect":
+                continue
+
+            name = data.get("name", internal_name)
+            pretty_name = format_lore_name(name)
+            if query in name.lower() or query in pretty_name.lower():
+                pid = data.get("actual_id") or data.get("species_id")
+                if pid and int(pid) > 0:
+                    pid_val = int(pid)
+                    if pid_val not in encounter_data.UNAVAILABLE:
+                        results.append({"id": pid_val, "name": pretty_name})
+            if len(results) >= 20:
+                break
+        results.sort(key=lambda r: r["name"].lower())
+        return {"results": results}
+
+    def handle_get_caught_pokemon(self):
+        """Get the list of caught/collected Pokémon for the quick-add panel."""
+        from ..utils import load_collected_pokemon_ids
+        from ..functions.pokedex_functions import _load_pokedex_cache, search_pokedex_by_id, get_pretty_name_for_id
+
+        caught_ids = load_collected_pokemon_ids()
+        results = []
+        pokedex = _load_pokedex_cache()
+
+        for pid in sorted(list(caught_ids)):
+            internal_name = search_pokedex_by_id(pid)
+            if internal_name and internal_name != "Pokémon not found":
+                pretty_name = get_pretty_name_for_id(pid)
+                results.append({
+                    "id": int(pid),
+                    "name": pretty_name,
+                })
+        # Sort by name alphabetically
+        results.sort(key=lambda r: r["name"].lower())
+        return {"results": results}
+
     def get_inventory_data(self):
         sm = self.shop_manager
 
@@ -851,18 +920,27 @@ class AnkimonItemsWeb(QDialog):
     def _invalidate_pokemon_cache(self):
         self._pokemon_choices_cache = None
 
-    def get_pokemon_choices(self):
-        """Return the player's Pokémon team for the in-shell picker — name,
-        nickname, level, id. Replaces the QInputDialog flow for evolution
-        items and held items.
+    def get_pokemon_choices(self, item_name=None):
+        """Return the player's Pokémon team for the in-shell picker.
 
-        Cached on the instance — `get_all_pokemon()` JSON-parses every
-        captured row, which costs hundreds of ms for players with 10k+
-        captures. Buy/reroll don't change the team, so they reuse the
-        cache; team-mutating actions call `_invalidate_pokemon_cache()`.
+        Enhancements:
+        - Calculates CP for each Pokémon.
+        - Provides base species ID ('b') for sprite fallbacks.
+        - Checks evolution eligibility ('e') if an evolution item is used.
+        - Sorts by eligibility (top), then active status, then level, then name.
+        - Utilizes an instance cache for base results to maintain O(1) speed
+          for repeated opens with non-evolution items.
         """
+        # Determine if we need specific eligibility data
+        is_evo_item = False
+        if item_name:
+            # We assume non-TM here; if it was a TM, useItemOnPokemon wouldn't be called.
+            is_evo_item = (self._categorize(item_name, False) == "evolution")
+
         cached = getattr(self, "_pokemon_choices_cache", None)
-        if cached is not None:
+        # If not an evolution item, we can safely return the base cache (if it exists).
+        # This keeps the "Give Item" picker snappy even with 10k+ Pokémon.
+        if not is_evo_item and cached is not None:
             return cached
 
         try:
@@ -877,6 +955,16 @@ class AnkimonItemsWeb(QDialog):
         if bag is not None and getattr(bag, "main_pokemon", None):
             main_individual_id = getattr(bag.main_pokemon, "individual_id", None)
 
+        pokedex_data = _load_pokedex_cache()
+        from ..functions.pokedex_functions import search_pokedex_by_id
+
+        # Pre-fetch the region setting to avoid repeated lookups
+        active_region = None
+        if hasattr(mw, "settings_obj") and mw.settings_obj:
+            active_region = mw.settings_obj.get("misc.active_region")
+            if active_region:
+                active_region = active_region.strip()
+
         choices = []
         for data in pokemons:
             if not isinstance(data, dict):
@@ -885,9 +973,6 @@ class AnkimonItemsWeb(QDialog):
             pokedex_id = data.get("id")
             name = data.get("name")
             if not individual_id or not name:
-                # No id or no name means we can't display or address it —
-                # but pokedex_id == 0 / missing is fine (we just fall back
-                # to a placeholder sprite).
                 continue
 
             nickname = (data.get("nickname") or "").strip()
@@ -896,15 +981,22 @@ class AnkimonItemsWeb(QDialog):
             shiny = bool(data.get("shiny"))
             is_main = bool(main_individual_id and individual_id == main_individual_id)
 
-            # Per-entry payload is intentionally minimal — for players with
-            # 10k+ captures, every extra byte multiplies into MB of IPC.
-            # JS reconstructs the sprite URL from pokedex_id; nickname is
-            # only shipped when it actually differs from the species name.
+            # Resolve internal name using the optimized pokedex index
+            internal_name = search_pokedex_by_id(pokedex_id)
+            p_details = pokedex_data.get(internal_name)
+
+            # Sprite fallback: get base species_id
+            base_id = pokedex_id
+            if p_details:
+                base_id = p_details.get("species_id") or pokedex_id
+
             entry = {
                 "id": individual_id,
                 "p": pokedex_id or 0,
+                "b": base_id or 0,
                 "n": name,
                 "l": int(level) if level is not None else None,
+                "cp": calculate_cp_from_dict(data),
             }
             if shiny:
                 entry["s"] = 1
@@ -914,20 +1006,55 @@ class AnkimonItemsWeb(QDialog):
                 entry["h"] = held_item
             if nickname and nickname.lower() != (name or "").lower():
                 entry["nk"] = nickname
+
+            # Evolution eligibility (Optimized inline to avoid file I/O)
+            if is_evo_item and item_name and p_details:
+                evo_list = p_details.get("evos")
+                if evo_list:
+                    for target_evo_name in evo_list:
+                        normalized_target = target_evo_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
+                        target_data = pokedex_data.get(normalized_target) or pokedex_data.get(target_evo_name.lower())
+
+                        if target_data and target_data.get("evoType") == "useItem":
+                            # required_item is normalized to match the input item_name (e.g. "Fire Stone" -> "fire-stone")
+                            required_item = (target_data.get("evoItem") or "").lower().replace(" ", "-")
+                            if required_item == item_name:
+                                target_region = target_data.get("evoRegion")
+
+                                if target_region:
+                                    if active_region and active_region.lower() == target_region.lower():
+                                        entry["e"] = 1
+                                        break
+                                else:
+                                    # Standard form is only allowed if there is no regional sibling for this region/method
+                                    has_matching_regional_sibling = False
+                                    for sibling_name in evo_list:
+                                        sib_norm = sibling_name.lower().replace(" ", "").replace("-", "").replace("'", "").replace(".", "").replace(":", "")
+                                        sib_data = pokedex_data.get(sib_norm) or pokedex_data.get(sibling_name.lower())
+                                        if sib_data and sib_data.get("evoRegion") and active_region and sib_data.get("evoRegion").lower() == active_region.lower():
+                                            if sib_data.get("evoType") == target_data.get("evoType") and (sib_data.get("evoItem") or "").lower() == (target_data.get("evoItem") or "").lower():
+                                                has_matching_regional_sibling = True
+                                                break
+                                    if not has_matching_regional_sibling:
+                                        entry["e"] = 1
+                                        break
+
             choices.append(entry)
 
-        # Active first, then by level (high → low), then alphabetical.
+        # Eligible first, then active first, then level (high → low), then alphabetical.
         choices.sort(
             key=lambda c: (
+                not c.get("e"),
                 not c.get("m"),
                 -(c.get("l") or 0),
                 (c.get("nk") or c.get("n") or "").lower(),
             )
         )
         result = {"choices": choices}
-        self._pokemon_choices_cache = result
+        # Update the base cache if this was a non-evolution run.
+        if not is_evo_item:
+            self._pokemon_choices_cache = result
         return result
-
     def handle_use_with_target(self, item_name, individual_id):
         """Apply an item to a specific Pokémon (chosen via the in-shell
         picker). Bypasses dispatch_use's QInputDialog branches by calling
@@ -1017,16 +1144,20 @@ class AnkimonItemsWeb(QDialog):
                 "subgroups": [],
             }
             for sub in group_def.get("subgroups", []):
+                sub_settings = self._serialize_settings_list(
+                    sub.get("settings", []),
+                    key_by_friendly,
+                    name_map,
+                    desc_map,
+                    config,
+                )
+                sub_chip_def = sub.get("chip_group")
+                if sub_chip_def:
+                    sub_settings.append(self._serialize_chip_group(sub_chip_def, config))
                 group["subgroups"].append(
                     {
                         "label": sub["label"],
-                        "settings": self._serialize_settings_list(
-                            sub.get("settings", []),
-                            key_by_friendly,
-                            name_map,
-                            desc_map,
-                            config,
-                        ),
+                        "settings": sub_settings,
                     }
                 )
             groups.append(group)
@@ -1081,6 +1212,19 @@ class AnkimonItemsWeb(QDialog):
             "value": value,
         }
 
+        if key == "battle.auto_catch_wishlist":
+            entry["type"] = "wishlist"
+            from ..functions.pokedex_functions import get_pretty_name_for_id
+            names_dict = {}
+            if isinstance(value, list):
+                for pid in value:
+                    try:
+                        pid_int = int(pid)
+                        names_dict[pid_int] = get_pretty_name_for_id(pid_int)
+                    except Exception:
+                        names_dict[pid] = f"#{pid}"
+            entry["names"] = names_dict
+            return entry
         if key == "misc.active_region":
             entry["type"] = "select"
             entry["options"] = settings_schema.ACTIVE_REGION_OPTIONS
@@ -1169,6 +1313,11 @@ class AnkimonItemsWeb(QDialog):
         text-input UI doesn't accidentally rewrite an int field as a str.
         Raises ValueError for non-coercible numeric input — caller surfaces
         the failure rather than silently writing garbage to config."""
+        if isinstance(existing, list):
+            if isinstance(incoming, list):
+                # Accept only integer IDs; silently drop anything non-numeric.
+                return [int(x) for x in incoming if str(x).lstrip('-').isdigit()]
+            return existing  # reject non-list payloads silently
         if isinstance(existing, bool):
             return bool(incoming)
         if isinstance(existing, int) and not isinstance(existing, bool):

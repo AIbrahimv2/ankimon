@@ -3370,7 +3370,6 @@ body {
 .pokemon-card.team-card .card-info {
     min-height: 22px;              /* reserve space for the name line */
 }
-
 .team-card-level {
     position: absolute;
     top: 10px;
@@ -3383,7 +3382,31 @@ body {
     background: var(--bg-darker);
     border: 1px solid var(--border-main);
     border-radius: 6px;
-    letter-spacing: 0.4px;
+}
+
+.team-card-cp {
+    position: absolute;
+    top: 36px;
+    left: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #58a6ff;
+    padding: 1px 6px;
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    border-radius: 4px;
+}
+
+.pokemon-card.team-card.is-eligible {
+    border-color: rgba(63, 185, 80, 0.4);
+    background: rgba(63, 185, 80, 0.02);
+    box-shadow: 0 0 12px rgba(63, 185, 80, 0.08);
+}
+
+.pokemon-card.team-card.is-eligible:hover {
+    border-color: rgba(63, 185, 80, 0.7);
+    box-shadow: 0 0 20px rgba(63, 185, 80, 0.2);
 }
 
 .team-card-marks {

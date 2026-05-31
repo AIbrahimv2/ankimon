@@ -116,8 +116,10 @@ def _load_pokedex_id_index():
                 species_id = safe_int(attributes.get("species_id"))
                 if species_id is not None:
                     # If this is the base form (actual_id == species_id or actual_id is None), it should ALWAYS override/set the species_id mapping
+                    # Avoid treating form variants (which have a 'baseSpecies' attribute) as the base form.
                     actual_id = safe_int(attributes.get("actual_id"))
-                    is_base_form = actual_id is None or actual_id == species_id
+                    has_base_species = attributes.get("baseSpecies") is not None
+                    is_base_form = (actual_id is None or actual_id == species_id) and not has_base_species
                     if is_base_form or species_id not in _pokedex_id_index:
                         _pokedex_id_index[species_id] = entry_name
         except Exception as e:

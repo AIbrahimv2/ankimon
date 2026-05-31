@@ -54,6 +54,23 @@ def run_startup_background_checks():
     # Load collected Pokémon IDs
     collected_pokemon_ids = load_collected_pokemon_ids()
 
+    # 2. Config Migrations
+    old_catch_special = settings_obj.get("battle.automatic_catch_special", None)
+    if old_catch_special is not None:
+        new_keys = [
+            "battle.auto_catch_legendary",
+            "battle.auto_catch_mythical",
+            "battle.auto_catch_ultra",
+            "battle.auto_catch_starter",
+            "battle.auto_catch_mega",
+            "battle.auto_catch_gmax",
+            "battle.auto_catch_regional",
+        ]
+        for nk in new_keys:
+            if nk not in settings_obj.config:
+                settings_obj.set(nk, bool(old_catch_special))
+        settings_obj.set("battle.automatic_catch_special", None)
+
     # Check assets (disk operations)
     database_complete = _check_assets_background()
 

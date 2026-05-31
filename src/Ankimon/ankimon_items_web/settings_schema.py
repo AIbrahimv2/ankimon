@@ -37,22 +37,47 @@ GROUPS = [
     },
     {
         "label": "Battle",
-        "settings": [
-            "Automatic Battle",
-            "Always catch Special Pokémon",
-            "Cards per Round",
-            "Show Main Pokémon in Reviewer",
-            "Hide HUD on Reviewer Startup",
-            "Show Pokémon Buttons",
-            "Pop-Up on Defeat",
-            "Show Text Message Box in Reviewer",
-            "Message Box Display Time",
-            "Review Based Damage",
-            "Friendship & Time Evolution",
-            "Auto-detect Time Zone",
-            "Time Zone UTC Offset",
-        ],
+        "settings": [],
         "subgroups": [
+            {
+                "label": "Auto-Battle Rules",
+                "settings": [
+                    "Automatic Battle",
+                    "Always Catch Wishlist",
+                ],
+                "chip_group": {
+                    "label": "Always Catch Tiers",
+                    "description": (
+                        "In automatic battle mode, Pokémon of these tiers are always caught "
+                        "regardless of your collection status or mode setting. "
+                        "Shiny Pokémon are always caught automatically."
+                    ),
+                    "keys": [
+                        ("battle.auto_catch_legendary", "Legendary"),
+                        ("battle.auto_catch_mythical",  "Mythical"),
+                        ("battle.auto_catch_ultra",     "Ultra Beast"),
+                        ("battle.auto_catch_starter",   "Starter"),
+                        ("battle.auto_catch_mega",      "Mega"),
+                        ("battle.auto_catch_gmax",      "Gigantamax"),
+                        ("battle.auto_catch_regional",  "Regional Form"),
+                    ],
+                },
+            },
+            {
+                "label": "HUD & Mechanics",
+                "settings": [
+                    "Cards per Round",
+                    "Show Main Pokémon in Reviewer",
+                    "Hide HUD on Reviewer Startup",
+                    "Show Pokémon Buttons",
+                    "Pop-Up on Defeat",
+                    "Show Text Message Box in Reviewer",
+                    "Message Box Display Time",
+                    "Review Based Damage",
+                    "Auto-detect Time Zone",
+                    "Time Zone UTC Offset",
+                ],
+            },
             {
                 "label": "Fight Hotkeys",
                 "settings": [

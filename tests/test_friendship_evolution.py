@@ -53,6 +53,8 @@ class _FakeSettings:
         }
 
     def get(self, key, default=None):
+        if key == "evolution.friendship_time_enabled":
+            return True
         return self.values.get(key, default)
 
 
@@ -354,7 +356,7 @@ def test_check_triggers_evolution_when_ready():
     assert evo_window.calls == [(7, 133, 196)]
 
 
-def test_check_returns_none_when_disabled():
+def test_check_ignores_disabled_and_evolves_anyway():
     settings.values["evolution.friendship_time_enabled"] = False
     evo_window = _FakeEvoWindow()
     result = fe.check_friendship_evolution_for_pokemon(
@@ -365,8 +367,8 @@ def test_check_returns_none_when_disabled():
         friendship=160,
         now=datetime(2024, 1, 1, 9, 0),
     )
-    assert result is None
-    assert evo_window.calls == []
+    assert result == 196
+    assert evo_window.calls == [(7, 133, 196)]
 
 
 def test_check_returns_none_with_everstone():
@@ -652,3 +654,14 @@ def test_current_time_label_bad_offset_does_not_crash():
     label = fe.current_time_label(datetime(2024, 1, 1, 9, 0))
     assert "Day" in label
     assert "UTC" not in label
+
+
+def test_pichu_evolution_readiness():
+    pokemon = {"id": 172, "friendship": 400, "everstone": False, "level": 5}
+    result = fe.evolution_readiness(pokemon, now=datetime(2024, 1, 1, 9, 0))
+    assert result["evolvable"] is True
+    assert result["ready"] is True
+    assert result["evo_name"] == "Pikachu"
+
+
+

@@ -1,6 +1,13 @@
 {
     "battle.automatic_battle": "Set automatic battle mode for wild Pokémon interactions when enemy HP is 0. \n[0: Disabled, 1: Auto-catch, 2: Auto-defeat (to gain XP), 3: Catch if NEW Pokémon (not in collection), otherwise defeat].",
-    "battle.automatic_catch_special": "If enabled, Ultra, Legendary, Mythical, Gigantamax, Mega Evolution, and Starter family Pokémon will always be caught in automatic battle mode, even if already in your collection.",
+    "battle.auto_catch_legendary": "If enabled, Legendary Pokémon are always auto-caught in automatic battle mode, regardless of collection status.",
+    "battle.auto_catch_mythical":  "If enabled, Mythical Pokémon are always auto-caught in automatic battle mode, regardless of collection status.",
+    "battle.auto_catch_ultra":     "If enabled, Ultra Beasts are always auto-caught in automatic battle mode, regardless of collection status.",
+    "battle.auto_catch_starter":   "If enabled, Starter Pokémon and their evolutions are always auto-caught in automatic battle mode, regardless of collection status.",
+    "battle.auto_catch_mega":      "If enabled, Mega-Evolved Pokémon are always auto-caught in automatic battle mode, regardless of collection status.",
+    "battle.auto_catch_gmax": "If enabled, Gigantamax Pokémon are always auto-caught in automatic battle mode, regardless of collection status.",
+    "battle.auto_catch_regional": "If enabled, Regional Form Pokémon (e.g. Alolan, Galarian, Hisuian, Paldean) are always auto-caught in automatic battle mode, regardless of collection status.",
+    "battle.auto_catch_wishlist": "Pokémon on this list are always auto-caught regardless of mode, collection status, or tier. Search by name and click Add.",
     "battle.cards_per_round": "Number of cards to review per round until the next battle action. (For dynamic values use a-b [e.g. 1-3])",
     "battle.daily_average": "Set the amount of Cards you want to review per day.",
     "battle.card_max_time": "Goal of maximum amount of time needed to answer a card in seconds",
@@ -56,7 +63,6 @@
     "trainer.name": "Set the name of your trainer.",
     "trainer.cash_reward_amount": "How much cash you earn for each interval of cards reviewed. [Min: 10, Max: 2,000]. NOTE: To prevent exploits, the payout is capped at 100¥ per card (e.g., to earn 1,000¥, you must set the interval to at least 10 cards).",
     "trainer.cash_reward_interval": "Number of cards to review before earning cash. [Min: 5, Max: 250].",
-    "evolution.friendship_time_enabled": "Enable or disable Pokémon evolutions that depend on friendship level or specific times of day.",
     "evolution.timezone_auto": "Automatically detect your local time zone for time-based features.",
     "evolution.timezone_offset": "Manually set the UTC offset (in hours) for your time zone if auto-detection is disabled."
 }
