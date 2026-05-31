@@ -561,7 +561,7 @@ UNAVAILABLE = [
     880, 881, 882,   # dracozolt, arctozolt, dracovish
     883,             # arctovish
     # Alolan Forms (10093 = raticatealolatotem, 10149 = marowakalolatotem: stay UNAVAILABLE)
-    10093, 10149,    # raticatealolatotem, marowakalolatotem
+    10093, 10149, 10099, # raticatealolatotem, marowakalolatotem, pikachualola
     # Special & Battle-Only Forms
     10117, 10120, 10121, # greninjaash, zygardecomplete, gumshoostotem
     10122, 10128, 10129, # vikavolttotem, lurantistotem, salazzletotem
@@ -613,7 +613,7 @@ UNAVAILABLE = [
 # =============================================================
 REGIONAL_FORMS: dict[str, list[int]] = {
     "alola": [
-        10091, 10092, 10099,  # rattata-alola, raticate-alola, pikachu-alola-cap
+        10091, 10092,  # rattata-alola, raticate-alola
         10100, 10101, 10102,  # raichu-alola, sandshrew-alola, sandslash-alola
         10103, 10104, 10105,  # vulpix-alola, ninetales-alola, diglett-alola
         10106, 10107, 10108,  # dugtrio-alola, meowth-alola, persian-alola

@@ -350,7 +350,14 @@ class SettingsWindow(QMainWindow):
             "Battle": {
                 "settings": [
                     "Automatic Battle",
-                    "Always catch Special Pokémon",
+                    "Always Catch Wishlist",
+                    "Always Catch: Legendary",
+                    "Always Catch: Mythical",
+                    "Always Catch: Ultra Beast",
+                    "Always Catch: Starter",
+                    "Always Catch: Mega Evolution",
+                    "Always Catch: Gigantamax",
+                    "Always Catch: Regional Form",
                     "Cards per Round",
                     "Show Main Pokémon in Reviewer",
                     "Hide HUD on Reviewer Startup", 

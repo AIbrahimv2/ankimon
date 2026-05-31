@@ -170,9 +170,316 @@
                 return buildNumberInput(setting);
             case 'chips':
                 return buildChipGroup(setting);
+            case 'wishlist':
+                return buildWishlistControl(setting);
             default:
                 return buildTextInput(setting);
         }
+    }
+
+    function buildWishlistControl(setting) {
+        const wrap = document.createElement('div');
+        wrap.className = 'setting-wishlist';
+
+        // Search row: text input + buttons + dropdown
+        const searchRow = document.createElement('div');
+        searchRow.className = 'wishlist-search-row';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'setting-input';
+        input.placeholder = 'Search Pokémon name…';
+
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'wishlist-add-btn';
+        addBtn.textContent = 'Add';
+        addBtn.title = 'Add top search result';
+
+        const chooseBtn = document.createElement('button');
+        chooseBtn.type = 'button';
+        chooseBtn.className = 'wishlist-choose-btn';
+        chooseBtn.textContent = 'Choose from Caught…';
+        chooseBtn.title = 'Open dialog to select from caught Pokémon';
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'wishlist-dropdown hidden';
+
+        searchRow.append(input, addBtn, dropdown);
+
+        // Action row for Choose from Caught button
+        const actionRow = document.createElement('div');
+        actionRow.className = 'wishlist-action-row';
+        actionRow.append(chooseBtn);
+
+        // Chip list showing currently added Pokémon
+        const chipList = document.createElement('div');
+        chipList.className = 'wishlist-chips';
+
+        let activeModalBackdrop = null;
+        let activeModalGrid = null;
+        let caughtPokemon = [];
+
+        function getIds() {
+            return (currentValue(setting) || []).map(Number);
+        }
+
+        function togglePokemon(id, name) {
+            const current = getIds();
+            let next;
+            if (current.includes(id)) {
+                next = current.filter((v) => v !== id);
+            } else {
+                (state._wishlistNames = state._wishlistNames || {})[id] = name;
+                next = [...current, id];
+            }
+            setEdit(setting.key, next);
+            renderChips();
+            updateDirtyUI();
+            markRowDirty(setting.key);
+
+            if (activeModalGrid) {
+                renderModalGrid(activeModalGrid);
+            }
+        }
+
+        function addPokemon(id, name) {
+            const current = getIds();
+            if (!current.includes(id)) {
+                (state._wishlistNames = state._wishlistNames || {})[id] = name;
+                const next = [...current, id];
+                setEdit(setting.key, next);
+                renderChips();
+                updateDirtyUI();
+                markRowDirty(setting.key);
+
+                if (activeModalGrid) {
+                    renderModalGrid(activeModalGrid);
+                }
+            }
+            input.value = '';
+            dropdown.innerHTML = '';
+            dropdown.classList.add('hidden');
+        }
+
+        function renderChips() {
+            chipList.innerHTML = '';
+            const ids = getIds();
+            if (ids.length === 0) {
+                const empty = document.createElement('span');
+                empty.className = 'wishlist-empty';
+                empty.textContent = 'No Pokémon added yet.';
+                chipList.appendChild(empty);
+                return;
+            }
+            ids.forEach((id) => {
+                const chip = document.createElement('span');
+                chip.className = 'wishlist-chip';
+                const cached = (state._wishlistNames = state._wishlistNames || {});
+                chip.textContent = cached[id] ? `${cached[id]} (#${id})` : `#${id}`;
+                const x = document.createElement('button');
+                x.type = 'button';
+                x.textContent = '×';
+                x.className = 'wishlist-chip-remove';
+                x.title = 'Remove';
+                x.addEventListener('click', () => {
+                    const next = getIds().filter((v) => v !== id);
+                    setEdit(setting.key, next);
+                    renderChips();
+                    updateDirtyUI();
+                    markRowDirty(setting.key);
+
+                    if (activeModalGrid) {
+                        renderModalGrid(activeModalGrid);
+                    }
+                });
+                chip.appendChild(x);
+                chipList.appendChild(chip);
+            });
+        }
+        renderChips();
+
+        let lastResults = [];
+        let searchTimer = null;
+
+        const performSearch = () => {
+            const q = input.value.trim();
+            if (q.length < 2) {
+                dropdown.classList.add('hidden');
+                dropdown.innerHTML = '';
+                lastResults = [];
+                return;
+            }
+            if (!bridge || !bridge.searchPokemon) return;
+            bridge.searchPokemon(q, (res) => {
+                dropdown.innerHTML = '';
+                lastResults = (res && res.results) || [];
+                if (lastResults.length === 0) {
+                    dropdown.classList.add('hidden');
+                    return;
+                }
+                dropdown.classList.remove('hidden');
+                lastResults.forEach((r) => {
+                    const opt = document.createElement('div');
+                    opt.className = 'wishlist-option';
+                    opt.textContent = `${r.name} (#${r.id})`;
+                    opt.addEventListener('click', () => addPokemon(r.id, r.name));
+                    dropdown.appendChild(opt);
+                });
+            });
+        };
+
+        const handleAddTopResult = () => {
+            const q = input.value.trim();
+            if (q.length < 2) return;
+
+            if (lastResults.length > 0 && lastResults[0].name.toLowerCase().includes(q.toLowerCase())) {
+                addPokemon(lastResults[0].id, lastResults[0].name);
+                return;
+            }
+
+            if (!bridge || !bridge.searchPokemon) return;
+            clearTimeout(searchTimer);
+            bridge.searchPokemon(q, (res) => {
+                const results = (res && res.results) || [];
+                if (results.length > 0) {
+                    addPokemon(results[0].id, results[0].name);
+                }
+            });
+        };
+
+        input.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(performSearch, 250);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAddTopResult();
+            }
+        });
+
+        addBtn.addEventListener('click', () => {
+            handleAddTopResult();
+        });
+
+        // Modal Suggestions logic
+        function renderModalGrid(grid) {
+            grid.innerHTML = '';
+            if (caughtPokemon.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'wishlist-suggestions-empty';
+                empty.textContent = 'No caught Pokémon found.';
+                grid.appendChild(empty);
+                return;
+            }
+            const activeIds = getIds();
+            caughtPokemon.forEach((p) => {
+                const isInWishlist = activeIds.includes(p.id);
+
+                const card = document.createElement('div');
+                card.className = `wishlist-suggestion-card${isInWishlist ? ' in-wishlist' : ''}`;
+                card.title = `${p.name} (#${p.id})`;
+
+                const img = document.createElement('img');
+                img.className = 'wishlist-suggestion-sprite';
+                img.src = `../user_files/sprites/front_default/${p.id}.png`;
+                img.onerror = () => {
+                    img.src = '../user_files/sprites/front_default/0.png';
+                };
+
+                const nameLbl = document.createElement('div');
+                nameLbl.className = 'wishlist-suggestion-name';
+                nameLbl.textContent = p.name;
+
+                card.append(img, nameLbl);
+                card.addEventListener('click', () => togglePokemon(p.id, p.name));
+                grid.appendChild(card);
+            });
+        }
+
+        function openCaughtModal() {
+            if (activeModalBackdrop) return;
+
+            const backdrop = document.createElement('div');
+            backdrop.className = 'wishlist-modal-backdrop';
+            activeModalBackdrop = backdrop;
+
+            const content = document.createElement('div');
+            content.className = 'wishlist-modal-content';
+
+            const header = document.createElement('div');
+            header.className = 'wishlist-modal-header';
+
+            const title = document.createElement('h3');
+            title.className = 'wishlist-modal-title';
+            title.textContent = 'Select from Caught Pokémon';
+
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'wishlist-modal-close';
+            closeBtn.textContent = '×';
+            closeBtn.title = 'Close';
+
+            const close = () => {
+                backdrop.remove();
+                activeModalBackdrop = null;
+                activeModalGrid = null;
+                document.removeEventListener('keydown', handleEsc);
+            };
+
+            const handleEsc = (e) => {
+                if (e.key === 'Escape') {
+                    close();
+                }
+            };
+
+            closeBtn.addEventListener('click', close);
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) close();
+            });
+            document.addEventListener('keydown', handleEsc);
+
+            header.append(title, closeBtn);
+
+            const body = document.createElement('div');
+            body.className = 'wishlist-modal-body';
+
+            const subtitle = document.createElement('div');
+            subtitle.className = 'wishlist-modal-subtitle';
+            subtitle.textContent = 'Toggle Pokémon below to add them to your Always-Catch Wishlist:';
+
+            const grid = document.createElement('div');
+            grid.className = 'wishlist-suggestions-grid';
+            activeModalGrid = grid;
+
+            body.append(subtitle, grid);
+            content.append(header, body);
+            backdrop.append(content);
+            document.body.appendChild(backdrop);
+
+            if (bridge && bridge.getCaughtPokemon) {
+                bridge.getCaughtPokemon((res) => {
+                    caughtPokemon = (res && res.results) || [];
+                    renderModalGrid(grid);
+                });
+            } else {
+                renderModalGrid(grid);
+            }
+        }
+
+        chooseBtn.addEventListener('click', openCaughtModal);
+
+        // Close dropdown on outside click
+        document.addEventListener('click', (e) => {
+            if (!searchRow.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        wrap.append(searchRow, actionRow, chipList);
+        return wrap;
     }
 
     function buildChipGroup(setting) {

@@ -78,6 +78,16 @@ class SettingsBridge(QObject):
             return {"ok": False, "message": f"Invalid payload JSON: {e}"}
         return self._w.handle_save_settings(payload)
 
+    @pyqtSlot(str, result="QVariant")
+    def searchPokemon(self, query):
+        """Return up to 20 Pokédex entries whose name contains `query`."""
+        return self._w.handle_pokemon_search(query)
+
+    @pyqtSlot(result="QVariant")
+    def getCaughtPokemon(self):
+        """Return list of [{id, name, sprite_url}] for all caught/collected Pokémon."""
+        return self._w.handle_get_caught_pokemon()
+
 
 class ItemsBridge(QObject):
     """Items-screen actions — only meaningful when Items is loaded."""
@@ -337,6 +347,59 @@ class AnkimonItemsWeb(QDialog):
     # Back-compat alias for the bridge methods that still call update_ui_data.
     def update_ui_data(self):
         self.push_screen_data()
+
+    def handle_pokemon_search(self, query: str):
+        """Search the Pokédex by name substring. Returns {results: [{id, name}]}."""
+        from ..functions.pokedex_functions import _load_pokedex_cache, format_lore_name
+        from ..functions import encounter_data
+
+        query = (query or "").strip().lower()
+        if len(query) < 2:
+            return {"results": []}
+        pokedex = _load_pokedex_cache()
+        results = []
+        for internal_name, data in pokedex.items():
+            # Exclude alternate sub-forms of plate/drive/memory switching species to avoid redundancy
+            if internal_name.startswith("arceus") and internal_name != "arceus":
+                continue
+            if internal_name.startswith("silvally") and internal_name != "silvally":
+                continue
+            if internal_name.startswith("genesect") and internal_name != "genesect":
+                continue
+
+            name = data.get("name", internal_name)
+            pretty_name = format_lore_name(name)
+            if query in name.lower() or query in pretty_name.lower():
+                pid = data.get("actual_id") or data.get("species_id")
+                if pid and int(pid) > 0:
+                    pid_val = int(pid)
+                    if pid_val not in encounter_data.UNAVAILABLE:
+                        results.append({"id": pid_val, "name": pretty_name})
+            if len(results) >= 20:
+                break
+        results.sort(key=lambda r: r["name"].lower())
+        return {"results": results}
+
+    def handle_get_caught_pokemon(self):
+        """Get the list of caught/collected Pokémon for the quick-add panel."""
+        from ..utils import load_collected_pokemon_ids
+        from ..functions.pokedex_functions import _load_pokedex_cache, search_pokedex_by_id, get_pretty_name_for_id
+
+        caught_ids = load_collected_pokemon_ids()
+        results = []
+        pokedex = _load_pokedex_cache()
+
+        for pid in sorted(list(caught_ids)):
+            internal_name = search_pokedex_by_id(pid)
+            if internal_name and internal_name != "Pokémon not found":
+                pretty_name = get_pretty_name_for_id(pid)
+                results.append({
+                    "id": int(pid),
+                    "name": pretty_name,
+                })
+        # Sort by name alphabetically
+        results.sort(key=lambda r: r["name"].lower())
+        return {"results": results}
 
     def get_inventory_data(self):
         sm = self.shop_manager
@@ -870,16 +933,20 @@ class AnkimonItemsWeb(QDialog):
                 "subgroups": [],
             }
             for sub in group_def.get("subgroups", []):
+                sub_settings = self._serialize_settings_list(
+                    sub.get("settings", []),
+                    key_by_friendly,
+                    name_map,
+                    desc_map,
+                    config,
+                )
+                sub_chip_def = sub.get("chip_group")
+                if sub_chip_def:
+                    sub_settings.append(self._serialize_chip_group(sub_chip_def, config))
                 group["subgroups"].append(
                     {
                         "label": sub["label"],
-                        "settings": self._serialize_settings_list(
-                            sub.get("settings", []),
-                            key_by_friendly,
-                            name_map,
-                            desc_map,
-                            config,
-                        ),
+                        "settings": sub_settings,
                     }
                 )
             groups.append(group)
@@ -934,6 +1001,9 @@ class AnkimonItemsWeb(QDialog):
             "value": value,
         }
 
+        if key == "battle.auto_catch_wishlist":
+            entry["type"] = "wishlist"
+            return entry
         if key == "misc.active_region":
             entry["type"] = "select"
             entry["options"] = settings_schema.ACTIVE_REGION_OPTIONS
@@ -1022,6 +1092,11 @@ class AnkimonItemsWeb(QDialog):
         text-input UI doesn't accidentally rewrite an int field as a str.
         Raises ValueError for non-coercible numeric input — caller surfaces
         the failure rather than silently writing garbage to config."""
+        if isinstance(existing, list):
+            if isinstance(incoming, list):
+                # Accept only integer IDs; silently drop anything non-numeric.
+                return [int(x) for x in incoming if str(x).lstrip('-').isdigit()]
+            return existing  # reject non-list payloads silently
         if isinstance(existing, bool):
             return bool(incoming)
         if isinstance(existing, int) and not isinstance(existing, bool):

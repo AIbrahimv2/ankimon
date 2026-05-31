@@ -16,7 +16,14 @@ from ..resources import user_path
 
 DEFAULT_CONFIG = {
     "battle.automatic_battle": 0,
-    "battle.automatic_catch_special": True,
+    "battle.auto_catch_legendary": True,
+    "battle.auto_catch_mythical":  True,
+    "battle.auto_catch_ultra":     True,
+    "battle.auto_catch_starter":   True,
+    "battle.auto_catch_mega":      True,
+    "battle.auto_catch_gmax":      True,
+    "battle.auto_catch_regional":  True,
+    "battle.auto_catch_wishlist": [],
     "battle.cards_per_round": 2,
     "battle.daily_average": 100,
     "battle.card_max_time": 60,
