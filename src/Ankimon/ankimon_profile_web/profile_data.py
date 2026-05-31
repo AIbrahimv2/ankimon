@@ -584,12 +584,29 @@ class ProfileData:
             except Exception:
                 return default
 
-        dex = _q(
-            lambda: db.execute(
-                "SELECT COUNT(DISTINCT pokedex_id) FROM captured_pokemon "
-                "WHERE pokedex_id IS NOT NULL"
-            ).fetchone()[0]
-        )
+        # 1. Retrieve all caught IDs using the database manager's comprehensive set method
+        # (which merges active captured, released history, and explicit caught history).
+        try:
+            caught_ids = db.get_all_pokemon_ids() or set()
+        except Exception:
+            caught_ids = set()
+
+        # 2. Map all caught IDs to their base species_id (deduplicating Megas, Gmax, and forms)
+        from ..functions.pokedex_functions import _load_pokedex_cache, search_pokedex_by_id, safe_int
+        pokedex = _load_pokedex_cache()
+        caught_species = set()
+        
+        for pid in caught_ids:
+            internal_name = search_pokedex_by_id(pid)
+            if internal_name and internal_name in pokedex:
+                info = pokedex[internal_name]
+                species_id = safe_int(info.get("species_id")) or pid
+                caught_species.add(species_id)
+            else:
+                caught_species.add(pid)
+
+        dex = len(caught_species)
+
         return {
             "caught": _q(lambda: db.get_pokemon_count()),
             "dex_seen": dex,
